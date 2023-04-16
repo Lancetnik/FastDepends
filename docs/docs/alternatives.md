@@ -1,9 +1,9 @@
 # Some more featured DI python libraries
 
-`FastDepend` is a very little toolkit to achieve one point: provide you oppotunity
+`FastDepend` is a very small toolkit to achieve one point: provide you opportunity
 to use **FastAPI** `Depends` and typecasting everywhere.
 
-Sometimes, more complex tools are required. In this cases I can reccomend you to take a look for
+Sometimes, more complex tools are required. In these cases I can reccomend you to take a look at
 the following projects
 
 ## [DI](https://adriangb.com/di/)

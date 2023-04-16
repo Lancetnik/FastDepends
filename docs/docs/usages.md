@@ -4,9 +4,9 @@ hide:
 ---
 
 `FastDepends` is a great instrument to integrate with any frameworks you are already using.
-Also it able to be a part of your own tools and frameworks (HTTP or [not*](https://lancetnik.github.io/Propan/) )
+It can also be a part of your own tools and frameworks (HTTP or [not*](https://lancetnik.github.io/Propan/) )
 
-There are some usage examples with populare Python HTTP Frameworks:
+There are some usage examples with popular Python HTTP Frameworks:
 
 === "Flask"
     ```python hl_lines="11-12" linenums="1"
@@ -18,16 +18,15 @@ There are some usage examples with populare Python HTTP Frameworks:
     {!> docs_src/usages/starlette.py !}
     ```
 
-As you see above, library, some middlewares and supporting classes... And you able to use
-all power of *typed* python everywhere.
+As you can see above, library, some middlewares and supporting classes... And you can use the whole power of *typed* Python everywhere.
 
 !!! tip
-    `FastDepends` raises `pydantic.error_wrappers.ValidationError` at casting types exceptions.
+    `FastDepends` raises `pydantic.error_wrappers.ValidationError` at type casting exceptions.
 
-    Handle and wrap it to correct response with your custom middleware if you want to use it
-    at production.
+    You need to handle them and wrap them in your own response with your custom middleware if you want to use it
+    in production.
 
 !!! note
     <a href="#"></a>
-    If you are interesting of `FastDepends` using in other framework, please, take a look
-    at my own [**Propan**](https://lancetnik.github.io/Propan/) framework to working with different Message Brokers. 
+    If you are interested in using `FastDepends` in other frameworks, please take a look
+    at my own [**Propan**](https://lancetnik.github.io/Propan/) framework for working with various Message Brokers. 

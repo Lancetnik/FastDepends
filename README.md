@@ -28,14 +28,14 @@ Documentation: https://lancetnik.github.io/FastDepends/
 
 ---
 
-FastDepends - extracted and cleared from HTTP domain logic Fastapi Dependency Injection System.
-This is a little library, providing you ability to use lovely Fastapi interfaces at your own
+FastDepends - Fastapi dependency injection system extracted from Fastapi and cleared of all HTTP logic.
+This is a small library which provides you with the ability to use lovely Fastapi interfaces in your own
 projects or tools.
 
 Thanks to [*fastapi*](https://fastapi.tiangolo.com/) and [*pydantic*](https://docs.pydantic.dev/) projects for this
-greate functional. This package just a little change Fasapi sources to provide DI functionality pyre-python way.
+greate functionality. This package is just a small change of the original Fastapi sources to provide DI functionality in a pyre-Python way.
 
-Async and sync code supported as well.
+Async and sync modes are both supported.
 
 ## Installation
 
@@ -47,7 +47,7 @@ pip install fast-depends
 
 There is no way to make Dependency Injection easier
 
-You can use this library without any frameworks at **sync** and **async** code both
+You can use this library without any frameworks in both **sync** and **async** code.
 
 ### Async code
 ```python
@@ -87,25 +87,25 @@ def main(
 assert main("1", 2) == 4.0
 ```
 
-`@inject` decorator playing multiple roles at the same time:
+`@inject` decorator plays multiple roles at the same time:
 
 * resolve *Depends* classes
-* cast types according python annotation
+* cast types according to Python annotation
 * validate incoming parameters using *pydantic*
 
 ---
 
 ### Features
-Syncronous code is fully supported at this package: without any `async_to_sync`, `run_sync`, `syncify` or any other tricks.
+Synchronous code is fully supported in this package: without any `async_to_sync`, `run_sync`, `syncify` or any other tricks.
 
-Also, *FastDepends* casts function return the same way, it can be very felpfull to build your own tools.
+Also, *FastDepends* casts functions' return values the same way, it can be very helpful in building your own tools.
 
-There is two main defferences from native Fastapi DI System.
+These are two main defferences from native Fastapi DI System.
 
 ---
 
 ### Note
-Library was build by actual **0.95.0 FastAPI** version.
+Library was based on **0.95.0 FastAPI** version.
 
-If we'll be too far behind, please, contact [me](mailto:diementros@yandex.ru)
+If we are too far behind, please, contact [me](mailto:diementros@yandex.ru)
 or contubute yourself. Really appreciate your help.

@@ -1,4 +1,4 @@
-# FastDI
+# FastDepends
 
 <p align="center">
     <a href="https://github.com/Lancetnik/FastDepends/actions/workflows/tests.yml" target="_blank">
@@ -28,12 +28,20 @@ Documentation: https://lancetnik.github.io/FastDepends/
 
 ---
 
-FastDI - extracted and cleared from HTTP domain logic Fastapi Dependency Injection System.
+FastDepends - extracted and cleared from HTTP domain logic Fastapi Dependency Injection System.
 This is a little library, providing you ability to use lovely Fastapi interfaces at your own
 projects or tools.
 
 Thanks to [*fastapi*](https://fastapi.tiangolo.com/) and [*pytest*](https://docs.pytest.org/en/7.3.x/) projects for this
 greate functional. This package just a little change Fasapi sources to provide DI functionality pyre-python way.
+
+Async and sync code supported as well.
+
+## Installation
+
+```bash
+pip install fast-depends
+```
 
 ## Usage
 
@@ -45,7 +53,7 @@ You can use this library without any frameworks at **sync** and **async** code b
 ```python
 import asyncio
 
-from fastdi import inject, Depends
+from fast_depends import inject, Depends
 
 async def dependency(a: int) -> int:
     return a
@@ -63,7 +71,7 @@ assert asyncio.run(main("1", 2)) == 4.0
 
 ### Sync code
 ```python
-from fastdi import inject, Depends
+from fast_depends import inject, Depends
 
 def dependency(a: int) -> int:
     return a
@@ -88,9 +96,9 @@ assert main("1", 2) == 4.0
 ---
 
 ### Features
-Syncronous code is fully supported at this package: without any `async_to_sync`, `run_sync`, `syncify` or any another tricks.
+Syncronous code is fully supported at this package: without any `async_to_sync`, `run_sync`, `syncify` or any other tricks.
 
-Also, *FastDI* casts function return the same way, it can be very felpfull to build your own tools.
+Also, *FastDepends* casts function return the same way, it can be very felpfull to build your own tools.
 
 There is two main defferences from native Fastapi DI System.
 

@@ -81,7 +81,7 @@ just declare `Depends` requirement at original dependency function.
 
 !!! Tip "Cache"
     At the examples above `another_dependency` was called **AT ONCE!**.
-    `FastDI` cashes all dependecies responses throw **ONE** `@inject` callstask.
+    `FastDepends` cashes all dependecies responses throw **ONE** `@inject` callstask.
     It means, that all nested dependencies give a one-time cached response. But,
     with different injected function calls, cache will differ too.
 
@@ -91,13 +91,13 @@ just declare `Depends` requirement at original dependency function.
 
 ## Dependencies type casting
 
-If you remember, `FastDI` casts function `return` too. This means, dependecy output
+If you remember, `FastDepends` casts function `return` too. This means, dependecy output
 will be casted twice: at dependecy function *out* and at the injector *in*. Nothing bad,
 if they are the same type, nothing overhead occures. Just keep it in your mind. Or don't...
 My work is done anyway.
 
 ```python linenums="1"
-from fastdi import inject, Depends
+from fast_depends import inject, Depends
 
 def simple_dependency(a: int, b: int = 3) -> str:
     return a + b  # cast 'return' to str first time

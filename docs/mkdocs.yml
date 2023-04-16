@@ -1,11 +1,11 @@
-site_name: FastDI
-site_description: FastDI - extracted and cleared from HTTP domain logic Fastapi Dependency Injection System
-site_url: https://lancetnik.github.io/FastDI/
+site_name: FastDepends
+site_description: FastDepends - extracted and cleared from HTTP domain logic Fastapi Dependency Injection System
+site_url: https://lancetnik.github.io/FastDepends/
 dev_addr: 0.0.0.0:8000
 
-repo_name: lancetnik/fastdi
-repo_url: https://github.com/lancetnik/fastdi
-edit_uri: https://github.com/lancetnik/fastdi
+repo_name: lancetnik/fastdepends
+repo_url: https://github.com/lancetnik/FastDepends
+edit_uri: https://github.com/lancetnik/FastDepends
 
 copyright: Copyright &copy; 2019 - 2023 Pastukhov Nikita
 
@@ -90,5 +90,4 @@ nav:
     - Annotated: tutorial/annotated.md
     - Override Dependencies: tutorial/overrides.md
   - Alternatives: alternatives.md
-  - Help: help.md
   - Contributing: contributing.md

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "fast-depends"
-description = "FastDepends - extracted and cleared from HTTP domain Fastapi Dependency Injection System"
+description = "FastDepends - extracted and cleared from HTTP domain logic FastAPI Dependency Injection System. Async and sync are both supported."
 readme = "README.md"
 authors = [
     { name = "Pastukhov Nikita", email = "diementros@yandex.ru" },
@@ -62,7 +62,6 @@ test = [
 
 doc = [
     "mkdocs-material >=8.1.4,<9.0.0",
-    "mkdocstrings[python]>=0.18",
     "mdx-include >=1.4.1,<2.0.0",
     "mkdocs-markdownextradata-plugin >=0.1.7,<0.3.0",
 ]

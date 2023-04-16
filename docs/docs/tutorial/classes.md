@@ -6,7 +6,7 @@
 {!> docs_src/tutorial_2/tutorial_1.py !}
 ```
 
-Yep, all of these examples can be using as a dependency!
+Yep, all of these examples can be used as a dependency!
 
 ---
 

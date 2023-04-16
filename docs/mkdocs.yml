@@ -1,0 +1,94 @@
+site_name: FastDI
+site_description: FastDI - extracted and cleared from HTTP domain logic Fastapi Dependency Injection System
+site_url: https://lancetnik.github.io/FastDI/
+dev_addr: 0.0.0.0:8000
+
+repo_name: lancetnik/fastdi
+repo_url: https://github.com/lancetnik/fastdi
+edit_uri: https://github.com/lancetnik/fastdi
+
+copyright: Copyright &copy; 2019 - 2023 Pastukhov Nikita
+
+docs_dir: docs
+
+extra_css:
+  - assets/stylesheets/termynal.css
+  - assets/stylesheets/custom.css
+
+extra_javascript:
+  - assets/javascripts/termynal.js
+  - assets/javascripts/custom.js
+
+theme:
+  name: material
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: teal
+      accent: teal
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: teal
+      accent: teal
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+  features:
+    - search.suggest
+    - search.highlight
+    - content.tabs.link
+    - content.code.copy
+    - content.code.annotate
+  i18n:
+    prev: 'Previous'
+    next: 'Next'
+  icon:
+    repo: fontawesome/brands/github
+
+plugins:
+  - search
+  - markdownextradata:
+      data: data
+
+markdown_extensions:  # do not reorder
+  - toc:
+      permalink: true
+  - markdown.extensions.codehilite:
+      guess_lang: false
+  - mdx_include:
+      base_path: .
+  - admonition
+  - codehilite
+  - extra
+  - pymdownx.details
+  - footnotes
+  - pymdownx.superfences:
+      custom_fences:
+      - name: mermaid
+        class: mermaid
+        format: !!python/name:pymdownx.superfences.fence_code_format ''
+  - pymdownx.emoji:
+      emoji_index: !!python/name:materialx.emoji.twemoji ""
+      emoji_generator: !!python/name:materialx.emoji.to_svg ""
+  - pymdownx.tabbed:
+      alternate_style: true
+  - attr_list
+  - md_in_html
+
+nav:
+  - Welcome: index.md
+  - How It Works: works.md
+  - Potential Usages: usages.md
+  - Tutorial:
+    - tutorial/index.md
+    - Class Based Dependencies: tutorial/classes.md
+    - Yield Dependencies: tutorial/yield.md
+    - Validations: tutorial/validations.md
+    - Annotated: tutorial/annotated.md
+    - Override Dependencies: tutorial/overrides.md
+  - Alternatives: alternatives.md
+  - Help: help.md
+  - Contributing: contributing.md

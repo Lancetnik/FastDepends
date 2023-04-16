@@ -1,0 +1,4 @@
+mkdocs-material >=8.1.4,<9.0.0
+mkdocstrings[python]>=0.18
+mdx-include >=1.4.1,<2.0.0
+mkdocs-markdownextradata-plugin >=0.1.7,<0.3.0

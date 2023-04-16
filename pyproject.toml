@@ -1,0 +1,190 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "fast-depends"
+description = "FastDepends - extracted and cleared from HTTP domain Fastapi Dependency Injection System"
+readme = "README.md"
+authors = [
+    { name = "Pastukhov Nikita", email = "diementros@yandex.ru" },
+]
+
+keywords = ["fastapi", "dependency injection"]
+
+requires-python = ">=3.7"
+
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Operating System :: OS Independent",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: Software Development",
+    "Typing :: Typed",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Information Technology",
+    "Framework :: Pydantic",
+    "Framework :: Pydantic :: 1",
+]
+
+dependencies = [
+    "pydantic>=1.8",
+    "anyio",
+]
+
+dynamic = ["version"]
+
+[project.urls]
+Homepage = "https://lancetnik.github.io/FastDI/"
+Documentation = "https://lancetnik.github.io/FastDI/"
+Tracker = "https://github.com/Lancetnik/FastDI/issues"
+Source = "https://github.com/Lancetnik/FastDI"
+
+[project.optional-dependencies]
+test = [
+    "coverage[toml]>=7.2",
+    "pytest>=7",
+    "pytest-asyncio>=0.21",
+    "pytest-xdist[psutil]",
+
+    "asyncmock; python_version < '3.8'",
+]
+
+doc = [
+    "mkdocs-material >=8.1.4,<9.0.0",
+    "mkdocstrings[python]>=0.18",
+    "mdx-include >=1.4.1,<2.0.0",
+    "mkdocs-markdownextradata-plugin >=0.1.7,<0.3.0",
+]
+
+dev = [
+    "FastDepends[test]",
+    "FastDepends[doc]",
+
+    "mypy>=1.1",
+    "black>=23.3.0",
+    "isort>=5",
+    "ruff>=0.0.260",
+]
+
+[tool.hatch.metadata]
+allow-direct-references = true
+allow-ambiguous-features = true
+
+[tool.hatch.version]
+path = "fast_depends/__about__.py"
+
+[tool.hatch.build]
+skip-excluded-dirs = true
+exclude = [
+    "/tests",
+    "/docs",
+]
+
+[tool.hatch.envs.default]
+python = "3.11" 
+skip-install = false
+features = [
+  "dev",
+]
+
+[tool.hatch.envs.test]
+features = [
+  "test",
+]
+
+[tool.hatch.envs.test.scripts]
+run = "pytest -q"
+
+[[tool.hatch.envs.test.matrix]]
+python = ["37", "38", "39", "310", "311"]
+
+[tool.hatch.envs.test-last]
+python = "3.11"
+features = [
+  "test",
+]
+
+[tool.hatch.envs.test-last.scripts]
+run = "pytest -q"
+cov = "bash ./scripts/test-cov.sh -v"
+
+[tool.mypy]
+strict = true
+ignore_missing_imports = true
+
+[tool.isort]
+profile = "black"
+known_third_party = ["pydantic", "anyio"]
+
+[tool.ruff]
+select = [
+    "E",  # pycodestyle errors
+    "W",  # pycodestyle warnings
+    "F",  # pyflakes
+    "I",  # isort
+    "C",  # flake8-comprehensions
+    "B",  # flake8-bugbear
+]
+ignore = [
+    "E501",  # line too long, handled by black
+    "C901",  # too complex
+]
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+addopts = "-q"
+testpaths = [
+    "tests",
+]
+
+[tool.coverage.run]
+parallel = true
+branch = true
+concurrency = [
+    "multiprocessing",
+    "thread"
+]
+source = [
+    "fastdi",
+    "tests"
+]
+context = '${CONTEXT}'
+omit = [
+    "**/__init__.py",
+]
+
+[tool.coverage.report]
+show_missing = true
+skip_empty = true
+exclude_lines = [
+    ".*# pragma: no cover",
+    "if __name__ == .__main__.:",
+    "self.logger",
+    "def __repr__",
+    "lambda: None",
+    "from .*",
+    "import .*",
+    '@(abc\.)?abstractmethod',
+    "raise NotImplementedError",
+    'raise AssertionError',
+    'raise ValueError',
+    'logger\..*',
+    "pass",
+    '\.\.\.',
+]
+omit = [
+    '*/__about__.py',
+    '*/__main__.py',
+    '*/__init__.py',
+]

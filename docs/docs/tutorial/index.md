@@ -2,7 +2,7 @@
 
 I suppose, if you are already here, you are exactly known about this library usage.
 
-It is using the same way as [FastAPI](https://fastapi.tiangolo.com/tutorial/dependencies/) are.
+It is using the same way as [FastAPI](https://fastapi.tiangolo.com/tutorial/dependencies/) is.
 
 But, I can remember you, if it's nessesary.
 

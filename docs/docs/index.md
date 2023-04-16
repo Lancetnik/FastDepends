@@ -46,7 +46,7 @@ You can use this library without any frameworks at **sync** and **async** code b
 * validate incoming parameters using *pydantic*
 
 !!! tip
-    Syncronous code is fully supported at this package: without any `async_to_sync`, `run_sync`, `syncify` or any other tricks.
+    Syncronous code is full supported at this package: without any `async_to_sync`, `run_sync`, `syncify` or any other tricks.
     
     Also, *FastDepends* casts function return the same way, it can be very felpfull to build your own tools.
     

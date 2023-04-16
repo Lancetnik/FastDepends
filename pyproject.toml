@@ -45,10 +45,10 @@ dependencies = [
 dynamic = ["version"]
 
 [project.urls]
-Homepage = "https://lancetnik.github.io/FastDI/"
-Documentation = "https://lancetnik.github.io/FastDI/"
-Tracker = "https://github.com/Lancetnik/FastDI/issues"
-Source = "https://github.com/Lancetnik/FastDI"
+Homepage = "https://lancetnik.github.io/FastDepends/"
+Documentation = "https://lancetnik.github.io/FastDepends/"
+Tracker = "https://github.com/Lancetnik/FastDepends/issues"
+Source = "https://github.com/Lancetnik/FastDepends"
 
 [project.optional-dependencies]
 test = [
@@ -156,7 +156,7 @@ concurrency = [
     "thread"
 ]
 source = [
-    "fastdi",
+    "fast_depends",
     "tests"
 ]
 context = '${CONTEXT}'

@@ -171,7 +171,6 @@ async def test_sync_yield_exception_start():
 
     def dep_func():
         raise ValueError()
-        yield 3
 
     @inject
     async def some_func(a = Depends(dep_func)):  # pragma: no cover

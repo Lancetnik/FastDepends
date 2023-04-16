@@ -5,29 +5,28 @@ hide:
 
 # How it works
 
-At first, I suppose, we need to disscuss about this tool key concept.
+At first, I suppose, we need to discuss about this tool's key concept.
 
-It is a very simple thing:
+It is very simple:
 
-1. At your code initializing time `FastDepends` build special *pydantic* model with your function expected arguments as a model fields,
-  build dependencies graph
-2. At runtime `FastDepends` grab all incoming function `*args, **kwargs` and initialize functional representation model with them
-3. Next step `FastDepends` provides model fields to function dependencies and the original function 
-4. Finally, `FastDepends` catch function output and casts it to expected `return` type
+1. At your code's initialization time `FastDepends` builds special *pydantic* model with your function's expected arguments as a model fields, builds the dependencies graph
+2. At runtime `FastDepends` grabs all incoming functions' `*args, **kwargs` and initializes functions' representation models with them
+3. At the next step `FastDepends` fills model fields with functions' dependencies
+4. Finally, `FastDepends` catches functions' outputs and casts it to expected `return` type
 
-It's a pretty close to the following code:
+This is pretty close to the following code:
 
 ```python linenums="1"
 {!> docs_src/how-it-works/works.py !}
 ```
 
 !!! note
-    It's not the real code, but generally `FastDepends` works this way
+    It is not the real code, but generally `FastDepends` works this way
 
-So, most part of the `FastDepends` code execution accounting for application startup.
-At the runtime library just casts types to already builded models. It's working really fast.
-Generally, library works with the same speed as the `pydantic` - the main dependcy.
+So, the biggest part of the `FastDepends` code execution happens on application startup.
+At runtime the library just casts types to already built models. It works really fast.
+Generally, the library works with the same speed as the `pydantic` - the main dependency.
 
-At the over hande, using only `*args, **kwargs` to working with allows library be free
-from different frameworks, business domains, technologies, etc. You are free to dicede for
-yourself, how exactly use this tool.
+On the other hand, working with only `*args, **kwargs` allows the library to be independent
+from other frameworks, business domains, technologies, etc. You are free to decide for
+yourself, how exactly to use this tool.

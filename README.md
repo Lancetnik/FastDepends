@@ -32,7 +32,7 @@ FastDepends - extracted and cleared from HTTP domain logic Fastapi Dependency In
 This is a little library, providing you ability to use lovely Fastapi interfaces at your own
 projects or tools.
 
-Thanks to [*fastapi*](https://fastapi.tiangolo.com/) and [*pytest*](https://docs.pytest.org/en/7.3.x/) projects for this
+Thanks to [*fastapi*](https://fastapi.tiangolo.com/) and [*pydantic*](https://docs.pydantic.dev/) projects for this
 greate functional. This package just a little change Fasapi sources to provide DI functionality pyre-python way.
 
 Async and sync code supported as well.

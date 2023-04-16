@@ -29,7 +29,6 @@ def test_annotated_wrong():
         def some_func(b: "dsada"):  # pragma: no cover
             pass
 
-
 def test_validation_error():
     @inject
     def some_func(a, b: str = Field(..., max_length=1)):  # pragma: no cover

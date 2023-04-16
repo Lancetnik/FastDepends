@@ -5,7 +5,7 @@ on:
     branches:
       - main
     paths:
-      - propan/**
+      - fast_depends/**
       - tests/**
   pull_request:
     types: [opened, synchronize]
@@ -42,7 +42,7 @@ jobs:
         run: pip install -e .[test]
       - run: mkdir coverage
       - name: Test
-        run: bash scripts/test.sh -m 'all'
+        run: bash scripts/test.sh
         env:
           COVERAGE_FILE: coverage/.coverage.${{ runner.os }}-py${{ matrix.python-version }}
           CONTEXT: ${{ runner.os }}-py${{ matrix.python-version }}

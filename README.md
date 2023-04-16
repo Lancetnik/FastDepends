@@ -1,5 +1,27 @@
 # FastDI
 
+<p align="center">
+    <a href="https://github.com/Lancetnik/FastDepends/actions/workflows/tests.yml" target="_blank">
+        <img src="https://github.com/Lancetnik/FastDepends/actions/workflows/tests.yml/badge.svg" alt="Tests coverage"/>
+    </a>
+    <a href="https://coverage-badge.samuelcolvin.workers.dev/redirect/lancetnik/fastdepends" target="_blank">
+        <img src="https://coverage-badge.samuelcolvin.workers.dev/lancetnik/fastdepends.svg" alt="Coverage">
+    </a>
+    <a href="https://pypi.org/project/fast-depends" target="_blank">
+        <img src="https://img.shields.io/pypi/v/fast-depends?label=pypi%20package" alt="Package version">
+    </a>
+    <a href="https://pepy.tech/project/fast-depends" target="_blank">
+        <img src="https://static.pepy.tech/personalized-badge/fast-depend?period=total&units=international_system&left_color=grey&right_color=blue&left_text=Downloads" alt="downloads"/>
+    </a>
+    <br/>
+    <a href="https://pypi.org/project/fast-depend" target="_blank">
+        <img src="https://img.shields.io/pypi/pyversions/fast-depends.svg" alt="Supported Python versions">
+    </a>
+    <a href="https://github.com/Lancetnik/FastDepends/blob/main/LICENSE" target="_blank">
+        <img alt="GitHub" src="https://img.shields.io/github/license/Lancetnik/FastDepends?color=%23007ec6">
+    </a>
+</p>
+
 ---
 
 Documentation: https://lancetnik.github.io/FastDI/

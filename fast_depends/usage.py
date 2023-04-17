@@ -25,13 +25,19 @@ def Depends(  # noqa: N802
     return model.Depends(dependency=dependency, use_cache=use_cache)
 
 
+def wrap_dependant(dependant: model.Dependant) -> model.Dependant:
+    return dependant
+
+
 def inject(
     func: Callable[P, T],
     *,
     dependency_overrides_provider: Optional[Any] = dependency_provider,
+    wrap_dependant: Callable[[model.Dependant], model.Dependant] = wrap_dependant,
 ) -> Callable[P, T]:
     dependant = get_dependant(call=func, path=func.__name__)
-    error_model = create_model(func.__name__)
+
+    dependant = wrap_dependant(dependant)
 
     if is_coroutine_callable(func) is True:
         f = async_typed_wrapper
@@ -42,7 +48,6 @@ def inject(
         partial(
             f,
             dependant=dependant,
-            error_model=error_model,
             dependency_overrides_provider=dependency_overrides_provider,
         )
     )
@@ -51,7 +56,6 @@ def inject(
 async def async_typed_wrapper(
     *args: P.args,
     dependant: model.Dependant,
-    error_model: BaseModel,
     dependency_overrides_provider: Optional[Any],
     **kwargs: P.kwargs,
 ) -> Any:
@@ -66,14 +70,14 @@ async def async_typed_wrapper(
         )
 
         if errors:
-            raise ValidationError(errors, error_model)
+            raise ValidationError(errors, dependant.error_model)
 
         v, errors = dependant.cast_response(
-            await run_async(dependant=dependant, values=solved_result)
+            await run_async(dependant.call, **solved_result)
         )
 
         if errors:
-            raise ValidationError(errors, error_model)
+            raise ValidationError(errors, dependant.error_model)
 
         return v
 
@@ -81,7 +85,6 @@ async def async_typed_wrapper(
 def sync_typed_wrapper(
     *args: P.args,
     dependant: model.Dependant,
-    error_model: BaseModel,
     dependency_overrides_provider: Optional[Any],
     **kwargs: P.kwargs,
 ) -> Any:
@@ -96,11 +99,11 @@ def sync_typed_wrapper(
         )
 
         if errors:
-            raise ValidationError(errors, error_model)
+            raise ValidationError(errors, dependant.error_model)
 
         v, errors = dependant.cast_response(dependant.call(**solved_result))
 
         if errors:
-            raise ValidationError(errors, error_model)
+            raise ValidationError(errors, dependant.error_model)
 
         return v

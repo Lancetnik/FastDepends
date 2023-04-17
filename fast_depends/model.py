@@ -1,5 +1,6 @@
 from typing import Any, List, Optional, Tuple
 
+from pydantic import create_model
 from pydantic.error_wrappers import ErrorList
 from pydantic.fields import ModelField
 
@@ -31,6 +32,7 @@ class Dependant:
         self.path = path
         # Save the cache key at creation to optimize performance
         self.cache_key = (self.call,)
+        self.error_model = create_model(getattr(call, "__name__", str(call)))
 
     def cast_response(self, response: Any) -> Tuple[Optional[Any], Optional[ErrorList]]:
         if self.return_field is None:

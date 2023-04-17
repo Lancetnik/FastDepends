@@ -11,7 +11,7 @@
         <img src="https://img.shields.io/pypi/v/fast-depends?label=pypi%20package" alt="Package version">
     </a>
     <a href="https://pepy.tech/project/fast-depends" target="_blank">
-        <img src="https://static.pepy.tech/personalized-badge/fast-depend?period=total&units=international_system&left_color=grey&right_color=blue&left_text=Downloads" alt="downloads"/>
+        <img src="https://static.pepy.tech/personalized-badge/fast-depends?period=total&units=international_system&left_color=grey&right_color=blue&left_text=Downloads" alt="downloads"/>
     </a>
     <br/>
     <a href="https://pypi.org/project/fast-depend" target="_blank">
@@ -28,7 +28,7 @@ Documentation: https://lancetnik.github.io/FastDepends/
 
 ---
 
-FastDepends - Fastapi dependency injection system extracted from Fastapi and cleared of all HTTP logic.
+FastDepends - FastAPI Dependency Injection system extracted from FastAPI and cleared of all HTTP logic.
 This is a small library which provides you with the ability to use lovely Fastapi interfaces in your own
 projects or tools.
 

@@ -11,7 +11,7 @@ It is very simple:
 
 1. At your code's initialization time `FastDepends` builds special *pydantic* model with your function's expected arguments as a model fields, builds the dependencies graph
 2. At runtime `FastDepends` grabs all incoming functions' `*args, **kwargs` and initializes functions' representation models with them
-3. At the next step `FastDepends` fills model fields with functions' dependencies
+3. At the next step `FastDepends` execute functions' dependensies with the model fields as an arguments, calls the original function
 4. Finally, `FastDepends` catches functions' outputs and casts it to expected `return` type
 
 This is pretty close to the following code:

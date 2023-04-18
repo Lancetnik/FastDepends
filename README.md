@@ -96,11 +96,41 @@ assert main("1", 2) == 4.0
 ---
 
 ### Features
+
 Synchronous code is fully supported in this package: without any `async_to_sync`, `run_sync`, `syncify` or any other tricks.
 
 Also, *FastDepends* casts functions' return values the same way, it can be very helpful in building your own tools.
 
 These are two main defferences from native Fastapi DI System.
+
+---
+
+### Custom Fields
+
+If you wish to write your own FastAPI or another closely by architecture tool, you should define your own custom fields to specify application behavior.
+
+Custom fields can be used to adding something specific to a function arguments (like a BackgroundTask) or parsing incoming objects special way. You able decide by own, why and how you will use these tools.
+
+FastDepends grants you this opportunity a very intuitive and comfortable way.
+
+```python
+from fast_depends import inject
+from fast_depends.library import CustomField
+
+class Header(CustomField):
+    def use(self, **kwargs: AnyDict) -> AnyDict:
+        kwargs = super().use(**kwargs)
+        kwargs[self.param_name] = kwargs["headers"][self.param_name]
+        return kwargs
+
+@inject
+def my_func(header_field: int = Header()):
+    return header_field
+
+assert my_func(
+    headers={ "header_field": "1" }
+) == 1
+```
 
 ---
 

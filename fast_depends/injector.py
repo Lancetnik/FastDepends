@@ -115,6 +115,9 @@ async def solve_dependencies_async(
         if use_sub_dependant.cache_key not in dependency_cache:
             dependency_cache[use_sub_dependant.cache_key] = solved
 
+    for custom in dependant.custom:
+        body = await run_async(custom.use, **(body or {}))
+
     params, main_errors = params_to_args(dependant.params, body or {})
     errors.extend(main_errors)
     return params, errors, dependency_cache
@@ -202,6 +205,11 @@ def solve_dependencies_sync(
 
         if use_sub_dependant.cache_key not in dependency_cache:
             dependency_cache[use_sub_dependant.cache_key] = solved
+
+    for custom in dependant.custom:
+        assert not is_coroutine_callable(custom.use) and not is_async_gen_callable(custom.use), \
+                f"You can't use async `{type(custom).__name__}` at sync code"
+        body = custom.use(**(body or {}))
 
     params, main_errors = params_to_args(dependant.params, body or {})
     errors.extend(main_errors)

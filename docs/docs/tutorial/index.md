@@ -10,12 +10,12 @@ But, I can remember you, if it's nessesary.
 
 === "Sync"
     ```python hl_lines="3-4" linenums="1"
-    {!> docs_src/tutorial_1/1_sync.py !}
+    {!> docs_src/tutorial_1_quickstart/1_sync.py !}
     ```
 
 === "Async"
     ```python hl_lines="4-5 7-8" linenums="1"
-    {!> docs_src/tutorial_1/1_async.py !}
+    {!> docs_src/tutorial_1_quickstart/1_async.py !}
     ```
 
     !!! tip "Be accurate"
@@ -31,24 +31,24 @@ But, I can remember you, if it's nessesary.
 
 === "Sync"
     ```python hl_lines="2" linenums="6"
-    {!> docs_src/tutorial_1/1_sync.py [ln:5-8]!}
+    {!> docs_src/tutorial_1_quickstart/1_sync.py [ln:5-8]!}
     ```
 
 === "Async"
     ```python hl_lines="1 4 5" linenums="10"
-    {!> docs_src/tutorial_1/1_async.py [ln:10-16]!}
+    {!> docs_src/tutorial_1_quickstart/1_async.py [ln:10-16]!}
     ```
 
 **Second step**: declare dependency required with `Depends`
 
 === "Sync"
     ```python hl_lines="3 5" linenums="6"
-    {!> docs_src/tutorial_1/1_sync.py [ln:5-10]!}
+    {!> docs_src/tutorial_1_quickstart/1_sync.py [ln:5-10]!}
     ```
 
 === "Async"
     ```python hl_lines="7 9" linenums="10"
-    {!> docs_src/tutorial_1/1_async.py [ln:10-18]!}
+    {!> docs_src/tutorial_1_quickstart/1_async.py [ln:10-18]!}
     ```
 
 **Last step**: just use the dependencies calling result!
@@ -67,14 +67,14 @@ just declare `Depends` requirement at original dependency function.
 
 === "Sync"
     ```python linenums="1" hl_lines="3-4 6-7 12-13"
-    {!> docs_src/tutorial_1/2_sync.py !}
+    {!> docs_src/tutorial_1_quickstart/2_sync.py !}
     ```
 
     1. Call another_dependency here
 
 === "Async"
     ```python linenums="1" hl_lines="4-5 7-8 13-14"
-    {!> docs_src/tutorial_1/2_async.py !}
+    {!> docs_src/tutorial_1_quickstart/2_async.py !}
     ```
 
     1. Call another_dependency here

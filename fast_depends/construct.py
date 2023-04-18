@@ -22,6 +22,8 @@ from typing_extensions import Annotated
 
 from fast_depends import model
 from fast_depends.types import AnyCallable, AnyDict
+from fast_depends.library import CustomField
+
 
 sequence_shapes = {
     SHAPE_LIST,
@@ -53,7 +55,7 @@ def get_dependant(
     signature_params = endpoint_signature.parameters
 
     for param in signature_params.values():
-        depends, param_field = analyze_param(
+        custom, depends, param_field = analyze_param(
             param_name=param.name,
             annotation=param.annotation,
             default=param.default,
@@ -63,7 +65,10 @@ def get_dependant(
             dependant.return_field = param_field
             continue
 
-        if depends is not None:
+        elif custom is not None:
+            dependant.custom.append(custom)
+
+        elif depends is not None:
             sub_dependant = get_param_sub_dependant(
                 param_name=param.name,
                 depends=depends,
@@ -81,8 +86,9 @@ def analyze_param(
     param_name: str,
     annotation: Any,
     default: Any,
-) -> Tuple[Any, Optional[model.Depends], Optional[ModelField]]:
+) -> Tuple[Optional[CustomField], Optional[model.Depends], Optional[ModelField]]:
     depends = None
+    custom = None
     field_info = None
 
     if (
@@ -93,7 +99,7 @@ def analyze_param(
         custom_annotations = [
             arg
             for arg in annotated_args[1:]
-            if isinstance(arg, (FieldInfo, model.Depends))
+            if isinstance(arg, (FieldInfo, model.Depends, CustomField))
         ]
 
         custom_annotations = next(iter(custom_annotations), None)
@@ -105,8 +111,14 @@ def analyze_param(
             )
             field_info.default = Required
 
-        elif isinstance(custom_annotations, model.Depends):  # pragma: no branch
+        elif isinstance(custom_annotations, model.Depends):
             depends = custom_annotations
+
+        elif isinstance(custom_annotations, CustomField):  # pragma: no branch
+            custom_annotations.set_param_name(param_name)
+            custom = custom_annotations
+            if custom.cast is False:
+                annotation = Any
 
     if isinstance(default, model.Depends):
         assert depends is None, (
@@ -119,6 +131,12 @@ def analyze_param(
         )
         depends = default
 
+    elif isinstance(default, CustomField):
+        default.set_param_name(param_name)
+        custom = default
+        if custom.cast is False:
+            annotation = Any
+
     elif isinstance(default, FieldInfo):
         assert field_info is None, (
             "Cannot specify annotations in `Annotated` and default value"
@@ -126,7 +144,7 @@ def analyze_param(
         )
         field_info = default
 
-    if depends is not None:
+    if (depends or custom) is not None:
         field = None
 
     if field_info is not None:
@@ -149,7 +167,7 @@ def analyze_param(
         field_info=field_info,
     )
 
-    return depends, field
+    return custom, depends, field
 
 
 def get_typed_signature(call: AnyCallable) -> inspect.Signature:

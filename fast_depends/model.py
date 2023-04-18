@@ -5,6 +5,8 @@ from pydantic.error_wrappers import ErrorList
 from pydantic.fields import ModelField
 
 from fast_depends.types import AnyCallable
+from fast_depends.library import CustomField
+
 
 RETURN_FIELD = "custom_return"
 
@@ -17,6 +19,7 @@ class Dependant:
         params: Optional[List[ModelField]] = None,
         return_field: Optional[ModelField] = None,
         dependencies: Optional[List["Dependant"]] = None,
+        custom: Optional[List[CustomField]] = None,
         use_cache: bool = True,
         path: Optional[str] = None,
         name: Optional[str] = None,
@@ -24,6 +27,7 @@ class Dependant:
         self.params = params or []
         self.return_field = return_field
         self.dependencies = dependencies or []
+        self.custom = custom or []
         self.call = call
         self.use_cache = use_cache
         # Parent argument name at subdependency

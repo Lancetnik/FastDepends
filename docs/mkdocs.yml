@@ -89,5 +89,8 @@ nav:
     - Validations: tutorial/validations.md
     - Annotated: tutorial/annotated.md
     - Override Dependencies: tutorial/overrides.md
+  - Advanced:
+    - advanced/index.md
+    - More Complex Example: advanced/starlette.md
   - Alternatives: alternatives.md
   - Contributing: contributing.md

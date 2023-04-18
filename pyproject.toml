@@ -52,6 +52,7 @@ Source = "https://github.com/Lancetnik/FastDepends"
 
 [project.optional-dependencies]
 test = [
+    "toml",
     "coverage[toml]>=7.2",
     "pytest>=7",
     "pytest-asyncio>=0.21",
@@ -67,8 +68,8 @@ doc = [
 ]
 
 dev = [
-    "FastDepends[test]",
-    "FastDepends[doc]",
+    "fast-depends[test]",
+    "fast-depends[doc]",
 
     "mypy>=1.1",
     "black>=23.3.0",

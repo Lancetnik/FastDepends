@@ -52,9 +52,11 @@ original function as an argument.
 class CustomField:
     param_name: str
     cast: bool
+    required: bool
 ```
 
 * `param_name` - an original function argument name to replace by your field instance. It was `header_field` at the example above.
+* `required` - if CustomField is **required**, raises `pydantic.error_wrappers.ValidationError` if it is not present at final **kwargs**
 * `cast` - specify the typecasting behavior. Use *False* to disable pydantic typecasting for fields using with your *CustomField*
 
 ```python linenums="1" hl_lines="3 8 12-13"

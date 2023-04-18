@@ -158,12 +158,17 @@ def analyze_param(
 
     alias = field_info.alias or param_name
 
+    if custom and custom.required is True:
+        required = True
+    else:
+        required = field_info.default in (Required, Undefined, inspect._empty)
+
     field = create_response_field(
         name=param_name,
         type_=annotation,
-        default=field_info.default if depends is None else None,
+        default=None if any((depends, custom)) else field_info.default,
         alias=alias,
-        required=field_info.default in (Required, Undefined, inspect._empty),
+        required=required,
         field_info=field_info,
     )
 

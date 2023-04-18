@@ -7,10 +7,12 @@ from fast_depends.types import AnyDict
 class CustomField(ABC):
     param_name: Optional[str]
     cast: bool
+    required: bool
 
-    def __init__(self, *, cast: bool = True) -> None:
+    def __init__(self, *, cast: bool = True, required: bool = True) -> None:
         self.cast = cast
         self.param_name = None
+        self.required = required
 
     def set_param_name(self, name: str) -> "CustomField":
         self.param_name = name

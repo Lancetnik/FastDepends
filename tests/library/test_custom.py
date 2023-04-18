@@ -2,6 +2,7 @@ from typing_extensions import Annotated
 import logging
 
 import pytest
+import pydantic
 
 from fast_depends.library import CustomField
 from fast_depends.types import AnyDict
@@ -11,7 +12,7 @@ from fast_depends import inject, Depends
 class Header(CustomField):
     def use(self, **kwargs: AnyDict) -> AnyDict:
         kwargs = super().use(**kwargs)
-        kwargs[self.param_name] = kwargs["headers"][self.param_name]
+        kwargs[self.param_name] = kwargs.get("headers", {}).get(self.param_name)
         return kwargs
 
 
@@ -37,8 +38,17 @@ async def test_header_async():
     assert (await catch(headers={"key": 1})) == "1"
 
 
+def test_multiple_header():
+    @inject
+    def catch(key: str = Header(), key2: int = Header()):
+        assert key == "1"
+        assert key2 == 2
+
+    catch(headers={"key": 1, "key2": 2})
+
+
 @pytest.mark.asyncio
-async def test_adync_header_async():
+async def test_async_header_async():
     @inject
     async def catch(key: str = AsyncHeader()):
         return key
@@ -61,6 +71,23 @@ def test_header_annotated():
         return key
 
     assert catch(headers={"key": 1}) == "1"
+
+
+def test_header_required():
+    @inject
+    def catch(key2 = Header()):  # pragma: no cover
+        return key2
+
+    with pytest.raises(pydantic.error_wrappers.ValidationError):
+        catch()
+
+
+def test_header_not_required():
+    @inject
+    def catch(key2 = Header(required=False)):
+        assert key2 is None
+
+    catch()
 
 
 def test_depends():

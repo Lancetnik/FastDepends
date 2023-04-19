@@ -1,8 +1,7 @@
 import inspect
-from typing import Any, Dict, Optional, Tuple, Type, Union
+from typing import Any, Optional, Tuple, Type, Union
 
 from pydantic import BaseConfig
-from pydantic.class_validators import Validator
 from pydantic.fields import (
     SHAPE_FROZENSET,
     SHAPE_LIST,
@@ -246,10 +245,8 @@ def get_sub_dependant(
 def create_response_field(
     name: str,
     type_: Type[Any],
-    class_validators: Optional[Dict[str, Validator]] = None,
     default: Optional[Any] = None,
     required: Union[bool, UndefinedType] = True,
-    model_config: Type[BaseConfig] = BaseConfig,
     field_info: Optional[FieldInfo] = None,
     alias: Optional[str] = None,
 ) -> ModelField:
@@ -260,10 +257,10 @@ def create_response_field(
         return ModelField(
             name=name,
             type_=type_ if type_ is not inspect._empty else Any,
-            class_validators=class_validators or {},
             default=default,
             required=required,
-            model_config=model_config,
+            class_validators={},
+            model_config=BaseConfig,
             alias=alias,
             field_info=field_info or FieldInfo(),
         )

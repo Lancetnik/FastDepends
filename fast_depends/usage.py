@@ -2,7 +2,7 @@ from contextlib import AsyncExitStack, ExitStack
 from functools import partial, wraps
 from typing import Any, Callable, Optional, TypeVar
 
-from pydantic import BaseModel, ValidationError, create_model
+from pydantic import ValidationError
 
 from fast_depends import model
 from fast_depends.construct import get_dependant

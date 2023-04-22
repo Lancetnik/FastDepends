@@ -14,8 +14,6 @@ jobs:
       matrix:
         python-version: ["3.7", "3.8", "3.9", "3.10", "3.11"]
       fail-fast: false
-    env:
-      PIPENV_VENV_IN_PROJECT: enabled
     
     services:
       redis:
@@ -29,8 +27,6 @@ jobs:
         uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
-          cache: "pip"
-          cache-dependency-path: pyproject.toml
       - uses: actions/cache@v3
         id: cache
         with:
@@ -61,8 +57,6 @@ jobs:
       - uses: actions/setup-python@v4
         with:
           python-version: '3.8'
-          cache: "pip"
-          cache-dependency-path: pyproject.toml
 
       - name: Get coverage files
         uses: actions/download-artifact@v3
@@ -85,7 +79,6 @@ jobs:
 
   # https://github.com/marketplace/actions/alls-green#why
   check:  # This job does nothing and is only used for the branch protection
-
     if: always()
 
     needs:

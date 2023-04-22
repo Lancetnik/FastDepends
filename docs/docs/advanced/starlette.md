@@ -8,7 +8,7 @@ First of all, **Starlette** pass to a handler the only one argument - `request`
 To use them with `FastDepends` we need unwrap `request` to kwargs.
 
 ```python hl_lines="6-8" linenums="1"
-{!> docs_src/advanced/custom/starlette.py [ln:1,16-21] !}
+{!> docs_src/advanced/custom/starlette.py [ln:1,15-21] !}
 ```
 
 !!! note ""

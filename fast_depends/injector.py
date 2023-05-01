@@ -1,18 +1,8 @@
 from contextlib import AsyncExitStack, ExitStack
 from copy import deepcopy
-from typing import (
-    Any,
-    Dict,
-    List,
-    Mapping,
-    Optional,
-    Sequence,
-    Tuple,
-    TypeVar,
-    cast,
-)
+from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple, TypeVar, cast
 
-from pydantic.error_wrappers import ErrorWrapper
+from pydantic.error_wrappers import ErrorList, ErrorWrapper
 from pydantic.errors import MissingError
 from pydantic.fields import ModelField
 
@@ -20,14 +10,13 @@ from fast_depends.construct import get_dependant
 from fast_depends.model import Dependant
 from fast_depends.types import AnyCallable, AnyDict
 from fast_depends.utils import (
-    run_async,
+    is_async_gen_callable,
     is_coroutine_callable,
     is_gen_callable,
-    is_async_gen_callable,
+    run_async,
     solve_generator_async,
     solve_generator_sync,
 )
-
 
 T = TypeVar("T")
 
@@ -39,12 +28,8 @@ async def solve_dependencies_async(
     body: Optional[AnyDict] = None,
     dependency_overrides_provider: Optional[Any] = None,
     dependency_cache: Optional[Dict[Tuple[AnyCallable, Tuple[str]], Any]] = None,
-) -> Tuple[
-    Dict[str, Any],
-    List[ErrorWrapper],
-    Dict[Tuple[AnyCallable, Tuple[str]], Any],
-]:
-    errors: List[ErrorWrapper] = []
+) -> Tuple[Dict[str, Any], List[ErrorList], Dict[Tuple[AnyCallable, Tuple[str]], Any],]:
+    errors: List[ErrorList] = []
 
     dependency_cache = dependency_cache or {}
 
@@ -69,7 +54,7 @@ async def solve_dependencies_async(
                     call=call,
                     name=sub_dependant.name,
                 )
-
+        assert call
         solved_result = await solve_dependencies_async(
             dependant=use_sub_dependant,
             body=body,
@@ -130,16 +115,12 @@ def solve_dependencies_sync(
     body: Optional[AnyDict] = None,
     dependency_overrides_provider: Optional[Any] = None,
     dependency_cache: Optional[Dict[Tuple[AnyCallable, Tuple[str]], Any]] = None,
-) -> Tuple[
-    Dict[str, Any],
-    List[ErrorWrapper],
-    Dict[Tuple[AnyCallable, Tuple[str]], Any],
-]:
+) -> Tuple[Dict[str, Any], List[ErrorList], Dict[Tuple[AnyCallable, Tuple[str]], Any],]:
     assert not is_coroutine_callable(dependant.call) and not is_async_gen_callable(
         dependant.call
     ), f"You can't call async `{dependant.call.__name__}` at sync code"
 
-    errors: List[ErrorWrapper] = []
+    errors: List[ErrorList] = []
 
     dependency_cache = dependency_cache or {}
 
@@ -164,7 +145,7 @@ def solve_dependencies_sync(
                     call=call,
                     name=sub_dependant.name,
                 )
-
+        assert call
         solved_result = solve_dependencies_sync(
             dependant=use_sub_dependant,
             body=body,
@@ -207,8 +188,9 @@ def solve_dependencies_sync(
             dependency_cache[use_sub_dependant.cache_key] = solved
 
     for custom in dependant.custom:
-        assert not is_coroutine_callable(custom.use) and not is_async_gen_callable(custom.use), \
-                f"You can't use async `{type(custom).__name__}` at sync code"
+        assert not is_coroutine_callable(custom.use) and not is_async_gen_callable(
+            custom.use
+        ), f"You can't use async `{type(custom).__name__}` at sync code"
         body = custom.use(**(body or {}))
 
     params, main_errors = params_to_args(dependant.params, body or {})
@@ -219,9 +201,9 @@ def solve_dependencies_sync(
 def params_to_args(
     required_params: Sequence[ModelField],
     received_params: Mapping[str, Any],
-) -> Tuple[AnyDict, List[ErrorWrapper]]:
+) -> Tuple[AnyDict, List[ErrorList]]:
     values: AnyDict = {}
-    errors: List[ErrorWrapper] = []
+    errors: List[ErrorList] = []
     for field in required_params:
         value = received_params.get(field.alias)
         if value is None:

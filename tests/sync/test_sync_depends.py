@@ -1,10 +1,10 @@
 from unittest.mock import Mock
-from typing_extensions import Annotated
 
 import pytest
 from pydantic import ValidationError
+from typing_extensions import Annotated
 
-from fast_depends import inject, Depends
+from fast_depends import Depends, inject
 
 
 def test_depends():
@@ -12,7 +12,7 @@ def test_depends():
         return a + b
 
     @inject
-    def some_func(b: int, c = Depends(dep_func)) -> int:
+    def some_func(b: int, c=Depends(dep_func)) -> int:
         assert isinstance(c, float)
         return b + c
 
@@ -27,7 +27,9 @@ def test_depends_error():
         return a + b
 
     @inject
-    def some_func(b: int, c = Depends(dep_func), d = Depends(another_func)) -> int:  # pragma: no cover
+    def some_func(
+        b: int, c=Depends(dep_func), d=Depends(another_func)
+    ) -> int:  # pragma: no cover
         assert c is None
         return b
 
@@ -39,12 +41,11 @@ def test_async_depends():
     async def dep_func(a: int) -> float:  # pragma: no cover
         return a
 
-    @inject
-    def some_func(a: int, b: int, c = Depends(dep_func)) -> str:  # pragma: no cover
-        return a + b + c
-
     with pytest.raises(AssertionError):
-        some_func("1", "2")
+
+        @inject
+        def some_func(a: int, b: int, c=Depends(dep_func)) -> str:  # pragma: no cover
+            return a + b + c
 
 
 def test_depends_response_cast():
@@ -85,11 +86,11 @@ def test_cash():
         mock()
         return 1000
 
-    def dep_func(a = Depends(nested_dep_func)):
+    def dep_func(a=Depends(nested_dep_func)):
         return a
 
     @inject
-    def some_func(a = Depends(dep_func), b = Depends(nested_dep_func)):
+    def some_func(a=Depends(dep_func), b=Depends(nested_dep_func)):
         assert a is b
         return a + b
 
@@ -106,7 +107,7 @@ def test_yield():
         mock.exit()
 
     @inject
-    def some_func(a = Depends(dep_func)):
+    def some_func(a=Depends(dep_func)):
         assert mock.called
         assert not mock.exit.called
         return a
@@ -122,7 +123,7 @@ def test_class_depends():
             self.a = a
 
     @inject
-    def some_func(a = Depends(MyDep)):
+    def some_func(a=Depends(MyDep)):
         assert isinstance(a, MyDep)
         assert a.a == 3
         return a
@@ -134,7 +135,7 @@ def test_callable_class_depends():
     class MyDep:
         def __init__(self, a: int):
             self.a = a
-        
+
         def __call__(self) -> int:
             return self.a
 

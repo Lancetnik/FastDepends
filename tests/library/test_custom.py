@@ -1,12 +1,12 @@
-from typing_extensions import Annotated
 import logging
 
-import pytest
 import pydantic
+import pytest
+from typing_extensions import Annotated
 
+from fast_depends import Depends, inject
 from fast_depends.library import CustomField
 from fast_depends.types import AnyDict
-from fast_depends import inject, Depends
 
 
 class Header(CustomField):
@@ -75,7 +75,7 @@ def test_header_annotated():
 
 def test_header_required():
     @inject
-    def catch(key2 = Header()):  # pragma: no cover
+    def catch(key2=Header()):  # pragma: no cover
         return key2
 
     with pytest.raises(pydantic.error_wrappers.ValidationError):
@@ -84,7 +84,7 @@ def test_header_required():
 
 def test_header_not_required():
     @inject
-    def catch(key2 = Header(required=False)):
+    def catch(key2=Header(required=False)):
         assert key2 is None
 
     catch()
@@ -95,7 +95,7 @@ def test_depends():
         return key
 
     @inject
-    def catch(k = Depends(dep)):
+    def catch(k=Depends(dep)):
         return k
 
     assert catch(headers={"key": 1}) == "1"

@@ -2,7 +2,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from fast_depends import dependency_provider, inject, Depends
+from fast_depends import Depends, dependency_provider, inject
 
 
 @pytest.fixture
@@ -17,7 +17,7 @@ def test_sync_overide(provider):
     def base_dep():  # pragma: no cover
         mock.original()
         return 1
-    
+
     def override_dep():
         mock.override()
         return 2
@@ -25,9 +25,9 @@ def test_sync_overide(provider):
     provider.override(base_dep, override_dep)
 
     @inject
-    def func(d = Depends(base_dep)):
+    def func(d=Depends(base_dep)):
         assert d == 2
-    
+
     func()
 
     mock.override.assert_called_once()
@@ -37,19 +37,18 @@ def test_sync_overide(provider):
 def test_sync_by_async_overide(provider):
     def base_dep():  # pragma: no cover
         return 1
-    
+
     async def override_dep():  # pragma: no cover
         return 2
 
     provider.override(base_dep, override_dep)
 
     @inject
-    def func(d = Depends(base_dep)):
+    def func(d=Depends(base_dep)):
         pass
-    
+
     with pytest.raises(AssertionError):
         func()
-
 
 
 @pytest.mark.asyncio
@@ -59,7 +58,7 @@ async def test_async_overide(provider):
     async def base_dep():  # pragma: no cover
         mock.original()
         return 1
-    
+
     async def override_dep():
         mock.override()
         return 2
@@ -67,9 +66,9 @@ async def test_async_overide(provider):
     provider.override(base_dep, override_dep)
 
     @inject
-    async def func(d = Depends(base_dep)):
+    async def func(d=Depends(base_dep)):
         assert d == 2
-    
+
     await func()
 
     mock.override.assert_called_once()
@@ -83,7 +82,7 @@ async def test_async_by_sync_overide(provider):
     async def base_dep():  # pragma: no cover
         mock.original()
         return 1
-    
+
     def override_dep():
         mock.override()
         return 2
@@ -91,9 +90,9 @@ async def test_async_by_sync_overide(provider):
     provider.override(base_dep, override_dep)
 
     @inject
-    async def func(d = Depends(base_dep)):
+    async def func(d=Depends(base_dep)):
         assert d == 2
-    
+
     await func()
 
     mock.override.assert_called_once()

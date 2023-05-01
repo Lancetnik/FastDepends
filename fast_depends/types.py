@@ -1,8 +1,9 @@
-from typing import Any, Callable, Dict, TypeVar
+from typing import Any, Callable, Dict
+
 from typing_extensions import ParamSpec, TypeAlias
 
 P = ParamSpec("P")
 
-AnyCallable = TypeVar("AnyCallable", bound=Callable[..., Any])
+AnyCallable: TypeAlias = Callable[..., Any]
 DecoratedCallable: TypeAlias = AnyCallable
-AnyDict = TypeVar("AnyDict", bound=Dict[str, Any])
+AnyDict: TypeAlias = Dict[str, Any]

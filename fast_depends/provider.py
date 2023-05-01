@@ -4,7 +4,7 @@ from fast_depends.types import AnyCallable
 
 
 class Provider:
-    def __init__(self):
+    def __init__(self) -> None:
         self.dependency_overrides: Dict[AnyCallable, AnyCallable] = {}
 
     def override(self, original: AnyCallable, override: AnyCallable) -> None:

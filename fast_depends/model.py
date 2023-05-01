@@ -4,9 +4,8 @@ from pydantic import create_model
 from pydantic.error_wrappers import ErrorList
 from pydantic.fields import ModelField
 
-from fast_depends.types import AnyCallable
 from fast_depends.library import CustomField
-
+from fast_depends.types import AnyCallable
 
 RETURN_FIELD = "custom_return"
 
@@ -15,7 +14,7 @@ class Dependant:
     def __init__(
         self,
         *,
-        call: Optional[AnyCallable] = None,
+        call: AnyCallable,
         params: Optional[List[ModelField]] = None,
         return_field: Optional[ModelField] = None,
         dependencies: Optional[List["Dependant"]] = None,
@@ -45,9 +44,7 @@ class Dependant:
 
 
 class Depends:
-    def __init__(
-        self, dependency: Optional[AnyCallable] = None, *, use_cache: bool = True
-    ) -> None:
+    def __init__(self, dependency: AnyCallable, *, use_cache: bool = True) -> None:
         self.dependency = dependency
         self.use_cache = use_cache
 

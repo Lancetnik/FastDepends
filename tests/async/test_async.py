@@ -1,7 +1,6 @@
-from typing_extensions import Annotated
-
 import pytest
 from pydantic import BaseModel, Field, ValidationError
+from typing_extensions import Annotated
 
 from fast_depends import inject
 
@@ -50,6 +49,7 @@ async def test_types_casting_from_str():
 @pytest.mark.asyncio
 async def test_annotated_wrong():
     with pytest.raises(ValueError):
+
         @inject
         async def some_func(b: "dsada"):  # pragma: no cover
             pass
@@ -64,7 +64,7 @@ async def test_pydantic_types_casting():
     async def some_func(a: SomeModel):
         return a.field
 
-    assert isinstance(await some_func({ "field": "31" }), int)
+    assert isinstance(await some_func({"field": "31"}), int)
 
 
 @pytest.mark.asyncio
@@ -73,14 +73,14 @@ async def test_pydantic_field_types_casting():
     async def some_func(a: int = Field(..., alias="b")) -> float:
         assert isinstance(a, int)
         return a
-    
+
     @inject
-    async def another_func(a = Field(..., alias="b")) -> float:
+    async def another_func(a=Field(..., alias="b")) -> float:
         assert isinstance(a, str)
         return a
 
     assert isinstance(await some_func(b="2"), float)
-    assert isinstance(await another_func(b="2"), float) 
+    assert isinstance(await another_func(b="2"), float)
 
 
 @pytest.mark.asyncio
@@ -90,7 +90,7 @@ async def test_wrong_incoming_types():
         return a
 
     with pytest.raises(ValidationError):
-        await some_func({ "key", 1})
+        await some_func({"key", 1})
 
 
 @pytest.mark.asyncio

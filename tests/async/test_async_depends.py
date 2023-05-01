@@ -1,10 +1,10 @@
 from unittest.mock import Mock
-from typing_extensions import Annotated
 
 import pytest
 from pydantic import ValidationError
+from typing_extensions import Annotated
 
-from fast_depends import inject, Depends
+from fast_depends import Depends, inject
 
 
 @pytest.mark.asyncio
@@ -13,7 +13,7 @@ async def test_depends():
         return a + b
 
     @inject
-    async def some_func(b: int, c = Depends(dep_func)) -> int:
+    async def some_func(b: int, c=Depends(dep_func)) -> int:
         assert isinstance(c, float)
         return b + c
 
@@ -26,7 +26,7 @@ async def test_sync_depends():
         return a
 
     @inject
-    async def some_func(a: int, b: int, c = Depends(dep_func)) -> str:
+    async def some_func(a: int, b: int, c=Depends(dep_func)) -> str:
         assert isinstance(c, float)
         return a + b + c
 
@@ -55,7 +55,9 @@ async def test_depends_error():
         return a + b
 
     @inject
-    async def some_func(b: int, c = Depends(dep_func), d = Depends(another_dep_func)) -> int:  # pragma: no cover
+    async def some_func(
+        b: int, c=Depends(dep_func), d=Depends(another_dep_func)
+    ) -> int:  # pragma: no cover
         assert c is None
         return b
 
@@ -74,7 +76,7 @@ async def test_depends_annotated():
     async def some_func(a: int, b: int, c: D = None) -> str:
         assert isinstance(c, int)
         return a + b + c
-    
+
     @inject
     async def another_func(a: int, c: D):
         return a + c
@@ -91,11 +93,11 @@ async def test_cash():
         mock()
         return 1000
 
-    async def dep_func(a = Depends(nested_dep_func)):
+    async def dep_func(a=Depends(nested_dep_func)):
         return a
 
     @inject
-    async def some_func(a = Depends(dep_func), b = Depends(nested_dep_func)):
+    async def some_func(a=Depends(dep_func), b=Depends(nested_dep_func)):
         assert a is b
         return a + b
 
@@ -113,7 +115,7 @@ async def test_yield():
         mock.exit()
 
     @inject
-    async def some_func(a = Depends(dep_func)):
+    async def some_func(a=Depends(dep_func)):
         assert mock.called
         assert not mock.exit.called
         return a
@@ -133,7 +135,7 @@ async def test_sync_yield():
         mock.exit()
 
     @inject
-    async def some_func(a = Depends(dep_func)):
+    async def some_func(a=Depends(dep_func)):
         assert mock.called
         assert not mock.exit.called
         return a
@@ -153,7 +155,7 @@ async def test_sync_yield_exception():
         raise ValueError()
 
     @inject
-    async def some_func(a = Depends(dep_func)):
+    async def some_func(a=Depends(dep_func)):
         assert mock.called
         assert not mock.exit.called
         return a
@@ -173,7 +175,7 @@ async def test_sync_yield_exception_start():
         raise ValueError()
 
     @inject
-    async def some_func(a = Depends(dep_func)):  # pragma: no cover
+    async def some_func(a=Depends(dep_func)):  # pragma: no cover
         mock()
         return a
 
@@ -195,7 +197,7 @@ async def test_sync_yield_exception_main():
             mock.exit()
 
     @inject
-    async def some_func(a = Depends(dep_func)):
+    async def some_func(a=Depends(dep_func)):
         assert mock.called
         assert not mock.exit.called
         raise ValueError()
@@ -214,7 +216,7 @@ async def test_class_depends():
             self.a = a
 
     @inject
-    async def some_func(a = Depends(MyDep)):
+    async def some_func(a=Depends(MyDep)):
         assert isinstance(a, MyDep)
         assert a.a == 3
         return a
@@ -227,12 +229,12 @@ async def test_callable_class_depends():
     class MyDep:
         def __init__(self, a: int):
             self.a = a
-        
+
         def __call__(self) -> int:
             return self.a
 
     @inject
-    async def some_func(a = Depends(MyDep(3))):
+    async def some_func(a=Depends(MyDep(3))):
         assert a == 3
         return a
 
@@ -244,12 +246,12 @@ async def test_async_callable_class_depends():
     class MyDep:
         def __init__(self, a: int):
             self.a = a
-        
+
         async def call(self) -> int:
             return self.a
 
     @inject
-    async def some_func(a = Depends(MyDep(3).call)):
+    async def some_func(a=Depends(MyDep(3).call)):
         assert a == 3
         return a
 

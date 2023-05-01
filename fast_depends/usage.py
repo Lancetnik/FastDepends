@@ -6,22 +6,15 @@ from pydantic import ValidationError
 
 from fast_depends import model
 from fast_depends.construct import get_dependant
-from fast_depends.injector import (
-    is_coroutine_callable,
-    run_async,
-    solve_dependencies_async,
-    solve_dependencies_sync,
-)
+from fast_depends.injector import solve_dependencies_async, solve_dependencies_sync
 from fast_depends.provider import dependency_provider
 from fast_depends.types import AnyCallable, P
-from fast_depends.utils import args_to_kwargs
+from fast_depends.utils import args_to_kwargs, is_coroutine_callable, run_async
 
 T = TypeVar("T")
 
 
-def Depends(  # noqa: N802
-    dependency: Optional[AnyCallable] = None, *, use_cache: bool = True
-) -> Any:
+def Depends(dependency: AnyCallable, *, use_cache: bool = True) -> Any:  # noqa: N802
     return model.Depends(dependency=dependency, use_cache=use_cache)
 
 
@@ -72,11 +65,11 @@ async def async_typed_wrapper(
         if errors:
             raise ValidationError(errors, dependant.error_model)
 
-        v, errors = dependant.cast_response(
+        v, casted_errors = dependant.cast_response(
             await run_async(dependant.call, **solved_result)
         )
 
-        if errors:
+        if casted_errors:
             raise ValidationError(errors, dependant.error_model)
 
         return v
@@ -101,9 +94,9 @@ def sync_typed_wrapper(
         if errors:
             raise ValidationError(errors, dependant.error_model)
 
-        v, errors = dependant.cast_response(dependant.call(**solved_result))
+        v, casted_errors = dependant.cast_response(dependant.call(**solved_result))
 
-        if errors:
+        if casted_errors:
             raise ValidationError(errors, dependant.error_model)
 
         return v

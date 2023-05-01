@@ -139,6 +139,12 @@ ignore = [
     "C901",  # too complex
 ]
 
+[tool.ruff.flake8-bugbear]
+extend-immutable-calls = [
+    "fast_depends.Depends",
+    "AsyncHeader", "Header", "MyDep"
+]
+
 [tool.pytest.ini_options]
 minversion = "7.0"
 addopts = "-q"

@@ -8,20 +8,20 @@ from typing import (
     Callable,
     ContextManager,
     Dict,
-    Sequence,
+    Iterable,
     TypeVar,
+    cast,
 )
 
 import anyio
 
-from fast_depends.types import AnyDict, P, AnyCallable
-
+from fast_depends.types import AnyCallable, AnyDict, P
 
 T = TypeVar("T")
 
 
 def args_to_kwargs(
-    arguments: Sequence[str], *args: P.args, **kwargs: P.kwargs
+    arguments: Iterable[str], *args: P.args, **kwargs: P.kwargs
 ) -> AnyDict:
     if not args:
         return kwargs
@@ -31,10 +31,10 @@ def args_to_kwargs(
     return dict((*zip(unused, args), *kwargs.items()))
 
 
-
-async def run_async(func: AnyCallable, *args: Any, **kwargs: AnyDict) -> Any:
+async def run_async(func: Callable[P, T], *args: P.args, **kwargs: P.kwargs) -> T:
     if asyncio.iscoroutinefunction(func):
-        return await func(*args, **kwargs)
+        r = await func(*args, **kwargs)
+        return cast(T, r)
     else:
         return await run_in_threadpool(func, *args, **kwargs)
 
@@ -47,15 +47,14 @@ async def run_in_threadpool(
     return await anyio.to_thread.run_sync(func, *args)
 
 
-
-def is_async_gen_callable(call: Callable[..., Any]) -> bool:
+def is_async_gen_callable(call: AnyCallable) -> bool:
     if inspect.isasyncgenfunction(call):
         return True
     dunder_call = getattr(call, "__call__", None)  # noqa: B004
     return inspect.isasyncgenfunction(dunder_call)
 
 
-def is_gen_callable(call: Callable[..., Any]) -> bool:
+def is_gen_callable(call: AnyCallable) -> bool:
     if inspect.isgeneratorfunction(call):
         return True
     dunder_call = getattr(call, "__call__", None)  # noqa: B004
@@ -67,12 +66,12 @@ def is_coroutine_callable(call: AnyCallable) -> bool:
         return inspect.iscoroutinefunction(call)
     if inspect.isclass(call):
         return False
-    call = getattr(call, "__call__", None)  # noqa: B004
-    return inspect.iscoroutinefunction(call)
+    call_ = getattr(call, "__call__", None)  # noqa: B004
+    return inspect.iscoroutinefunction(call_)
 
 
 async def solve_generator_async(
-    *, call: Callable[..., Any], stack: AsyncExitStack, sub_values: Dict[str, Any]
+    *, call: AnyCallable, stack: AsyncExitStack, sub_values: Dict[str, Any]
 ) -> Any:
     if is_gen_callable(call):
         cm = contextmanager_in_threadpool(contextmanager(call)(**sub_values))
@@ -82,7 +81,7 @@ async def solve_generator_async(
 
 
 def solve_generator_sync(
-    *, call: Callable[..., Any], stack: ExitStack, sub_values: Dict[str, Any]
+    *, call: AnyCallable, stack: ExitStack, sub_values: Dict[str, Any]
 ) -> Any:
     cm = contextmanager(call)(**sub_values)
     return stack.enter_context(cm)
@@ -107,4 +106,3 @@ async def contextmanager_in_threadpool(
         await anyio.to_thread.run_sync(
             cm.__exit__, None, None, None, limiter=exit_limiter
         )
-

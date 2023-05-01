@@ -1,5 +1,5 @@
 import inspect
-from typing import Any, Optional, Tuple, Type, Union
+from typing import Any, ForwardRef, Optional, Tuple, Type, Union
 
 from pydantic import BaseConfig
 from pydantic.fields import (
@@ -16,13 +16,13 @@ from pydantic.fields import (
     UndefinedType,
 )
 from pydantic.schema import get_annotation_from_field_info
-from pydantic.typing import ForwardRef, evaluate_forwardref, get_args, get_origin
+from pydantic.typing import evaluate_forwardref, get_args, get_origin
 from typing_extensions import Annotated
 
 from fast_depends import model
-from fast_depends.types import AnyCallable, AnyDict
 from fast_depends.library import CustomField
-
+from fast_depends.types import AnyCallable, AnyDict
+from fast_depends.utils import is_coroutine_callable
 
 sequence_shapes = {
     SHAPE_LIST,
@@ -50,6 +50,8 @@ def get_dependant(
         return_field=None,
     )
 
+    is_async = is_coroutine_callable(call)
+
     endpoint_signature = get_typed_signature(call)
     signature_params = endpoint_signature.parameters
 
@@ -68,6 +70,10 @@ def get_dependant(
             dependant.custom.append(custom)
 
         elif depends is not None:
+            assert is_async or not is_coroutine_callable(
+                depends.dependency
+            ), f"You cannot use async dependency `{depends}` with sync `{dependant}`"
+
             sub_dependant = get_param_sub_dependant(
                 param_name=param.name,
                 depends=depends,
@@ -85,7 +91,7 @@ def analyze_param(
     param_name: str,
     annotation: Any,
     default: Any,
-) -> Tuple[Optional[CustomField], Optional[model.Depends], Optional[ModelField]]:
+) -> Tuple[Optional[CustomField], Optional[model.Depends], ModelField]:
     depends = None
     custom = None
     field_info = None

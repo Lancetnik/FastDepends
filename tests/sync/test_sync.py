@@ -1,7 +1,6 @@
-from typing_extensions import Annotated
-
 import pytest
 from pydantic import BaseModel, Field, ValidationError
+from typing_extensions import Annotated
 
 from fast_depends import inject
 
@@ -25,9 +24,11 @@ def test_annotated_partial():
 
 def test_annotated_wrong():
     with pytest.raises(ValueError):
+
         @inject
         def some_func(b: "dsada"):  # pragma: no cover
             pass
+
 
 def test_validation_error():
     @inject
@@ -69,7 +70,7 @@ def test_pydantic_types_casting():
     def some_func(a: SomeModel):
         return a.field
 
-    assert isinstance(some_func({ "field": "31" }), int)
+    assert isinstance(some_func({"field": "31"}), int)
 
 
 def test_pydantic_field_types_casting():
@@ -77,9 +78,9 @@ def test_pydantic_field_types_casting():
     def some_func(a: int = Field(..., alias="b")) -> float:
         assert isinstance(a, int)
         return a
-    
+
     @inject
-    def another_func(a = Field(..., alias="b")) -> float:
+    def another_func(a=Field(..., alias="b")) -> float:
         assert isinstance(a, str)
         return a
 
@@ -93,7 +94,7 @@ def test_wrong_incoming_types():
         return a
 
     with pytest.raises(ValidationError):
-        some_func({ "key", 1})
+        some_func({"key", 1})
 
 
 def test_wrong_return_types():

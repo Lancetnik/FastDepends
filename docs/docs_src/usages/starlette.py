@@ -1,4 +1,4 @@
-w# Is that FastAPI???
+# Is that FastAPI???
 from starlette.applications import Starlette
 from starlette.responses import PlainTextResponse
 from starlette.routing import Route

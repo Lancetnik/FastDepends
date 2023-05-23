@@ -44,9 +44,16 @@ class Dependant:
 
 
 class Depends:
-    def __init__(self, dependency: AnyCallable, *, use_cache: bool = True) -> None:
+    def __init__(
+        self,
+        dependency: AnyCallable,
+        *,
+        use_cache: bool = True,
+        cast: bool = True,
+    ) -> None:
         self.dependency = dependency
         self.use_cache = use_cache
+        self.cast = cast
 
     def __repr__(self) -> str:
         attr = getattr(self.dependency, "__name__", type(self.dependency).__name__)

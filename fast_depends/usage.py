@@ -14,8 +14,13 @@ from fast_depends.utils import args_to_kwargs, is_coroutine_callable, run_async
 T = TypeVar("T")
 
 
-def Depends(dependency: AnyCallable, *, use_cache: bool = True) -> Any:  # noqa: N802
-    return model.Depends(dependency=dependency, use_cache=use_cache)
+def Depends(
+    dependency: AnyCallable,
+    *,
+    use_cache: bool = True,
+    cast: bool = True,
+) -> Any:  # noqa: N802
+    return model.Depends(dependency=dependency, use_cache=use_cache, cast=cast)
 
 
 def wrap_dependant(dependant: model.Dependant) -> model.Dependant:

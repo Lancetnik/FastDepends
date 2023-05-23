@@ -170,7 +170,7 @@ def analyze_param(
 
     field = create_response_field(
         name=param_name,
-        type_=annotation,
+        type_=Any if depends and depends.cast is False else annotation,
         default=None if any((depends, custom)) else field_info.default,
         alias=alias,
         required=required,

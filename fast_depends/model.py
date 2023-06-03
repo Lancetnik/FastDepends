@@ -1,4 +1,4 @@
-from typing import Any, List, Optional, Tuple
+from typing import Any, List, Optional, Tuple, List
 
 from pydantic import create_model
 from pydantic.error_wrappers import ErrorList
@@ -36,6 +36,24 @@ class Dependant:
         # Save the cache key at creation to optimize performance
         self.cache_key = (self.call,)
         self.error_model = create_model(getattr(call, "__name__", str(call)))
+
+    @property
+    def real_params(self) -> List[ModelField]:
+        custom = tuple(c.param_name for c in self.custom)
+        return list(filter(lambda x: x.name not in custom, self.params))
+
+    @property
+    def flat_params(self) -> List[ModelField]:
+        params = self.real_params
+        for d in self.dependencies:
+            params.extend(d.flat_params)
+
+        params_unique = []
+        for p in params:
+            if p not in params_unique:
+                params_unique.append(p)
+
+        return params_unique
 
     def cast_response(self, response: Any) -> Tuple[Optional[Any], Optional[ErrorList]]:
         if self.return_field is None:

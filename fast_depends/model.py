@@ -1,4 +1,5 @@
 from typing import Any, List, Optional, Tuple, List
+from itertools import chain
 
 from pydantic import create_model
 from pydantic.error_wrappers import ErrorList
@@ -39,7 +40,10 @@ class Dependant:
 
     @property
     def real_params(self) -> List[ModelField]:
-        custom = tuple(c.param_name for c in self.custom)
+        custom = tuple(chain(
+            (c.param_name for c in self.custom),
+            (d.name for d in self.dependencies)
+        ))
         return list(filter(lambda x: x.name not in custom, self.params))
 
     @property

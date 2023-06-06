@@ -52,10 +52,12 @@ class Dependant:
         for d in self.dependencies:
             params.extend(d.flat_params)
 
+        params_unique_names = set()
         params_unique = []
         for p in params:
-            if p not in params_unique:
+            if p.name not in params_unique_names:
                 params_unique.append(p)
+                params_unique_names.add(p.name)
 
         return params_unique
 

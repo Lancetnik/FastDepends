@@ -10,12 +10,11 @@ from typing import (
     ForwardRef,
     Iterable,
     List,
-    ParamSpec,
     Tuple,
-    TypeVar,
 )
 
 import anyio
+from typing_extensions import ParamSpec, TypeVar
 
 from fast_depends._compat import evaluate_forwardref
 

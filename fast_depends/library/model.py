@@ -1,7 +1,5 @@
 from abc import ABC
-from typing import Optional, TypeVar
-
-from fast_depends.types import AnyDict
+from typing import Any, Dict, Optional, TypeVar
 
 Cls = TypeVar("Cls", bound="CustomField")
 
@@ -20,6 +18,6 @@ class CustomField(ABC):
         self.param_name = name
         return self
 
-    def use(self, **kwargs: AnyDict) -> AnyDict:
+    def use(self, **kwargs: Dict[str, Any]) -> Dict[str, Any]:
         assert self.param_name, "You should specify `param_name` before using"
         return kwargs

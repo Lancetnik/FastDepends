@@ -53,7 +53,7 @@ def test_depends_response_cast():
         return a
 
     @inject
-    def some_func(a: int, b: int, c: int = Depends(dep_func)) -> str:
+    def some_func(a: int, b: int, c: int = Depends(dep_func)) -> float:
         assert isinstance(c, int)
         return a + b + c
 
@@ -67,7 +67,7 @@ def test_depends_annotated():
     D = Annotated[int, Depends(dep_func)]
 
     @inject
-    def some_func(a: int, b: int, c: D = None) -> str:
+    def some_func(a: int, b: int, c: D = None) -> float:
         assert isinstance(c, int)
         return a + b + c
 
@@ -76,7 +76,7 @@ def test_depends_annotated():
         return a + c
 
     assert some_func("1", "2")
-    assert another_func("3") == 6
+    assert another_func("3") == 6.0
 
 
 def test_cash():

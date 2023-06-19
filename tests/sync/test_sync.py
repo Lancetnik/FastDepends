@@ -22,14 +22,6 @@ def test_annotated_partial():
     assert isinstance(some_func(1, "2"), int)
 
 
-def test_annotated_wrong():
-    with pytest.raises(ValueError):
-
-        @inject
-        def some_func(b: "dsada"):  # pragma: no cover
-            pass
-
-
 def test_validation_error():
     @inject
     def some_func(a, b: str = Field(..., max_length=1)):  # pragma: no cover

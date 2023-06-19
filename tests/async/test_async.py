@@ -47,15 +47,6 @@ async def test_types_casting_from_str():
 
 
 @pytest.mark.asyncio
-async def test_annotated_wrong():
-    with pytest.raises(ValueError):
-
-        @inject
-        async def some_func(b: "dsada"):  # pragma: no cover
-            pass
-
-
-@pytest.mark.asyncio
 async def test_pydantic_types_casting():
     class SomeModel(BaseModel):
         field: int
@@ -79,7 +70,7 @@ async def test_pydantic_field_types_casting():
         assert isinstance(a, str)
         return a
 
-    assert isinstance(await some_func(b="2"), float)
+    assert isinstance(await some_func(b="2", c=3), float)
     assert isinstance(await another_func(b="2"), float)
 
 

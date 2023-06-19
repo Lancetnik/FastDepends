@@ -26,7 +26,7 @@ async def test_sync_depends():
         return a
 
     @inject
-    async def some_func(a: int, b: int, c=Depends(dep_func)) -> str:
+    async def some_func(a: int, b: int, c=Depends(dep_func)) -> float:
         assert isinstance(c, float)
         return a + b + c
 
@@ -39,7 +39,7 @@ async def test_depends_response_cast():
         return a
 
     @inject
-    async def some_func(a: int, b: int, c: int = Depends(dep_func)) -> str:
+    async def some_func(a: int, b: int, c: int = Depends(dep_func)) -> float:
         assert isinstance(c, int)
         return a + b + c
 
@@ -73,7 +73,7 @@ async def test_depends_annotated():
     D = Annotated[int, Depends(dep_func)]
 
     @inject
-    async def some_func(a: int, b: int, c: D = None) -> str:
+    async def some_func(a: int, b: int, c: D = None) -> float:
         assert isinstance(c, int)
         return a + b + c
 
@@ -82,7 +82,7 @@ async def test_depends_annotated():
         return a + c
 
     assert await some_func("1", "2")
-    assert (await another_func(3)) == 6
+    assert (await another_func(3)) == 6.0
 
 
 @pytest.mark.asyncio

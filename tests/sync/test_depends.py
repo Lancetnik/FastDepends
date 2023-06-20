@@ -1,3 +1,5 @@
+import logging
+from dataclasses import dataclass
 from unittest.mock import Mock
 
 import pytest
@@ -145,3 +147,27 @@ def test_callable_class_depends():
         return a
 
     some_func()
+
+
+def test_not_cast():
+    @dataclass
+    class A:
+        a: int
+
+    def dep() -> A:
+        return A(a=1)
+
+    def get_logger() -> logging.Logger:
+        return logging.getLogger(__file__)
+
+    @inject
+    def some_func(
+        b,
+        a: A = Depends(dep, cast=False),
+        logger: logging.Logger = Depends(get_logger, cast=False),
+    ):
+        assert a.a == 1
+        assert logger
+        return b
+
+    assert some_func(1) == 1

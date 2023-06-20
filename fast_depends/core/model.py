@@ -87,7 +87,7 @@ class CallModel:
 
         if PYDANTIC_V2:
             fields = self.model.model_fields
-        else:
+        else:  # pragma: no cover
             fields = self.model.__fields__
 
         for name, f in fields.items():

@@ -11,7 +11,23 @@ def provider():
     dependency_provider.clear()
 
 
-def test_sync_overide(provider):
+def test_not_override(provider):
+    mock = Mock()
+
+    def base_dep():  # pragma: no cover
+        mock.original()
+        return 1
+
+    @inject(dependency_overrides_provider=None)
+    def func(d=Depends(base_dep)):
+        assert d == 1
+
+    func()
+
+    mock.original.assert_called_once()
+
+
+def test_sync_override(provider):
     mock = Mock()
 
     def base_dep():  # pragma: no cover
@@ -34,7 +50,7 @@ def test_sync_overide(provider):
     assert not mock.original.called
 
 
-def test_sync_by_async_overide(provider):
+def test_sync_by_async_override(provider):
     def base_dep():  # pragma: no cover
         return 1
 
@@ -52,7 +68,7 @@ def test_sync_by_async_overide(provider):
 
 
 @pytest.mark.asyncio
-async def test_async_overide(provider):
+async def test_async_override(provider):
     mock = Mock()
 
     async def base_dep():  # pragma: no cover
@@ -76,7 +92,7 @@ async def test_async_overide(provider):
 
 
 @pytest.mark.asyncio
-async def test_async_by_sync_overide(provider):
+async def test_async_by_sync_override(provider):
     mock = Mock()
 
     async def base_dep():  # pragma: no cover

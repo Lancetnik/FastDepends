@@ -1,3 +1,5 @@
+import logging
+from dataclasses import dataclass
 from unittest.mock import Mock
 
 import pytest
@@ -256,3 +258,28 @@ async def test_async_callable_class_depends():
         return a
 
     await some_func()
+
+
+@pytest.mark.asyncio
+async def test_not_cast():
+    @dataclass
+    class A:
+        a: int
+
+    async def dep() -> A:
+        return A(a=1)
+
+    async def get_logger() -> logging.Logger:
+        return logging.getLogger(__file__)
+
+    @inject
+    async def some_func(
+        b,
+        a: A = Depends(dep, cast=False),
+        logger: logging.Logger = Depends(get_logger, cast=False),
+    ):
+        assert a.a == 1
+        assert logger
+        return b
+
+    assert (await some_func(1)) == 1

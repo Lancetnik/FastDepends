@@ -104,7 +104,7 @@ def build_call_model(
         else:
             class_fields[param.name] = (annotation, default)
 
-    if return_annotation is not inspect._empty:
+    if cast and return_annotation is not inspect._empty:
         response_model = create_model(
             "ResponseModel", response=(return_annotation, ...)
         )

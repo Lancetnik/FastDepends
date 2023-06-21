@@ -140,7 +140,8 @@ class CallModel(Generic[P, T]):
 
         kw = args_to_kwargs(self.alias_arguments, *args, **kwargs)
 
-        solved_kw: Dict[str, Any] = yield kw
+        solved_kw: Dict[str, Any]
+        solved_kw = yield kw
 
         casted_model = self.model(**solved_kw)
 
@@ -149,7 +150,8 @@ class CallModel(Generic[P, T]):
             for arg in (*self.arguments, *self.dependencies.keys())
         }
 
-        response: T = yield casted_kw
+        response: T
+        response = yield casted_kw
 
         if self.cast is True and self.response_model is not None:
             casted_resp = self.response_model(response=response)

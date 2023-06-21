@@ -12,11 +12,14 @@ T = TypeVar("T")
 
 
 def Depends(
-    dependency: Union[Callable[P, T], Callable[P, Awaitable[T]]],
+    dependency: Union[
+        Callable[P, T],
+        Callable[P, Awaitable[T]],
+    ],
     *,
     use_cache: bool = True,
     cast: bool = True,
-) -> Any:  # noqa: N802
+) -> model.Depends:
     return model.Depends(call=dependency, use_cache=use_cache, cast=cast)
 
 
@@ -24,11 +27,17 @@ def inject(
     func: Optional[Union[Callable[P, T], Callable[P, Awaitable[T]]]] = None,
     *,
     dependency_overrides_provider: Optional[Any] = dependency_provider,
-    wrap_dependant: Callable[[CallModel], CallModel] = lambda x: x,
-) -> Union[Callable[P, T], Callable[P, Awaitable[T]]]:
+    wrap_model: Callable[[CallModel[P, T]], CallModel[P, T]] = lambda x: x,
+) -> Union[
+    Callable[
+        [Union[Callable[P, T], Callable[P, Awaitable[T]]]],
+        Union[Callable[P, T], Callable[P, Awaitable[T]]],
+    ],
+    Union[Callable[P, T], Callable[P, Awaitable[T]]],
+]:
     decorator = _wrap_inject(
         dependency_overrides_provider=dependency_overrides_provider,
-        wrap_dependant=wrap_dependant,
+        wrap_model=wrap_model,
     )
 
     if func is None:
@@ -40,7 +49,10 @@ def inject(
 
 def _wrap_inject(
     dependency_overrides_provider: Optional[Any],
-    wrap_dependant: Callable[[CallModel], CallModel],
+    wrap_model: Callable[
+        [CallModel[P, T]],
+        CallModel[P, T],
+    ],
 ) -> Callable[
     [Union[Callable[P, T], Callable[P, Awaitable[T]]]],
     Union[Callable[P, T], Callable[P, Awaitable[T]]],
@@ -57,33 +69,35 @@ def _wrap_inject(
     def func_wrapper(
         func: Union[Callable[P, T], Callable[P, Awaitable[T]]]
     ) -> Union[Callable[P, T], Callable[P, Awaitable[T]]]:
-        model = wrap_dependant(build_call_model(func))
+        model = wrap_model(build_call_model(func))
 
         if model.is_async:
 
             @wraps(func)
             async def injected_wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
                 async with AsyncExitStack() as stack:
-                    return await model.asolve(
+                    r = await model.asolve(
                         *args,
                         stack=stack,
                         dependency_overrides=overrides,
                         cache_dependencies={},
                         **kwargs,
                     )
+                return r
 
         else:
 
             @wraps(func)
             def injected_wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
                 with ExitStack() as stack:
-                    return model.solve(
+                    r = model.solve(
                         *args,
                         stack=stack,
                         dependency_overrides=overrides,
                         cache_dependencies={},
                         **kwargs,
                     )
+                return r
 
         return wraps(func)(injected_wrapper)
 

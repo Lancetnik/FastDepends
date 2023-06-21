@@ -142,7 +142,8 @@ ignore = [
 [tool.ruff.flake8-bugbear]
 extend-immutable-calls = [
     "fast_depends.Depends",
-    "AsyncHeader", "Header", "MyDep"
+    "AsyncHeader", "Header", "MyDep",
+    "pydantic.Field",
 ]
 
 [tool.pytest.ini_options]

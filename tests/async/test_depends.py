@@ -236,7 +236,7 @@ async def test_callable_class_depends():
             return self.a
 
     @inject
-    async def some_func(a=Depends(MyDep(3))):
+    async def some_func(a=Depends(MyDep(3))):  # noqa: B008
         assert a == 3
         return a
 
@@ -253,7 +253,7 @@ async def test_async_callable_class_depends():
             return self.a
 
     @inject
-    async def some_func(a=Depends(MyDep(3).call)):
+    async def some_func(a=Depends(MyDep(3).call)):  # noqa: B008
         assert a == 3
         return a
 

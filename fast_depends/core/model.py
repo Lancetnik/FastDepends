@@ -5,6 +5,7 @@ from typing import (
     Callable,
     Dict,
     Generator,
+    Generic,
     List,
     Optional,
     Set,
@@ -12,7 +13,7 @@ from typing import (
     Union,
 )
 
-from typing_extensions import ParamSpec, TypeVar
+from typing_extensions import ParamSpec, TypeVar, assert_never
 
 from fast_depends._compat import PYDANTIC_V2, BaseModel
 from fast_depends.library import CustomField
@@ -30,7 +31,7 @@ P = ParamSpec("P")
 T = TypeVar("T")
 
 
-class CallModel:
+class CallModel(Generic[P, T]):
     call: Union[
         Callable[P, T],
         Callable[P, Awaitable[T]],
@@ -42,7 +43,7 @@ class CallModel:
     arguments: List[str]
     alias_arguments: List[str]
 
-    dependencies: Dict[str, "CallModel"]
+    dependencies: Dict[str, "CallModel[..., Any]"]
     custom_fields: Dict[str, CustomField]
 
     # Dependencies and custom fields
@@ -50,7 +51,7 @@ class CallModel:
     cast: bool
 
     @property
-    def call_name(self):
+    def call_name(self) -> str:
         return getattr(self.call, "__name__", type(self.call).__name__)
 
     @property
@@ -70,12 +71,12 @@ class CallModel:
             Callable[P, T],
             Callable[P, Awaitable[T]],
         ],
-        model: BaseModel,
+        model: Type[BaseModel],
         response_model: Optional[Type[BaseModel]] = None,
         use_cache: bool = True,
         cast: bool = True,
         is_async: bool = False,
-        dependencies: Optional[Dict[str, "CallModel"]] = None,
+        dependencies: Optional[Dict[str, "CallModel[..., Any]"]] = None,
         custom_fields: Optional[Dict[str, CustomField]] = None,
     ):
         self.call = call
@@ -88,7 +89,7 @@ class CallModel:
         if PYDANTIC_V2:
             fields = self.model.model_fields
         else:  # pragma: no cover
-            fields = self.model.__fields__
+            fields = self.model.__fields__  # type: ignore[assignment]
 
         for name, f in fields.items():
             self.arguments.append(name)
@@ -104,27 +105,58 @@ class CallModel:
             self.call
         )
 
-    def _cast_args(
+    def _solve(
         self,
         *args: P.args,
+        cache_dependencies: Dict[
+            Union[
+                Callable[P, T],
+                Callable[P, Awaitable[T]],
+            ],
+            T,
+        ],
+        dependency_overrides: Optional[
+            Dict[
+                Union[
+                    Callable[P, T],
+                    Callable[P, Awaitable[T]],
+                ],
+                Union[
+                    Callable[P, T],
+                    Callable[P, Awaitable[T]],
+                ],
+            ]
+        ] = None,
         **kwargs: P.kwargs,
-    ) -> Generator[Dict[str, Any], Any, T,]:
+    ) -> Generator[Dict[str, Any], Any, T]:
+        if dependency_overrides:
+            self.call = dependency_overrides.get(self.call, self.call)
+            assert self.is_async or not is_coroutine_callable(
+                self.call
+            ), f"You cannot use async dependency `{self.call_name}` at sync main"
+
+        if self.use_cache and self.call in cache_dependencies:
+            return cache_dependencies[self.call]
+
         kw = args_to_kwargs(self.alias_arguments, *args, **kwargs)
 
-        kw_with_solved_dep = yield kw
+        solved_kw: Dict[str, Any] = yield kw
 
-        casted_model = self.model(**kw_with_solved_dep)
+        casted_model = self.model(**solved_kw)
 
         casted_kw = {
-            arg: getattr(casted_model, arg, kw_with_solved_dep.get(arg))
+            arg: getattr(casted_model, arg, solved_kw.get(arg))
             for arg in (*self.arguments, *self.dependencies.keys())
         }
 
-        response = yield casted_kw
+        response: T = yield casted_kw
 
         if self.cast is True and self.response_model is not None:
             casted_resp = self.response_model(response=response)
-            response = casted_resp.response
+            response = casted_resp.response  # type: ignore
+
+        if self.use_cache:  # pragma: no branch
+            cache_dependencies[self.call] = response
 
         return response
 
@@ -132,21 +164,38 @@ class CallModel:
         self,
         *args: P.args,
         stack: ExitStack,
-        cache_dependencies: Dict[str, Any],
-        dependency_overrides: Optional[Dict[Callable[..., Any], Any]] = None,
+        cache_dependencies: Dict[
+            Union[
+                Callable[P, T],
+                Callable[P, Awaitable[T]],
+            ],
+            T,
+        ],
+        dependency_overrides: Optional[
+            Dict[
+                Union[
+                    Callable[P, T],
+                    Callable[P, Awaitable[T]],
+                ],
+                Union[
+                    Callable[P, T],
+                    Callable[P, Awaitable[T]],
+                ],
+            ]
+        ] = None,
         **kwargs: P.kwargs,
     ) -> T:
-        if dependency_overrides:
-            self.call = dependency_overrides.get(self.call, self.call)
-            assert not is_coroutine_callable(
-                self.call
-            ), f"You cannot use async dependency `{self.call_name}` at sync main"
-
-        if self.use_cache and cache_dependencies.get(self.call):
-            return cache_dependencies.get(self.call)
-
-        cast_gen = self._cast_args(*args, **kwargs)
-        kwargs = next(cast_gen)
+        cast_gen = self._solve(
+            *args,
+            cache_dependencies=cache_dependencies,
+            dependency_overrides=dependency_overrides,
+            **kwargs,
+        )
+        try:
+            kwargs = next(cast_gen)
+        except StopIteration as e:
+            cached_value: T = e.value
+            return cached_value
 
         for dep_arg, dep in self.dependencies.items():
             kwargs[dep_arg] = dep.solve(
@@ -173,26 +222,47 @@ class CallModel:
         try:
             cast_gen.send(response)
         except StopIteration as e:
-            if self.use_cache:  # pragma: no branch
-                cache_dependencies[self.call] = e.value
-            return e.value
+            value: T = e.value
+            return value
+
+        assert_never(response)  # pragma: no cover
 
     async def asolve(
         self,
         *args: P.args,
         stack: AsyncExitStack,
-        cache_dependencies: Dict[str, Any],
-        dependency_overrides: Optional[Dict[Callable[..., Any], Any]] = None,
+        cache_dependencies: Dict[
+            Union[
+                Callable[P, T],
+                Callable[P, Awaitable[T]],
+            ],
+            T,
+        ],
+        dependency_overrides: Optional[
+            Dict[
+                Union[
+                    Callable[P, T],
+                    Callable[P, Awaitable[T]],
+                ],
+                Union[
+                    Callable[P, T],
+                    Callable[P, Awaitable[T]],
+                ],
+            ]
+        ] = None,
         **kwargs: P.kwargs,
     ) -> T:
-        if dependency_overrides:
-            self.call = dependency_overrides.get(self.call, self.call)
-
-        if self.use_cache and cache_dependencies.get(self.call):
-            return cache_dependencies.get(self.call)
-
-        cast_gen = self._cast_args(*args, **kwargs)
-        kwargs = next(cast_gen)
+        cast_gen = self._solve(
+            *args,
+            cache_dependencies=cache_dependencies,
+            dependency_overrides=dependency_overrides,
+            **kwargs,
+        )
+        try:
+            kwargs = next(cast_gen)
+        except StopIteration as e:
+            cached_value: T = e.value
+            return cached_value
 
         for dep_arg, dep in self.dependencies.items():
             kwargs[dep_arg] = await dep.asolve(
@@ -215,9 +285,11 @@ class CallModel:
             )
         else:
             response = await run_async(self.call, **final_kw)
+
         try:
             cast_gen.send(response)
         except StopIteration as e:
-            if self.use_cache:  # pragma: no branch
-                cache_dependencies[self.call] = e.value
-            return e.value
+            value: T = e.value
+            return value
+
+        assert_never(response)  # pragma: no cover

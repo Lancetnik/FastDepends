@@ -4,6 +4,7 @@ from contextlib import AsyncExitStack, ExitStack, asynccontextmanager, contextma
 from typing import (
     Any,
     AsyncGenerator,
+    Awaitable,
     Callable,
     ContextManager,
     Dict,
@@ -11,6 +12,8 @@ from typing import (
     Iterable,
     List,
     Tuple,
+    Union,
+    cast,
 )
 
 import anyio
@@ -22,11 +25,18 @@ P = ParamSpec("P")
 T = TypeVar("T")
 
 
-async def run_async(func: Callable[P, T], *args: P.args, **kwargs: P.kwargs) -> T:
+async def run_async(
+    func: Union[
+        Callable[P, T],
+        Callable[P, Awaitable[T]],
+    ],
+    *args: P.args,
+    **kwargs: P.kwargs,
+) -> T:
     if is_coroutine_callable(func):
-        return await func(*args, **kwargs)
+        return await cast(Callable[P, Awaitable[T]], func)(*args, **kwargs)
     else:
-        return await run_in_threadpool(func, *args, **kwargs)
+        return await run_in_threadpool(cast(Callable[P, T], func), *args, **kwargs)
 
 
 async def run_in_threadpool(
@@ -55,7 +65,7 @@ def solve_generator_sync(
 
 
 def args_to_kwargs(
-    arguments: Iterable[str], *args: P.args, **kwargs: P.kwargs
+    arguments: Iterable[str], *args: Any, **kwargs: Any
 ) -> Dict[str, Any]:
     if not args:
         return kwargs

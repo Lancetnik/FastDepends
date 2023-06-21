@@ -142,7 +142,7 @@ def test_callable_class_depends():
             return self.a
 
     @inject
-    def some_func(a: int = Depends(MyDep(3))):
+    def some_func(a: int = Depends(MyDep(3))):  # noqa: B008
         assert a == 3
         return a
 

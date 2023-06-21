@@ -1,7 +1,14 @@
 import inspect
-from typing import Any, Callable, Optional
+from typing import Any, Awaitable, Callable, Dict, Optional, Tuple, Union
 
-from typing_extensions import Annotated, assert_never, get_args, get_origin
+from typing_extensions import (
+    Annotated,
+    ParamSpec,
+    TypeVar,
+    assert_never,
+    get_args,
+    get_origin,
+)
 
 from fast_depends._compat import create_model
 from fast_depends.core.model import CallModel
@@ -12,13 +19,20 @@ from fast_depends.utils import get_typed_signature, is_coroutine_callable
 CUSTOM_ANNOTATIONS = (Depends, CustomField)
 
 
+P = ParamSpec("P")
+T = TypeVar("T")
+
+
 def build_call_model(
-    call: Callable[..., Any],
+    call: Union[
+        Callable[P, T],
+        Callable[P, Awaitable[T]],
+    ],
     *,
     cast: bool = True,
     use_cache: bool = True,
     is_sync: Optional[bool] = None,
-) -> CallModel:
+) -> CallModel[P, T]:
     name = getattr(call, "__name__", type(call).__name__)
 
     is_call_async = is_coroutine_callable(call)
@@ -31,9 +45,9 @@ def build_call_model(
 
     typed_params, return_annotation = get_typed_signature(call)
 
-    class_fields = {}
-    dependencies = {}
-    custom_fields = {}
+    class_fields: Dict[str, Tuple[Any, Any]] = {}
+    dependencies: Dict[str, CallModel[..., Any]] = {}
+    custom_fields: Dict[str, CustomField] = {}
     for param in typed_params:
         dep: Optional[Depends] = None
         custom: Optional[CustomField] = None
@@ -68,9 +82,25 @@ def build_call_model(
             annotation = param.annotation
 
         default = param.default
-        if dep or isinstance(default, Depends):
-            dep = dep or default
+        if isinstance(default, Depends):
+            assert (
+                not dep
+            ), "You can not use `Depends` with `Annotated` and default both"
+            dep = default
 
+        elif isinstance(default, CustomField):
+            assert (
+                not custom
+            ), "You can not use `CustomField` with `Annotated` and default both"
+            custom = default
+
+        elif default is inspect._empty:
+            class_fields[param.name] = (annotation, ...)
+
+        else:
+            class_fields[param.name] = (annotation, default)
+
+        if dep:
             dependencies[param.name] = build_call_model(
                 dep.call,
                 cast=dep.cast,
@@ -81,8 +111,7 @@ def build_call_model(
             if dep.cast is True:
                 class_fields[param.name] = (annotation, ...)
 
-        elif custom or isinstance(default, CustomField):
-            custom = custom or default
+        if custom:
             assert not (
                 is_sync and is_coroutine_callable(custom.use)
             ), f"You cannot use async custom field `{type(custom).__name__}` at sync `{name}`"
@@ -98,11 +127,7 @@ def build_call_model(
             else:
                 class_fields[param.name] = (Optional[annotation], None)
 
-        elif default is inspect._empty:
-            class_fields[param.name] = (annotation, ...)
-
-        else:
-            class_fields[param.name] = (annotation, default)
+    func_model = create_model(name, **class_fields)  # type: ignore
 
     if cast and return_annotation is not inspect._empty:
         response_model = create_model(
@@ -110,8 +135,6 @@ def build_call_model(
         )
     else:
         response_model = None
-
-    func_model = create_model(name, **class_fields)
 
     return CallModel(
         call=call,

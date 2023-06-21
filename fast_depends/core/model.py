@@ -86,9 +86,9 @@ class CallModel(Generic[P, T]):
         self.arguments = []
         self.alias_arguments = []
 
-        if PYDANTIC_V2:
+        if PYDANTIC_V2:  # pragma: no cover
             fields = self.model.model_fields
-        else:  # pragma: no cover
+        else:
             fields = self.model.__fields__  # type: ignore[assignment]
 
         for name, f in fields.items():

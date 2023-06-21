@@ -38,7 +38,7 @@ classifiers = [
 ]
 
 dependencies = [
-    "pydantic==2.0b3",
+    "pydantic>=1.10",
     "anyio",
 ]
 

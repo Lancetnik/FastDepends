@@ -6,16 +6,16 @@ from typing import (
     Dict,
     Generator,
     Generic,
+    Iterable,
     List,
     Optional,
-    Set,
     Type,
     Union,
 )
 
 from typing_extensions import ParamSpec, TypeVar, assert_never
 
-from fast_depends._compat import PYDANTIC_V2, BaseModel
+from fast_depends._compat import PYDANTIC_V2, BaseModel, FieldInfo
 from fast_depends.library import CustomField
 from fast_depends.utils import (
     args_to_kwargs,
@@ -40,10 +40,13 @@ class CallModel(Generic[P, T]):
     is_generator: bool
     model: Type[BaseModel]
     response_model: Optional[Type[BaseModel]]
-    arguments: List[str]
+
+    params: Dict[str, FieldInfo]
+    flat_params: Dict[str, FieldInfo]
     alias_arguments: List[str]
 
     dependencies: Dict[str, "CallModel[..., Any]"]
+    extra_dependencies: Iterable["CallModel[..., Any]"]
     custom_fields: Dict[str, CustomField]
 
     # Dependencies and custom fields
@@ -53,17 +56,6 @@ class CallModel(Generic[P, T]):
     @property
     def call_name(self) -> str:
         return getattr(self.call, "__name__", type(self.call).__name__)
-
-    @property
-    def real_params(self) -> Set[str]:
-        return set(self.arguments) - set(self.dependencies.keys())
-
-    @property
-    def flat_params(self) -> Set[str]:
-        params = set(self.real_params)
-        for d in self.dependencies.values():
-            params |= set(d.flat_params)
-        return params
 
     def __init__(
         self,
@@ -77,26 +69,31 @@ class CallModel(Generic[P, T]):
         cast: bool = True,
         is_async: bool = False,
         dependencies: Optional[Dict[str, "CallModel[..., Any]"]] = None,
+        extra_dependencies: Optional[Iterable["CallModel[..., Any]"]] = None,
         custom_fields: Optional[Dict[str, CustomField]] = None,
     ):
         self.call = call
         self.model = model
         self.response_model = response_model
 
-        self.arguments = []
-        self.alias_arguments = []
-
+        fields: Dict[str, FieldInfo]
         if PYDANTIC_V2:  # pragma: no cover
-            fields = self.model.model_fields
+            fields = self.model.model_fields  # type: ignore
         else:
-            fields = self.model.__fields__  # type: ignore[assignment]
-
-        for name, f in fields.items():
-            self.arguments.append(name)
-            self.alias_arguments.append(f.alias or name)
+            fields = self.model.__fields__  # type: ignore
 
         self.dependencies = dependencies or {}
+        self.extra_dependencies = extra_dependencies or []
         self.custom_fields = custom_fields or {}
+
+        self.alias_arguments = [f.alias or name for name, f in fields.items()]
+
+        self.params = fields.copy()
+        self.flat_params = {}
+        for name, d in self.dependencies.items():
+            self.params.pop(name, None)
+            self.flat_params.update(d.flat_params)
+        self.flat_params.update(self.params)
 
         self.use_cache = use_cache
         self.cast = cast
@@ -147,7 +144,7 @@ class CallModel(Generic[P, T]):
 
         casted_kw = {
             arg: getattr(casted_model, arg, solved_kw.get(arg))
-            for arg in (*self.arguments, *self.dependencies.keys())
+            for arg in (*self.params.keys(), *self.dependencies.keys())
         }
 
         response: T
@@ -198,6 +195,14 @@ class CallModel(Generic[P, T]):
         except StopIteration as e:
             cached_value: T = e.value
             return cached_value
+
+        for dep in self.extra_dependencies:
+            dep.solve(
+                stack=stack,
+                cache_dependencies=cache_dependencies,
+                dependency_overrides=dependency_overrides,
+                **kwargs,
+            )
 
         for dep_arg, dep in self.dependencies.items():
             kwargs[dep_arg] = dep.solve(
@@ -265,6 +270,14 @@ class CallModel(Generic[P, T]):
         except StopIteration as e:
             cached_value: T = e.value
             return cached_value
+
+        for dep in self.extra_dependencies:
+            await dep.asolve(
+                stack=stack,
+                cache_dependencies=cache_dependencies,
+                dependency_overrides=dependency_overrides,
+                **kwargs,
+            )
 
         for dep_arg, dep in self.dependencies.items():
             kwargs[dep_arg] = await dep.asolve(

@@ -17,5 +17,5 @@ def test_params():
 
     model = build_call_model(main)
 
-    assert model.real_params == {"a", "b"}
-    assert model.flat_params == {"a", "b", "c"}
+    assert set(model.params.keys()) == {"a", "b"}
+    assert set(model.flat_params.keys()) == {"a", "b", "c"}

@@ -39,17 +39,6 @@ def test_depends_error():
         assert some_func("2") == 7
 
 
-def test_async_depends():
-    async def dep_func(a: int) -> float:  # pragma: no cover
-        return a
-
-    with pytest.raises(AssertionError):
-
-        @inject
-        def some_func(a: int, b: int, c=Depends(dep_func)) -> str:  # pragma: no cover
-            return a + b + c
-
-
 def test_depends_response_cast():
     def dep_func(a):
         return a
@@ -171,3 +160,42 @@ def test_not_cast():
         return b
 
     assert some_func(1) == 1
+
+
+def test_extra():
+    mock = Mock()
+
+    def dep():
+        mock.sync_call()
+
+    @inject(extra_dependencies=(Depends(dep),))
+    def some_func():
+        mock()
+
+    some_func()
+    mock.assert_called_once()
+    mock.sync_call.assert_called_once()
+
+
+def test_async_extra():
+    mock = Mock()
+
+    async def dep():  # pragma: no cover
+        mock.sync_call()
+
+    with pytest.raises(AssertionError):
+
+        @inject(extra_dependencies=(Depends(dep),))
+        def some_func():  # pragma: no cover
+            mock()
+
+
+def test_async_depends():
+    async def dep_func(a: int) -> float:  # pragma: no cover
+        return a
+
+    with pytest.raises(AssertionError):
+
+        @inject
+        def some_func(a: int, b: int, c=Depends(dep_func)) -> str:  # pragma: no cover
+            return a + b + c

@@ -1,5 +1,5 @@
 import inspect
-from typing import Any, Awaitable, Callable, Dict, Optional, Tuple, Union
+from typing import Any, Awaitable, Callable, Dict, Optional, Sequence, Tuple, Union
 
 from typing_extensions import (
     Annotated,
@@ -32,6 +32,7 @@ def build_call_model(
     cast: bool = True,
     use_cache: bool = True,
     is_sync: Optional[bool] = None,
+    extra_dependencies: Sequence[Depends] = (),
 ) -> CallModel[P, T]:
     name = getattr(call, "__name__", type(call).__name__)
 
@@ -102,7 +103,7 @@ def build_call_model(
 
         if dep:
             dependencies[param.name] = build_call_model(
-                dep.call,
+                dep.dependency,
                 cast=dep.cast,
                 use_cache=dep.use_cache,
                 is_sync=is_sync,
@@ -145,4 +146,13 @@ def build_call_model(
         is_async=is_call_async,
         dependencies=dependencies,
         custom_fields=custom_fields,
+        extra_dependencies=[
+            build_call_model(
+                d.dependency,
+                cast=d.cast,
+                use_cache=d.use_cache,
+                is_sync=is_sync,
+            )
+            for d in extra_dependencies
+        ],
     )

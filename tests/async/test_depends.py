@@ -283,3 +283,23 @@ async def test_not_cast():
         return b
 
     assert (await some_func(1)) == 1
+
+
+@pytest.mark.asyncio
+async def test_extra():
+    mock = Mock()
+
+    async def dep():
+        mock.async_call()
+
+    def sync_dep():
+        mock.sync_call()
+
+    @inject(extra_dependencies=(Depends(dep), Depends(sync_dep)))
+    async def some_func():
+        mock()
+
+    await some_func(1)
+    mock.assert_called_once()
+    mock.async_call.assert_called_once()
+    mock.sync_call.assert_called_once()

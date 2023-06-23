@@ -100,8 +100,3 @@ assert my_func(
 ```
 
 More details you can find at [advanced](/FastDepends/advanced) tutorial
-
-!!! warning ""
-    Library was based on **0.95.0 FastAPI** version.
-
-    If we are too far behind, please, contact [me](mailto:diementros@yandex.ru) or contubute yourself. Really appreciate your help.

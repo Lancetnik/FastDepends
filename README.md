@@ -131,11 +131,3 @@ assert my_func(
     headers={ "header_field": "1" }
 ) == 1
 ```
-
----
-
-### Note
-Library was based on **0.95.0 FastAPI** version.
-
-If we are too far behind, please, contact [me](mailto:diementros@yandex.ru)
-or contubute yourself. Really appreciate your help.

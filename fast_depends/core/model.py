@@ -57,6 +57,20 @@ class CallModel(Generic[P, T]):
     def call_name(self) -> str:
         return getattr(self.call, "__name__", type(self.call).__name__)
 
+    @property
+    def real_params(self) -> Dict[str, FieldInfo]:
+        params = self.params.copy()
+        for name in self.custom_fields.keys():
+            params.pop(name, None)
+        return params
+
+    @property
+    def flat_params(self) -> Dict[str, FieldInfo]:
+        params = self.real_params
+        for d in self.dependencies.values():
+            params.update(d.flat_params)
+        return params
+
     def __init__(
         self,
         call: Union[
@@ -89,11 +103,8 @@ class CallModel(Generic[P, T]):
         self.alias_arguments = [f.alias or name for name, f in fields.items()]
 
         self.params = fields.copy()
-        self.flat_params = {}
-        for name, d in self.dependencies.items():
+        for name in self.dependencies.keys():
             self.params.pop(name, None)
-            self.flat_params.update(d.flat_params)
-        self.flat_params.update(self.params)
 
         self.use_cache = use_cache
         self.cast = cast

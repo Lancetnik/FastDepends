@@ -1,6 +1,6 @@
 from fast_depends import Depends
-from fast_depends.library import CustomField
 from fast_depends.core import build_call_model
+from fast_depends.library import CustomField
 
 
 def test_params():

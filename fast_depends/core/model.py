@@ -42,7 +42,6 @@ class CallModel(Generic[P, T]):
     response_model: Optional[Type[BaseModel]]
 
     params: Dict[str, FieldInfo]
-    flat_params: Dict[str, FieldInfo]
     alias_arguments: List[str]
 
     dependencies: Dict[str, "CallModel[..., Any]"]
@@ -91,7 +90,7 @@ class CallModel(Generic[P, T]):
         self.response_model = response_model
 
         fields: Dict[str, FieldInfo]
-        if PYDANTIC_V2:  # pragma: no cover
+        if PYDANTIC_V2:
             fields = self.model.model_fields  # type: ignore
         else:
             fields = self.model.__fields__  # type: ignore

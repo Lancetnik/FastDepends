@@ -1,6 +1,6 @@
 from contextlib import AsyncExitStack, ExitStack
 from functools import wraps
-from typing import Any, Awaitable, Callable, Optional, Sequence, Union
+from typing import Any, Awaitable, Callable, Optional, Sequence, Union, overload
 
 from typing_extensions import ParamSpec, TypeVar
 
@@ -27,6 +27,31 @@ def Depends(
     )
 
 
+@overload
+def inject(  # pragma: no covers
+    func: None,
+    *,
+    dependency_overrides_provider: Optional[Any] = dependency_provider,
+    extra_dependencies: Sequence[model.Depends] = (),
+    wrap_model: Callable[[CallModel[P, T]], CallModel[P, T]] = lambda x: x,
+) -> Callable[
+    [Union[Callable[P, T], Callable[P, Awaitable[T]]]],
+    Union[Callable[P, T], Callable[P, Awaitable[T]]],
+]:
+    ...
+
+
+@overload
+def inject(  # pragma: no covers
+    func: Callable[P, T],
+    *,
+    dependency_overrides_provider: Optional[Any] = dependency_provider,
+    extra_dependencies: Sequence[model.Depends] = (),
+    wrap_model: Callable[[CallModel[P, T]], CallModel[P, T]] = lambda x: x,
+) -> Callable[P, T]:
+    ...
+
+
 def inject(
     func: Optional[Union[Callable[P, T], Callable[P, Awaitable[T]]]] = None,
     *,
@@ -34,11 +59,11 @@ def inject(
     extra_dependencies: Sequence[model.Depends] = (),
     wrap_model: Callable[[CallModel[P, T]], CallModel[P, T]] = lambda x: x,
 ) -> Union[
+    Union[Callable[P, T], Callable[P, Awaitable[T]]],
     Callable[
         [Union[Callable[P, T], Callable[P, Awaitable[T]]]],
         Union[Callable[P, T], Callable[P, Awaitable[T]]],
     ],
-    Union[Callable[P, T], Callable[P, Awaitable[T]]],
 ]:
     decorator = _wrap_inject(
         dependency_overrides_provider=dependency_overrides_provider,
@@ -111,6 +136,6 @@ def _wrap_inject(
                     )
                 return r
 
-        return wraps(func)(injected_wrapper)
+        return injected_wrapper
 
     return func_wrapper

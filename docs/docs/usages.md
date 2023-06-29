@@ -29,4 +29,4 @@ As you can see above, library, some middlewares and supporting classes... And yo
 !!! note
     <a href="#"></a>
     If you are interested in using `FastDepends` in other frameworks, please take a look
-    at my own [**Propan**](https://lancetnik.github.io/Propan/) framework for working with various Message Brokers. 
+    at my own [**Propan**](https://lancetnik.github.io/Propan/) framework for working with various Message Brokers.

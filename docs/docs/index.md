@@ -26,13 +26,19 @@ hide:
 
 
 FastDepends - FastAPI Dependency Injection system extracted from FastAPI and cleared of all HTTP logic.
-This is a small library which provides you with the ability to use lovely Fastapi interfaces in your own
+This is a small library which provides you with the ability to use lovely FastAPI interfaces in your own
 projects or tools.
 
 Thanks to [*fastapi*](https://fastapi.tiangolo.com/) and [*pydantic*](https://docs.pydantic.dev/) projects for this
-greate functionality. This package is just a small change of the original Fastapi sources to provide DI functionality in a pyre-Python way.
+greate functionality. This package is just a small change of the original FastAPI sources to provide DI functionality in a pyre-Python way.
 
 Async and sync modes are both supported.
+
+## For why?
+
+This project should be extreamly helpfull to boost your not-**FastAPI** applications (even **Flask**, I know that u like some legacy).
+
+Also the project can be a core of your own framework for anything. Actually, it was build for my another project - [**Propan**](https://github.com/Lancetnik/Propan), check it to see full-featured **FastDepends** usage example.
 
 ## Installation
 
@@ -70,7 +76,7 @@ You can use this library without any frameworks in both **sync** and **async** c
 
     Also, *FastDepends* casts functions' return values the same way, it can be very helpful in building your own tools.
 
-    These are two main defferences from native Fastapi DI System.   
+    These are two main defferences from native FastAPI DI System.   
 
 ## Custom Fields
 

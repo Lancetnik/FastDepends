@@ -34,11 +34,11 @@ greate functionality. This package is just a small change of the original FastAP
 
 Async and sync modes are both supported.
 
-## For why?
+# For why?
 
 This project should be extreamly helpfull to boost your not-**FastAPI** applications (even **Flask**, I know that u like some legacy).
 
-Also the project can be a core of your own framework for anything. Actually, it was build for my another project - [**Propan**](https://github.com/Lancetnik/Propan), check it to see full-featured **FastDepends** usage example.
+Also the project can be a core of your own framework for anything. Actually, it was build for my another project - :rocket:[**Propan**](https://github.com/Lancetnik/Propan):rocket:, check it to see full-featured **FastDepends** usage example.
 
 ## Installation
 

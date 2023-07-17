@@ -62,11 +62,6 @@ def build_call_model(
     positional_args: List[str] = []
     keyword_args: List[str] = []
     for param in typed_params:
-        if param.kind is param.KEYWORD_ONLY:
-            keyword_args.append(param.name)
-        elif param.name not in ("args", "kwargs"):
-            positional_args.append(param.name)
-
         dep: Optional[Depends] = None
         custom: Optional[CustomField] = None
 
@@ -134,8 +129,9 @@ def build_call_model(
 
             if dep.cast is True:
                 class_fields[param.name] = (annotation, ...)
+            keyword_args.append(param.name)
 
-        if custom:
+        elif custom:
             assert not (
                 is_sync and is_coroutine_callable(custom.use)
             ), f"You cannot use async custom field `{type(custom).__name__}` at sync `{name}`"
@@ -150,6 +146,13 @@ def build_call_model(
                 class_fields[param.name] = (annotation, ...)
             else:
                 class_fields[param.name] = (Optional[annotation], None)
+            keyword_args.append(param.name)
+
+        else:
+            if param.kind is param.KEYWORD_ONLY:
+                keyword_args.append(param.name)
+            elif param.name not in ("args", "kwargs"):
+                positional_args.append(param.name)
 
     func_model = create_model(name, **class_fields)  # type: ignore
 

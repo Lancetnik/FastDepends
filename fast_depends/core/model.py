@@ -1,4 +1,5 @@
 from contextlib import AsyncExitStack, ExitStack
+import inspect
 from typing import (
     Any,
     Awaitable,
@@ -19,7 +20,6 @@ from typing_extensions import ParamSpec, TypeVar, assert_never
 from fast_depends._compat import PYDANTIC_V2, BaseModel, FieldInfo
 from fast_depends.library import CustomField
 from fast_depends.utils import (
-    args_to_kwargs,
     is_async_gen_callable,
     is_coroutine_callable,
     is_gen_callable,
@@ -169,24 +169,54 @@ class CallModel(Generic[P, T]):
         if self.use_cache and self.call in cache_dependencies:
             return cache_dependencies[self.call]
 
-        kw = args_to_kwargs(self.alias_arguments, *args, **kwargs)
+        kw = {}
+
+        for arg in self.keyword_args:
+            v = kwargs.pop(arg, inspect._empty)
+            if v is not inspect._empty:
+                kw[arg] = v
+
+        if "kwargs" in self.alias_arguments:
+            kw["kwargs"] = kwargs
+
+        else:
+            kw.update(kwargs)
+
+        has_args = "args" in self.alias_arguments
+
+        for arg in self.positional_args:
+            if args:
+                kw[arg], args = args[0], args[1:]
+
+        if has_args:
+            kw["args"] = args
+
+        else:
+            for arg in self.keyword_args:
+                if args:
+                    kw[arg], args = args[0], args[1:]
 
         solved_kw: Dict[str, Any]
         solved_kw = yield kw
 
         casted_model = self.model(**solved_kw)
 
-        args_ = [
-            getattr(casted_model, arg, solved_kw.get(arg))
-            for arg in self.positional_args
-        ]
-        args_.extend(getattr(casted_model, "args", ()))
-
         kwargs_ = {
             arg: getattr(casted_model, arg, solved_kw.get(arg))
-            for arg in self.keyword_args
+            for arg in (
+                self.keyword_args + self.positional_args if not has_args else self.keyword_args
+            )
         }
         kwargs_.update(getattr(casted_model, "kwargs", {}))
+
+        if has_args:
+            args_ = [
+                getattr(casted_model, arg, solved_kw.get(arg))
+                for arg in self.positional_args
+            ]
+            args_.extend(getattr(casted_model, "args", ()))
+        else:
+            args_ = ()
 
         response: T
         response = yield args_, kwargs_

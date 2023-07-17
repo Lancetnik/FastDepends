@@ -64,31 +64,6 @@ def solve_generator_sync(
     return stack.enter_context(cm)
 
 
-def args_to_kwargs(
-    arguments: Iterable[str], *args: Any, **kwargs: Any
-) -> Dict[str, Any]:
-    arguments = tuple(filter(lambda i: i not in ("args", "kwargs"), arguments))
-
-    if not args:
-        return kwargs
-
-    merged = {"kwargs": kwargs.get("kwargs", {})}
-
-    for arg, v in kwargs.items():
-        if arg not in arguments:
-            merged["kwargs"][arg] = v
-        else:
-            merged[arg] = v
-
-    for arg in filter(lambda x: x not in merged, arguments):
-        if args:
-            merged[arg], args = args[0], args[1:]
-
-    merged["args"] = args
-
-    return merged
-
-
 def get_typed_signature(
     call: Callable[..., Any]
 ) -> Tuple[List[inspect.Parameter], Any]:

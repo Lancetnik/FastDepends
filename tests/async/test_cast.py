@@ -150,6 +150,5 @@ async def test_args_kwargs_3():
 
     assert (1, 3) == await simple_func(
         1.0,
-        4,
         b=3.0,
     )

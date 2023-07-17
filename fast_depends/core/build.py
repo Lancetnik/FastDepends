@@ -1,5 +1,15 @@
 import inspect
-from typing import Any, Awaitable, Callable, Dict, Optional, Sequence, Tuple, Union
+from typing import (
+    Any,
+    Awaitable,
+    Callable,
+    Dict,
+    List,
+    Optional,
+    Sequence,
+    Tuple,
+    Union,
+)
 
 from typing_extensions import (
     Annotated,
@@ -49,7 +59,14 @@ def build_call_model(
     class_fields: Dict[str, Tuple[Any, Any]] = {}
     dependencies: Dict[str, CallModel[..., Any]] = {}
     custom_fields: Dict[str, CustomField] = {}
+    positional_args: List[str] = []
+    keyword_args: List[str] = []
     for param in typed_params:
+        if param.kind is param.KEYWORD_ONLY:
+            keyword_args.append(param.name)
+        elif param.name not in ("args", "kwargs"):
+            positional_args.append(param.name)
+
         dep: Optional[Depends] = None
         custom: Optional[CustomField] = None
 
@@ -82,7 +99,13 @@ def build_call_model(
         else:
             annotation = param.annotation
 
-        default = param.default
+        if param.name == "args":
+            default = ()
+        elif param.name == "kwargs":
+            default = {}
+        else:
+            default = param.default
+
         if isinstance(default, Depends):
             assert (
                 not dep
@@ -146,6 +169,8 @@ def build_call_model(
         is_async=is_call_async,
         dependencies=dependencies,
         custom_fields=custom_fields,
+        positional_args=positional_args,
+        keyword_args=keyword_args,
         extra_dependencies=[
             build_call_model(
                 d.dependency,

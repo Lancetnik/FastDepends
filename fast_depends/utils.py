@@ -48,31 +48,45 @@ async def run_in_threadpool(
 
 
 async def solve_generator_async(
-    *, call: Callable[..., Any], stack: AsyncExitStack, **sub_values: Any
+    *sub_args: Any, call: Callable[..., Any], stack: AsyncExitStack, **sub_values: Any
 ) -> Any:
     if is_gen_callable(call):
         cm = contextmanager_in_threadpool(contextmanager(call)(**sub_values))
     elif is_async_gen_callable(call):  # pragma: no branch
-        cm = asynccontextmanager(call)(**sub_values)
+        cm = asynccontextmanager(call)(*sub_args, **sub_values)
     return await stack.enter_async_context(cm)
 
 
 def solve_generator_sync(
-    *, call: Callable[..., Any], stack: ExitStack, **sub_values: Any
+    *sub_args: Any, call: Callable[..., Any], stack: ExitStack, **sub_values: Any
 ) -> Any:
-    cm = contextmanager(call)(**sub_values)
+    cm = contextmanager(call)(*sub_args, **sub_values)
     return stack.enter_context(cm)
 
 
 def args_to_kwargs(
     arguments: Iterable[str], *args: Any, **kwargs: Any
 ) -> Dict[str, Any]:
+    arguments = tuple(filter(lambda i: i not in ("args", "kwargs"), arguments))
+
     if not args:
         return kwargs
 
-    unused = filter(lambda x: x not in kwargs, arguments)
+    merged = {"kwargs": kwargs.get("kwargs", {})}
 
-    return dict((*zip(unused, args), *kwargs.items()))
+    for arg, v in kwargs.items():
+        if arg not in arguments:
+            merged["kwargs"][arg] = v
+        else:
+            merged[arg] = v
+
+    for arg in filter(lambda x: x not in merged, arguments):
+        if args:
+            merged[arg], args = args[0], args[1:]
+
+    merged["args"] = args
+
+    return merged
 
 
 def get_typed_signature(
@@ -80,6 +94,7 @@ def get_typed_signature(
 ) -> Tuple[List[inspect.Parameter], Any]:
     signature = inspect.signature(call)
     globalns = getattr(call, "__globals__", {})
+
     return [
         inspect.Parameter(
             name=param.name,

@@ -9,6 +9,7 @@ from typing import (
     Iterable,
     List,
     Optional,
+    Tuple,
     Type,
     Union,
 )
@@ -47,10 +48,29 @@ class CallModel(Generic[P, T]):
     dependencies: Dict[str, "CallModel[..., Any]"]
     extra_dependencies: Iterable["CallModel[..., Any]"]
     custom_fields: Dict[str, CustomField]
+    keyword_args: Tuple[str]
+    positional_args: Tuple[str]
 
     # Dependencies and custom fields
     use_cache: bool
     cast: bool
+
+    __slots__ = (
+        "call",
+        "is_async",
+        "is_generator",
+        "model",
+        "response_model",
+        "params",
+        "alias_arguments",
+        "keyword_args",
+        "positional_args",
+        "dependencies",
+        "extra_dependencies",
+        "custom_fields",
+        "use_cache",
+        "cast",
+    )
 
     @property
     def call_name(self) -> str:
@@ -83,6 +103,8 @@ class CallModel(Generic[P, T]):
         is_async: bool = False,
         dependencies: Optional[Dict[str, "CallModel[..., Any]"]] = None,
         extra_dependencies: Optional[Iterable["CallModel[..., Any]"]] = None,
+        keyword_args: Optional[List[str]] = None,
+        positional_args: Optional[List[str]] = None,
         custom_fields: Optional[Dict[str, CustomField]] = None,
     ):
         self.call = call
@@ -100,6 +122,8 @@ class CallModel(Generic[P, T]):
         self.custom_fields = custom_fields or {}
 
         self.alias_arguments = [f.alias or name for name, f in fields.items()]
+        self.keyword_args = tuple(keyword_args or [])
+        self.positional_args = tuple(positional_args or [])
 
         self.params = fields.copy()
         for name in self.dependencies.keys():
@@ -152,13 +176,20 @@ class CallModel(Generic[P, T]):
 
         casted_model = self.model(**solved_kw)
 
-        casted_kw = {
+        args_ = [
+            getattr(casted_model, arg, solved_kw.get(arg))
+            for arg in self.positional_args
+        ]
+        args_.extend(getattr(casted_model, "args", ()))
+
+        kwargs_ = {
             arg: getattr(casted_model, arg, solved_kw.get(arg))
-            for arg in (*self.params.keys(), *self.dependencies.keys())
+            for arg in self.keyword_args
         }
+        kwargs_.update(getattr(casted_model, "kwargs", {}))
 
         response: T
-        response = yield casted_kw
+        response = yield args_, kwargs_
 
         if self.cast is True and self.response_model is not None:
             casted_resp = self.response_model(response=response)
@@ -225,16 +256,17 @@ class CallModel(Generic[P, T]):
         for custom in self.custom_fields.values():
             kwargs = custom.use(**kwargs)
 
-        final_kw = cast_gen.send(kwargs)
+        final_args, final_kwargs = cast_gen.send(kwargs)
 
         if self.is_generator:
             response = solve_generator_sync(
+                *final_args,
                 call=self.call,
                 stack=stack,
-                **final_kw,
+                **final_kwargs,
             )
         else:
-            response = self.call(**final_kw)
+            response = self.call(*final_args, **final_kwargs)
 
         try:
             cast_gen.send(response)
@@ -300,16 +332,17 @@ class CallModel(Generic[P, T]):
         for custom in self.custom_fields.values():
             kwargs = await run_async(custom.use, **kwargs)
 
-        final_kw = cast_gen.send(kwargs)
+        final_args, final_kwargs = cast_gen.send(kwargs)
 
         if self.is_generator:
             response = await solve_generator_async(
+                *final_args,
                 call=self.call,
                 stack=stack,
-                **final_kw,
+                **final_kwargs,
             )
         else:
-            response = await run_async(self.call, **final_kw)
+            response = await run_async(self.call, *final_args, **final_kwargs)
 
         try:
             cast_gen.send(response)

@@ -1,3 +1,5 @@
+from typing import Tuple, Dict
+
 import pytest
 from pydantic import BaseModel, Field, ValidationError
 from typing_extensions import Annotated
@@ -104,3 +106,50 @@ async def test_annotated():
         return a
 
     assert isinstance(await some_func(b="2"), float)
+
+
+@pytest.mark.asyncio
+async def test_args_kwargs_1():
+    @inject
+    async def simple_func(
+        a: int,
+        *args: Tuple[float, ...],
+        b: int,
+        **kwargs: Dict[str, int],
+    ):
+        return a, args, b, kwargs
+
+    assert (1, (2.0, 3.0), 3, {"key": 1}) == await simple_func(
+        1.0, 2.0, 3, b=3.0, key=1.0
+    )
+
+
+@pytest.mark.asyncio
+async def test_args_kwargs_2():
+    @inject
+    async def simple_func(
+        a: int,
+        *args: Tuple[float, ...],
+        b: int,
+    ):
+        return a, args, b
+
+    assert (1, (2.0, 3.0), 3) == await simple_func(
+        1.0,
+        2.0,
+        3,
+        b=3.0,
+    )
+
+
+@pytest.mark.asyncio
+async def test_args_kwargs_3():
+    @inject
+    async def simple_func(a: int, *, b: int):
+        return a, b
+
+    assert (1, 3) == await simple_func(
+        1.0,
+        4,
+        b=3.0,
+    )

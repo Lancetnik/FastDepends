@@ -1,3 +1,4 @@
+import asyncio
 import functools
 import inspect
 from contextlib import AsyncExitStack, ExitStack, asynccontextmanager, contextmanager
@@ -124,9 +125,11 @@ def is_async_gen_callable(call: Callable[..., Any]) -> bool:
 
 
 def is_coroutine_callable(call: Callable[..., Any]) -> bool:
-    if inspect.isroutine(call):
-        return inspect.iscoroutinefunction(call)
     if inspect.isclass(call):
         return False
+
+    if asyncio.iscoroutinefunction(call):
+        return True
+
     call_ = getattr(call, "__call__", None)  # noqa: B004
-    return inspect.iscoroutinefunction(call_)
+    return asyncio.iscoroutinefunction(call_)

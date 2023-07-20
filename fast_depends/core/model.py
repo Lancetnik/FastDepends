@@ -1,5 +1,5 @@
-from contextlib import AsyncExitStack, ExitStack
 import inspect
+from contextlib import AsyncExitStack, ExitStack
 from typing import (
     Any,
     Awaitable,
@@ -204,7 +204,9 @@ class CallModel(Generic[P, T]):
         kwargs_ = {
             arg: getattr(casted_model, arg, solved_kw.get(arg))
             for arg in (
-                self.keyword_args + self.positional_args if not has_args else self.keyword_args
+                self.keyword_args + self.positional_args
+                if not has_args
+                else self.keyword_args
             )
         }
         kwargs_.update(getattr(casted_model, "kwargs", {}))

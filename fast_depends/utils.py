@@ -10,7 +10,6 @@ from typing import (
     ContextManager,
     Dict,
     ForwardRef,
-    Iterable,
     List,
     Tuple,
     Union,

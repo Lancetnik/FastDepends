@@ -35,7 +35,10 @@ def inject(  # pragma: no covers
     extra_dependencies: Sequence[model.Depends] = (),
     wrap_model: Callable[[CallModel[P, T]], CallModel[P, T]] = lambda x: x,
 ) -> Callable[
-    [Union[Callable[P, T], Callable[P, Awaitable[T]]]],
+    [
+        Union[Callable[P, T], Callable[P, Awaitable[T]]],
+        Optional[CallModel[P, T]],
+    ],
     Union[Callable[P, T], Callable[P, Awaitable[T]]],
 ]:
     ...
@@ -61,7 +64,10 @@ def inject(
 ) -> Union[
     Union[Callable[P, T], Callable[P, Awaitable[T]]],
     Callable[
-        [Union[Callable[P, T], Callable[P, Awaitable[T]]]],
+        [
+            Union[Callable[P, T], Callable[P, Awaitable[T]]],
+            Optional[CallModel[P, T]],
+        ],
         Union[Callable[P, T], Callable[P, Awaitable[T]]],
     ],
 ]:
@@ -86,7 +92,10 @@ def _wrap_inject(
     ],
     extra_dependencies: Sequence[model.Depends],
 ) -> Callable[
-    [Union[Callable[P, T], Callable[P, Awaitable[T]]]],
+    [
+        Union[Callable[P, T], Callable[P, Awaitable[T]]],
+        Optional[CallModel[P, T]],
+    ],
     Union[Callable[P, T], Callable[P, Awaitable[T]]],
 ]:
     if (
@@ -99,14 +108,16 @@ def _wrap_inject(
         overrides = None
 
     def func_wrapper(
-        func: Union[Callable[P, T], Callable[P, Awaitable[T]]]
+        func: Union[Callable[P, T], Callable[P, Awaitable[T]]],
+        model: Optional[CallModel[P, T]] = None,
     ) -> Union[Callable[P, T], Callable[P, Awaitable[T]]]:
-        model = wrap_model(
-            build_call_model(
-                func,
-                extra_dependencies=extra_dependencies,
+        if model is None:
+            model = wrap_model(
+                build_call_model(
+                    func,
+                    extra_dependencies=extra_dependencies,
+                )
             )
-        )
 
         if model.is_async:
 

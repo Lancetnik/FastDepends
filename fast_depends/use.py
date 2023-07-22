@@ -131,7 +131,7 @@ def _wrap_inject(
                         cache_dependencies={},
                         **kwargs,
                     )
-                return r
+                    return r
 
         else:
 

@@ -1,6 +1,15 @@
 from contextlib import AsyncExitStack, ExitStack
 from functools import wraps
-from typing import Any, Awaitable, Callable, Optional, Sequence, Union, overload
+from typing import (
+    Any,
+    Awaitable,
+    Callable,
+    Optional,
+    Protocol,
+    Sequence,
+    Union,
+    overload,
+)
 
 from typing_extensions import ParamSpec, TypeVar
 
@@ -84,6 +93,15 @@ def inject(
         return decorator(func)
 
 
+class _InjectWrapper(Protocol[P, T]):
+    def __call__(
+        self,
+        func: Union[Callable[P, T], Callable[P, Awaitable[T]]],
+        model: Optional[CallModel[P, T]] = None,
+    ) -> Union[Callable[P, T], Callable[P, Awaitable[T]]]:
+        ...
+
+
 def _wrap_inject(
     dependency_overrides_provider: Optional[Any],
     wrap_model: Callable[
@@ -91,13 +109,7 @@ def _wrap_inject(
         CallModel[P, T],
     ],
     extra_dependencies: Sequence[model.Depends],
-) -> Callable[
-    [
-        Union[Callable[P, T], Callable[P, Awaitable[T]]],
-        Optional[CallModel[P, T]],
-    ],
-    Union[Callable[P, T], Callable[P, Awaitable[T]]],
-]:
+) -> _InjectWrapper[P, T]:
     if (
         dependency_overrides_provider
         and getattr(dependency_overrides_provider, "dependency_overrides", None)
@@ -112,19 +124,21 @@ def _wrap_inject(
         model: Optional[CallModel[P, T]] = None,
     ) -> Union[Callable[P, T], Callable[P, Awaitable[T]]]:
         if model is None:
-            model = wrap_model(
+            real_model = wrap_model(
                 build_call_model(
                     func,
                     extra_dependencies=extra_dependencies,
                 )
             )
+        else:
+            real_model = model
 
-        if model.is_async:
+        if real_model.is_async:
 
             @wraps(func)
             async def injected_wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
                 async with AsyncExitStack() as stack:
-                    r = await model.asolve(
+                    r = await real_model.asolve(
                         *args,
                         stack=stack,
                         dependency_overrides=overrides,
@@ -138,7 +152,7 @@ def _wrap_inject(
             @wraps(func)
             def injected_wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
                 with ExitStack() as stack:
-                    r = model.solve(
+                    r = real_model.solve(
                         *args,
                         stack=stack,
                         dependency_overrides=overrides,

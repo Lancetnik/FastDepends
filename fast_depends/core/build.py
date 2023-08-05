@@ -94,6 +94,7 @@ def build_call_model(
         else:
             annotation = param.annotation
 
+        default: Any
         if param.name == "args":
             default = ()
         elif param.name == "kwargs":

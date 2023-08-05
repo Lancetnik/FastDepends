@@ -48,8 +48,8 @@ class CallModel(Generic[P, T]):
     dependencies: Dict[str, "CallModel[..., Any]"]
     extra_dependencies: Iterable["CallModel[..., Any]"]
     custom_fields: Dict[str, CustomField]
-    keyword_args: Tuple[str]
-    positional_args: Tuple[str]
+    keyword_args: Tuple[str, ...]
+    positional_args: Tuple[str, ...]
 
     # Dependencies and custom fields
     use_cache: bool
@@ -113,7 +113,7 @@ class CallModel(Generic[P, T]):
 
         fields: Dict[str, FieldInfo]
         if PYDANTIC_V2:
-            fields = self.model.model_fields  # type: ignore
+            fields = self.model.model_fields
         else:
             fields = self.model.__fields__  # type: ignore
 
@@ -122,8 +122,8 @@ class CallModel(Generic[P, T]):
         self.custom_fields = custom_fields or {}
 
         self.alias_arguments = [f.alias or name for name, f in fields.items()]
-        self.keyword_args = tuple(keyword_args or [])
-        self.positional_args = tuple(positional_args or [])
+        self.keyword_args = tuple(keyword_args or ())
+        self.positional_args = tuple(positional_args or ())
 
         self.params = fields.copy()
         for name in self.dependencies.keys():
@@ -159,7 +159,7 @@ class CallModel(Generic[P, T]):
             ]
         ] = None,
         **kwargs: P.kwargs,
-    ) -> Generator[Dict[str, Any], Any, T]:
+    ) -> Generator[Tuple[Iterable[Any], Dict[str, Any]], Any, T]:
         if dependency_overrides:
             self.call = dependency_overrides.get(self.call, self.call)
             assert self.is_async or not is_coroutine_callable(
@@ -197,7 +197,7 @@ class CallModel(Generic[P, T]):
                     kw[arg], args = args[0], args[1:]
 
         solved_kw: Dict[str, Any]
-        solved_kw = yield kw
+        solved_kw = yield (), kw
 
         casted_model = self.model(**solved_kw)
 
@@ -211,6 +211,7 @@ class CallModel(Generic[P, T]):
         }
         kwargs_.update(getattr(casted_model, "kwargs", {}))
 
+        args_: Iterable[Any]
         if has_args:
             args_ = [
                 getattr(casted_model, arg, solved_kw.get(arg))
@@ -264,7 +265,7 @@ class CallModel(Generic[P, T]):
             **kwargs,
         )
         try:
-            kwargs = next(cast_gen)
+            _, kwargs = next(cast_gen)
         except StopIteration as e:
             cached_value: T = e.value
             return cached_value
@@ -340,7 +341,7 @@ class CallModel(Generic[P, T]):
             **kwargs,
         )
         try:
-            kwargs = next(cast_gen)
+            _, kwargs = next(cast_gen)
         except StopIteration as e:
             cached_value: T = e.value
             return cached_value

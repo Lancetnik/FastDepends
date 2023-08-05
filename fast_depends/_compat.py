@@ -9,7 +9,7 @@ if PYDANTIC_V2:
     )
     from pydantic.fields import FieldInfo
 else:
-    from pydantic.fields import ModelField as FieldInfo  # type: ignore[no-redef]
+    from pydantic.fields import ModelField as FieldInfo  # type: ignore
     from pydantic.typing import evaluate_forwardref  # type: ignore[no-redef]
 
 

@@ -1,17 +1,8 @@
 from contextlib import AsyncExitStack, ExitStack
 from functools import wraps
-from typing import (
-    Any,
-    Awaitable,
-    Callable,
-    Optional,
-    Protocol,
-    Sequence,
-    Union,
-    overload,
-)
+from typing import Any, Awaitable, Callable, Optional, Sequence, Union, overload
 
-from typing_extensions import ParamSpec, TypeVar
+from typing_extensions import ParamSpec, Protocol, TypeVar
 
 from fast_depends.core import CallModel, build_call_model
 from fast_depends.dependencies import dependency_provider, model

@@ -73,6 +73,7 @@ dev = [
     "black>=23.3.0",
     "isort>=5",
     "ruff>=0.0.260",
+    "pyupgrade-directories",
 ]
 
 [tool.hatch.metadata]

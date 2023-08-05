@@ -146,6 +146,7 @@ def _wrap_inject(
                         **kwargs,
                     )
                     return r
+                raise AssertionError("unreachable")
 
         else:
 
@@ -160,6 +161,7 @@ def _wrap_inject(
                         **kwargs,
                     )
                     return r
+                raise AssertionError("unreachable")
 
         return injected_wrapper
 

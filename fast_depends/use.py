@@ -27,6 +27,15 @@ def Depends(
     )
 
 
+class _InjectWrapper(Protocol[P, T]):
+    def __call__(
+        self,
+        func: Union[Callable[P, T], Callable[P, Awaitable[T]]],
+        model: Optional[CallModel[P, T]] = None,
+    ) -> Union[Callable[P, T], Callable[P, Awaitable[T]]]:
+        ...
+
+
 @overload
 def inject(  # pragma: no covers
     func: None,
@@ -34,13 +43,7 @@ def inject(  # pragma: no covers
     dependency_overrides_provider: Optional[Any] = dependency_provider,
     extra_dependencies: Sequence[model.Depends] = (),
     wrap_model: Callable[[CallModel[P, T]], CallModel[P, T]] = lambda x: x,
-) -> Callable[
-    [
-        Union[Callable[P, T], Callable[P, Awaitable[T]]],
-        Optional[CallModel[P, T]],
-    ],
-    Union[Callable[P, T], Callable[P, Awaitable[T]]],
-]:
+) -> _InjectWrapper[P, T]:
     ...
 
 
@@ -61,16 +64,7 @@ def inject(
     dependency_overrides_provider: Optional[Any] = dependency_provider,
     extra_dependencies: Sequence[model.Depends] = (),
     wrap_model: Callable[[CallModel[P, T]], CallModel[P, T]] = lambda x: x,
-) -> Union[
-    Union[Callable[P, T], Callable[P, Awaitable[T]]],
-    Callable[
-        [
-            Union[Callable[P, T], Callable[P, Awaitable[T]]],
-            Optional[CallModel[P, T]],
-        ],
-        Union[Callable[P, T], Callable[P, Awaitable[T]]],
-    ],
-]:
+) -> Union[Union[Callable[P, T], Callable[P, Awaitable[T]]], _InjectWrapper[P, T],]:
     decorator = _wrap_inject(
         dependency_overrides_provider=dependency_overrides_provider,
         wrap_model=wrap_model,
@@ -82,15 +76,6 @@ def inject(
 
     else:
         return decorator(func)
-
-
-class _InjectWrapper(Protocol[P, T]):
-    def __call__(
-        self,
-        func: Union[Callable[P, T], Callable[P, Awaitable[T]]],
-        model: Optional[CallModel[P, T]] = None,
-    ) -> Union[Callable[P, T], Callable[P, Awaitable[T]]]:
-        ...
 
 
 def _wrap_inject(

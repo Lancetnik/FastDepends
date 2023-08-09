@@ -157,7 +157,7 @@ def build_call_model(
 
     func_model = create_model(name, **class_fields)  # type: ignore
 
-    if cast and return_annotation is not inspect._empty:
+    if cast and return_annotation and return_annotation is not inspect._empty:
         response_model = create_model(
             "ResponseModel", response=(return_annotation, ...)
         )

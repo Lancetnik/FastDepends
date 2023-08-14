@@ -20,7 +20,7 @@ from typing_extensions import (
     get_origin,
 )
 
-from fast_depends._compat import create_model
+from fast_depends._compat import create_model, CreateBaseModel
 from fast_depends.core.model import CallModel
 from fast_depends.dependencies import Depends
 from fast_depends.library import CustomField
@@ -155,11 +155,13 @@ def build_call_model(
             elif param.name not in ("args", "kwargs"):
                 positional_args.append(param.name)
 
-    func_model = create_model(name, **class_fields)  # type: ignore
+    func_model = create_model(name, __base__=CreateBaseModel, **class_fields)  # type: ignore
 
     if cast and return_annotation and return_annotation is not inspect._empty:
         response_model = create_model(
-            "ResponseModel", response=(return_annotation, ...)
+            "ResponseModel",
+            __base__=CreateBaseModel,
+            response=(return_annotation, ...),
         )
     else:
         response_model = None

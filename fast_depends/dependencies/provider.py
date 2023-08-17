@@ -1,4 +1,8 @@
-from typing import Any, Callable, Dict
+from typing import Any, Callable, Dict, Protocol
+
+
+class HasDependencyOverrides(Protocol):
+    dependency_overrides: Dict[Callable[..., Any], Callable[..., Any]]
 
 
 class Provider:

@@ -27,6 +27,32 @@ async def test_annotated_partial():
 
 
 @pytest.mark.asyncio
+async def test_arbitrary_args():
+    class ArbitraryType:
+        def __init__(self):
+            self.value = "value"
+
+    @inject
+    async def some_func(a: ArbitraryType):
+        return a
+
+    assert isinstance(await some_func(ArbitraryType()), ArbitraryType)
+
+
+@pytest.mark.asyncio
+async def test_arbitrary_response():
+    class ArbitraryType:
+        def __init__(self):
+            self.value = "value"
+
+    @inject
+    async def some_func(a: ArbitraryType) -> ArbitraryType:
+        return a
+
+    assert isinstance(await some_func(ArbitraryType()), ArbitraryType)
+
+
+@pytest.mark.asyncio
 async def test_types_casting():
     @inject
     async def some_func(a: int, b: int) -> float:

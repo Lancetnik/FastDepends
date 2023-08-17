@@ -24,6 +24,30 @@ def test_annotated_partial():
     assert isinstance(some_func(1, "2"), int)
 
 
+async def test_arbitrary_args():
+    class ArbitraryType:
+        def __init__(self):
+            self.value = "value"
+
+    @inject
+    def some_func(a: ArbitraryType):
+        return a
+
+    assert isinstance(await some_func(ArbitraryType()), ArbitraryType)
+
+
+async def test_arbitrary_response():
+    class ArbitraryType:
+        def __init__(self):
+            self.value = "value"
+
+    @inject
+    def some_func(a: ArbitraryType) -> ArbitraryType:
+        return a
+
+    assert isinstance(await some_func(ArbitraryType()), ArbitraryType)
+
+
 def test_validation_error():
     @inject
     def some_func(a, b: str = Field(..., max_length=1)):  # pragma: no cover

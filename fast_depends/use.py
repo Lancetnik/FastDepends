@@ -1,6 +1,6 @@
 from contextlib import AsyncExitStack, ExitStack
 from functools import wraps
-from typing import Any, Awaitable, Callable, Optional, Sequence, Union, overload
+from typing import Any, Dict, Awaitable, Callable, Optional, Sequence, Union, overload
 
 from typing_extensions import ParamSpec, Protocol, TypeVar
 
@@ -80,7 +80,7 @@ def inject(
 
 def _resolve_overrides_provider(
     dependency_overrides_provider: Optional[Any],
-) -> Optional[dict[Callable[..., Any], Callable[..., Any]]]:
+) -> Optional[Dict[Callable[..., Any], Callable[..., Any]]]:
     if not dependency_overrides_provider:
         return None
 

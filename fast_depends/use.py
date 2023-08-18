@@ -6,7 +6,6 @@ from typing_extensions import ParamSpec, Protocol, TypeVar
 
 from fast_depends.core import CallModel, build_call_model
 from fast_depends.dependencies import dependency_provider, model
-from fast_depends.dependencies.provider import HasDependencyOverrides
 
 P = ParamSpec("P")
 T = TypeVar("T")
@@ -41,9 +40,7 @@ class _InjectWrapper(Protocol[P, T]):
 def inject(  # pragma: no covers
     func: None,
     *,
-    dependency_overrides_provider: Optional[
-        HasDependencyOverrides
-    ] = dependency_provider,
+    dependency_overrides_provider: Optional[Any] = dependency_provider,
     extra_dependencies: Sequence[model.Depends] = (),
     wrap_model: Callable[[CallModel[P, T]], CallModel[P, T]] = lambda x: x,
 ) -> _InjectWrapper[P, T]:
@@ -54,9 +51,7 @@ def inject(  # pragma: no covers
 def inject(  # pragma: no covers
     func: Callable[P, T],
     *,
-    dependency_overrides_provider: Optional[
-        HasDependencyOverrides
-    ] = dependency_provider,
+    dependency_overrides_provider: Optional[Any] = dependency_provider,
     extra_dependencies: Sequence[model.Depends] = (),
     wrap_model: Callable[[CallModel[P, T]], CallModel[P, T]] = lambda x: x,
 ) -> Callable[P, T]:
@@ -66,9 +61,7 @@ def inject(  # pragma: no covers
 def inject(
     func: Optional[Union[Callable[P, T], Callable[P, Awaitable[T]]]] = None,
     *,
-    dependency_overrides_provider: Optional[
-        HasDependencyOverrides
-    ] = dependency_provider,
+    dependency_overrides_provider: Optional[Any] = dependency_provider,
     extra_dependencies: Sequence[model.Depends] = (),
     wrap_model: Callable[[CallModel[P, T]], CallModel[P, T]] = lambda x: x,
 ) -> Union[Union[Callable[P, T], Callable[P, Awaitable[T]]], _InjectWrapper[P, T],]:
@@ -86,7 +79,7 @@ def inject(
 
 
 def _resolve_overrides_provider(
-    dependency_overrides_provider: Optional[HasDependencyOverrides],
+    dependency_overrides_provider: Optional[Any],
 ) -> Optional[dict[Callable[..., Any], Callable[..., Any]]]:
     if not dependency_overrides_provider:
         return None
@@ -95,7 +88,7 @@ def _resolve_overrides_provider(
 
 
 def _wrap_inject(
-    dependency_overrides_provider: Optional[HasDependencyOverrides],
+    dependency_overrides_provider: Optional[Any],
     wrap_model: Callable[
         [CallModel[P, T]],
         CallModel[P, T],

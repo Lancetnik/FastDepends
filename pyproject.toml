@@ -35,6 +35,7 @@ classifiers = [
     "Intended Audience :: Information Technology",
     "Framework :: Pydantic",
     "Framework :: Pydantic :: 1",
+    "Framework :: Pydantic :: 2",
 ]
 
 dependencies = [

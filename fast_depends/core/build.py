@@ -20,7 +20,7 @@ from typing_extensions import (
     get_origin,
 )
 
-from fast_depends._compat import create_model, CreateBaseModel
+from fast_depends._compat import CreateBaseModel, create_model
 from fast_depends.core.model import CallModel
 from fast_depends.dependencies import Depends
 from fast_depends.library import CustomField

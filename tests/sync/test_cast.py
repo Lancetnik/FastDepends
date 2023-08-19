@@ -24,7 +24,7 @@ def test_annotated_partial():
     assert isinstance(some_func(1, "2"), int)
 
 
-async def test_arbitrary_args():
+def test_arbitrary_args():
     class ArbitraryType:
         def __init__(self):
             self.value = "value"
@@ -33,10 +33,10 @@ async def test_arbitrary_args():
     def some_func(a: ArbitraryType):
         return a
 
-    assert isinstance(await some_func(ArbitraryType()), ArbitraryType)
+    assert isinstance(some_func(ArbitraryType()), ArbitraryType)
 
 
-async def test_arbitrary_response():
+def test_arbitrary_response():
     class ArbitraryType:
         def __init__(self):
             self.value = "value"
@@ -45,7 +45,7 @@ async def test_arbitrary_response():
     def some_func(a: ArbitraryType) -> ArbitraryType:
         return a
 
-    assert isinstance(await some_func(ArbitraryType()), ArbitraryType)
+    assert isinstance(some_func(ArbitraryType()), ArbitraryType)
 
 
 def test_validation_error():

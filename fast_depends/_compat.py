@@ -17,7 +17,7 @@ else:
     from pydantic.fields import ModelField as FieldInfo  # type: ignore
     from pydantic.typing import evaluate_forwardref  # type: ignore[no-redef]
 
-    class CreateBaseModel(BaseModel):
+    class CreateBaseModel(BaseModel):  # type: ignore[no-redef]
         class Config:
             arbitrary_types_allowed = True
 

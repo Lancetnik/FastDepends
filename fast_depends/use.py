@@ -1,6 +1,6 @@
 from contextlib import AsyncExitStack, ExitStack
 from functools import wraps
-from typing import Any, Awaitable, Callable, Optional, Sequence, Union, overload
+from typing import Any, Callable, Optional, Sequence, Union, overload
 
 from typing_extensions import ParamSpec, Protocol, TypeVar
 
@@ -12,10 +12,7 @@ T = TypeVar("T")
 
 
 def Depends(
-    dependency: Union[
-        Callable[P, T],
-        Callable[P, Awaitable[T]],
-    ],
+    dependency: Callable[P, T],
     *,
     use_cache: bool = True,
     cast: bool = True,
@@ -30,14 +27,14 @@ def Depends(
 class _InjectWrapper(Protocol[P, T]):
     def __call__(
         self,
-        func: Union[Callable[P, T], Callable[P, Awaitable[T]]],
+        func: Callable[P, T],
         model: Optional[CallModel[P, T]] = None,
-    ) -> Union[Callable[P, T], Callable[P, Awaitable[T]]]:
+    ) -> Callable[P, T]:
         ...
 
 
 @overload
-def inject(  # pragma: no covers
+def inject(  # pragma: no cover
     func: None,
     *,
     dependency_overrides_provider: Optional[Any] = dependency_provider,
@@ -48,7 +45,7 @@ def inject(  # pragma: no covers
 
 
 @overload
-def inject(  # pragma: no covers
+def inject(  # pragma: no cover
     func: Callable[P, T],
     *,
     dependency_overrides_provider: Optional[Any] = dependency_provider,
@@ -59,12 +56,12 @@ def inject(  # pragma: no covers
 
 
 def inject(
-    func: Optional[Union[Callable[P, T], Callable[P, Awaitable[T]]]] = None,
+    func: Optional[Callable[P, T]] = None,
     *,
     dependency_overrides_provider: Optional[Any] = dependency_provider,
     extra_dependencies: Sequence[model.Depends] = (),
     wrap_model: Callable[[CallModel[P, T]], CallModel[P, T]] = lambda x: x,
-) -> Union[Union[Callable[P, T], Callable[P, Awaitable[T]]], _InjectWrapper[P, T],]:
+) -> Union[Callable[P, T], _InjectWrapper[P, T],]:
     decorator = _wrap_inject(
         dependency_overrides_provider=dependency_overrides_provider,
         wrap_model=wrap_model,
@@ -96,9 +93,9 @@ def _wrap_inject(
         overrides = None
 
     def func_wrapper(
-        func: Union[Callable[P, T], Callable[P, Awaitable[T]]],
+        func: Callable[P, T],
         model: Optional[CallModel[P, T]] = None,
-    ) -> Union[Callable[P, T], Callable[P, Awaitable[T]]]:
+    ) -> Callable[P, T]:
         if model is None:
             real_model = wrap_model(
                 build_call_model(
@@ -139,6 +136,6 @@ def _wrap_inject(
                     return r
                 raise AssertionError("unreachable")
 
-        return injected_wrapper
+        return injected_wrapper  # type: ignore[return-value]
 
     return func_wrapper

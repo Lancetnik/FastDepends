@@ -174,7 +174,7 @@ class solve_async_gen:
 
     def __init__(
         self,
-        model: "CallModel[..., Any]",
+        model: CallModel[..., Any],
         overrides: Optional[Any],
         *args: Any,
         **kwargs: Any,
@@ -193,7 +193,7 @@ class solve_async_gen:
         if self.iter is None:
             stack = self.stack = AsyncExitStack()
             await self.stack.__aenter__()
-            self.iter: AsyncIterator[Any] = aiter(
+            self.iter: AsyncIterator[Any] = (
                 await self.call.asolve(
                     *self.args,
                     stack=stack,
@@ -202,10 +202,10 @@ class solve_async_gen:
                     nested=False,
                     **self.kwargs,
                 )
-            )
+            ).__aiter__()
 
         try:
-            r = await anext(self.iter)
+            r = await self.iter.__anext__()
         except StopAsyncIteration as e:
             await self.stack.__aexit__(None, None, None)
             raise e
@@ -218,7 +218,7 @@ class solve_gen:
 
     def __init__(
         self,
-        model: "CallModel[..., Any]",
+        model: CallModel[..., Any],
         overrides: Optional[Any],
         *args: Any,
         **kwargs: Any,

@@ -286,6 +286,31 @@ async def test_not_cast():
 
 
 @pytest.mark.asyncio
+async def test_not_cast_main():
+    @dataclass
+    class A:
+        a: int
+
+    async def dep() -> A:
+        return A(a=1)
+
+    async def get_logger() -> logging.Logger:
+        return logging.getLogger(__file__)
+
+    @inject(cast=False)
+    async def some_func(
+        b: str,
+        a: A = Depends(dep),
+        logger: logging.Logger = Depends(get_logger),
+    ) -> str:
+        assert a.a == 1
+        assert logger
+        return b
+
+    assert (await some_func(1)) == 1
+
+
+@pytest.mark.asyncio
 async def test_extra():
     mock = Mock()
 
@@ -303,3 +328,25 @@ async def test_extra():
     mock.assert_called_once()
     mock.async_call.assert_called_once()
     mock.sync_call.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_generator():
+    mock = Mock()
+
+    async def func():
+        mock.start()
+        yield
+        mock.end()
+
+    @inject
+    async def simple_func(a: str, d=Depends(func)) -> int:
+        for _ in range(2):
+            yield a
+
+    async for i in simple_func("1"):
+        mock.start.assert_called_once()
+        assert not mock.end.called
+        assert i == 1
+
+    mock.end.assert_called_once()

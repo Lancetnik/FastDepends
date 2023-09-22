@@ -162,6 +162,30 @@ def test_not_cast():
     assert some_func(1) == 1
 
 
+def test_not_cast_main():
+    @dataclass
+    class A:
+        a: int
+
+    def dep() -> A:
+        return A(a=1)
+
+    def get_logger() -> logging.Logger:
+        return logging.getLogger(__file__)
+
+    @inject(cast=False)
+    def some_func(
+        b: str,
+        a: A = Depends(dep),
+        logger: logging.Logger = Depends(get_logger),
+    ) -> str:
+        assert a.a == 1
+        assert logger
+        return b
+
+    assert some_func(1) == 1
+
+
 def test_extra():
     mock = Mock()
 
@@ -199,3 +223,24 @@ def test_async_depends():
         @inject
         def some_func(a: int, b: int, c=Depends(dep_func)) -> str:  # pragma: no cover
             return a + b + c
+
+
+def test_generator():
+    mock = Mock()
+
+    def func():
+        mock.start()
+        yield
+        mock.end()
+
+    @inject
+    def simple_func(a: str, d=Depends(func)) -> int:
+        for _ in range(2):
+            yield a
+
+    for i in simple_func("1"):
+        mock.start.assert_called_once()
+        assert not mock.end.called
+        assert i == 1
+
+    mock.end.assert_called_once()

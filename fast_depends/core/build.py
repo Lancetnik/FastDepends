@@ -8,6 +8,7 @@ from typing import (
     Optional,
     Sequence,
     Tuple,
+    Type,
     Union,
 )
 
@@ -21,7 +22,7 @@ from typing_extensions import (
 )
 
 from fast_depends._compat import CreateBaseModel, create_model
-from fast_depends.core.model import CallModel
+from fast_depends.core.model import CallModel, ResponseModel
 from fast_depends.dependencies import Depends
 from fast_depends.library import CustomField
 from fast_depends.utils import get_typed_signature, is_coroutine_callable
@@ -121,6 +122,9 @@ def build_call_model(
             class_fields[param.name] = (annotation, default)
 
         if dep:
+            if not cast:
+                dep.cast = False
+
             dependencies[param.name] = build_call_model(
                 dep.dependency,
                 cast=dep.cast,
@@ -155,12 +159,16 @@ def build_call_model(
             elif param.name not in ("args", "kwargs"):
                 positional_args.append(param.name)
 
-    func_model = create_model(name, __base__=CreateBaseModel, **class_fields)  # type: ignore
+    func_model = create_model(  # type: ignore[call-overload]
+        name,
+        __base__=(CreateBaseModel,),
+        **class_fields,
+    )
 
     if cast and return_annotation and return_annotation is not inspect._empty:
-        response_model = create_model(
+        response_model: Optional[Type[ResponseModel[T]]] = create_model(
             "ResponseModel",
-            __base__=CreateBaseModel,
+            __base__=(CreateBaseModel,),  # type: ignore[arg-type]
             response=(return_annotation, ...),
         )
     else:

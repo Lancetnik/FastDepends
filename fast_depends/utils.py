@@ -5,6 +5,7 @@ from contextlib import AsyncExitStack, ExitStack, asynccontextmanager, contextma
 from typing import (
     Any,
     AsyncGenerator,
+    AsyncIterable,
     Awaitable,
     Callable,
     ContextManager,
@@ -132,3 +133,10 @@ def is_coroutine_callable(call: Callable[..., Any]) -> bool:
 
     call_ = getattr(call, "__call__", None)  # noqa: B004
     return asyncio.iscoroutinefunction(call_)
+
+
+async def async_map(
+    func: Callable[..., T], async_iterable: AsyncIterable[Any]
+) -> AsyncIterable[T]:
+    async for i in async_iterable:
+        yield func(i)

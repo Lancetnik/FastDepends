@@ -178,3 +178,14 @@ async def test_args_kwargs_3():
         1.0,
         b=3.0,
     )
+
+
+@pytest.mark.asyncio
+async def test_generator():
+    @inject
+    async def simple_func(a: str) -> int:
+        for _ in range(2):
+            yield a
+
+    async for i in simple_func("1"):
+        assert i == 1

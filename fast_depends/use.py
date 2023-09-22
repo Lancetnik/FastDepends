@@ -174,7 +174,7 @@ class solve_async_gen:
 
     def __init__(
         self,
-        model: CallModel[..., Any],
+        model: "CallModel[..., Any]",
         overrides: Optional[Any],
         *args: Any,
         **kwargs: Any,
@@ -218,7 +218,7 @@ class solve_gen:
 
     def __init__(
         self,
-        model: CallModel[..., Any],
+        model: "CallModel[..., Any]",
         overrides: Optional[Any],
         *args: Any,
         **kwargs: Any,

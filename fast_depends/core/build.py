@@ -58,7 +58,7 @@ def build_call_model(
     typed_params, return_annotation = get_typed_signature(call)
 
     class_fields: Dict[str, Tuple[Any, Any]] = {}
-    dependencies: Dict[str, CallModel[..., Any]] = {}
+    dependencies: Dict[str, "CallModel[..., Any]"] = {}
     custom_fields: Dict[str, CustomField] = {}
     positional_args: List[str] = []
     keyword_args: List[str] = []

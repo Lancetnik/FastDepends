@@ -14,6 +14,11 @@ jobs:
       matrix:
         python-version: ["3.7", "3.8", "3.9", "3.10", "3.11"]
         pydantic-version: ["pydantic-v1", "pydantic-v2"]
+        experimental: [false]
+        include:
+          - python-version: "3.12.0-rc.3"
+            pydantic-version: "pydantic-v2"
+            experimental: true
       fail-fast: false
     
     services:

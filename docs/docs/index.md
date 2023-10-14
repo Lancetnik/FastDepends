@@ -15,7 +15,7 @@ hide:
     <img src="https://img.shields.io/pypi/v/fast-depends?label=pypi%20package" alt="Package version">
 </a>
 <a href="https://pepy.tech/project/fast-depends" target="_blank">
-    <img src="https://static.pepy.tech/personalized-badge/fast-depends?period=total&units=international_system&left_color=grey&right_color=blue&left_text=Downloads" alt="downloads"/>
+    <img src="https://static.pepy.tech/personalized-badge/fast-depends?period=month&units=international_system&left_color=grey&right_color=blue" alt="downloads"/>
 </a>
 <a href="https://pypi.org/project/fast-depends" target="_blank">
     <img src="https://img.shields.io/pypi/pyversions/fast-depends.svg" alt="Supported Python versions">

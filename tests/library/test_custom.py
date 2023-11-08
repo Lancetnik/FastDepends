@@ -30,7 +30,7 @@ def test_header():
     assert sync_catch(headers={"key": "1"}) == 1
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_header_async():
     @inject
     async def async_catch(key: int = Header()):  # noqa: B008
@@ -48,7 +48,7 @@ def test_multiple_header():
     sync_catch(headers={"key": "1", "key2": "2"})
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_async_header_async():
     @inject
     async def async_catch(key: float = AsyncHeader()):  # noqa: B008

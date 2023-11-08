@@ -9,7 +9,7 @@ from typing_extensions import Annotated
 from fast_depends import Depends, inject
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_depends():
     async def dep_func(b: int, a: int = 3) -> float:
         return a + b
@@ -22,7 +22,7 @@ async def test_depends():
     assert (await some_func("2")) == 7
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_sync_depends():
     def dep_func(a: int) -> float:
         return a
@@ -35,7 +35,7 @@ async def test_sync_depends():
     assert await some_func("1", "2")
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_depends_response_cast():
     async def dep_func(a):
         return a
@@ -48,7 +48,7 @@ async def test_depends_response_cast():
     assert await some_func("1", "2")
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_depends_error():
     async def dep_func(b: dict, a: int = 3) -> float:  # pragma: no cover
         return a + b
@@ -67,7 +67,7 @@ async def test_depends_error():
         assert await some_func("2")
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_depends_annotated():
     async def dep_func(a):
         return a
@@ -87,7 +87,7 @@ async def test_depends_annotated():
     assert (await another_func(3)) == 6.0
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_cash():
     mock = Mock()
 
@@ -107,7 +107,7 @@ async def test_cash():
     mock.assert_called_once()
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_yield():
     mock = Mock()
 
@@ -127,7 +127,7 @@ async def test_yield():
     mock.exit.assert_called_once()
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_sync_yield():
     mock = Mock()
 
@@ -147,7 +147,7 @@ async def test_sync_yield():
     mock.exit.assert_called_once()
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_sync_yield_exception():
     mock = Mock()
 
@@ -169,7 +169,7 @@ async def test_sync_yield_exception():
     assert not mock.exit.called
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_sync_yield_exception_start():
     mock = Mock()
 
@@ -187,7 +187,7 @@ async def test_sync_yield_exception_start():
     assert not mock.called
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_sync_yield_exception_main():
     mock = Mock()
 
@@ -211,7 +211,7 @@ async def test_sync_yield_exception_main():
     mock.exit.assert_called_once()
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_class_depends():
     class MyDep:
         def __init__(self, a: int):
@@ -226,7 +226,7 @@ async def test_class_depends():
     await some_func(3)
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_callable_class_depends():
     class MyDep:
         def __init__(self, a: int):
@@ -243,7 +243,7 @@ async def test_callable_class_depends():
     await some_func()
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_async_callable_class_depends():
     class MyDep:
         def __init__(self, a: int):
@@ -260,7 +260,7 @@ async def test_async_callable_class_depends():
     await some_func()
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_not_cast():
     @dataclass
     class A:
@@ -285,7 +285,7 @@ async def test_not_cast():
     assert (await some_func(1)) == 1
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_not_cast_main():
     @dataclass
     class A:
@@ -310,7 +310,7 @@ async def test_not_cast_main():
     assert (await some_func(1)) == 1
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_extra():
     mock = Mock()
 
@@ -330,7 +330,7 @@ async def test_extra():
     mock.sync_call.assert_called_once()
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_generator():
     mock = Mock()
 

@@ -67,7 +67,7 @@ def test_sync_by_async_override(provider):
         func()
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_async_override(provider):
     mock = Mock()
 
@@ -91,7 +91,7 @@ async def test_async_override(provider):
     assert not mock.original.called
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_async_by_sync_override(provider):
     mock = Mock()
 

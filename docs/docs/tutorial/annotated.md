@@ -139,5 +139,5 @@ func(user_id=1)  # correct calling
     Like in the following example
 
     ```python
-    def func(user_id: Annotated[int: Field(...)], user: CurrentUser): ...
+    def func(user_id: Annotated[int, Field(...)], user: CurrentUser): ...
     ```

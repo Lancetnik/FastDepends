@@ -7,7 +7,7 @@ from typing_extensions import Annotated
 from fast_depends import inject
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_not_annotated():
     @inject
     async def some_func(a, b):
@@ -16,7 +16,7 @@ async def test_not_annotated():
     assert isinstance(await some_func("1", "2"), str)
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_annotated_partial():
     @inject
     async def some_func(a, b: int):
@@ -26,7 +26,7 @@ async def test_annotated_partial():
     assert isinstance(await some_func(1, "2"), int)
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_arbitrary_args():
     class ArbitraryType:
         def __init__(self):
@@ -39,7 +39,7 @@ async def test_arbitrary_args():
     assert isinstance(await some_func(ArbitraryType()), ArbitraryType)
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_arbitrary_response():
     class ArbitraryType:
         def __init__(self):
@@ -52,7 +52,7 @@ async def test_arbitrary_response():
     assert isinstance(await some_func(ArbitraryType()), ArbitraryType)
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_types_casting():
     @inject
     async def some_func(a: int, b: int) -> float:
@@ -65,7 +65,7 @@ async def test_types_casting():
     assert isinstance(await some_func("1", "2"), float)
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_types_casting_from_str():
     @inject
     async def some_func(a: "int") -> float:
@@ -74,7 +74,7 @@ async def test_types_casting_from_str():
     assert isinstance(await some_func("1"), float)
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_pydantic_types_casting():
     class SomeModel(BaseModel):
         field: int
@@ -86,7 +86,7 @@ async def test_pydantic_types_casting():
     assert isinstance(await some_func({"field": "31"}), int)
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_pydantic_field_types_casting():
     @inject
     async def some_func(a: int = Field(..., alias="b")) -> float:
@@ -102,7 +102,7 @@ async def test_pydantic_field_types_casting():
     assert isinstance(await another_func(b="2"), float)
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_wrong_incoming_types():
     @inject
     async def some_func(a: int):  # pragma: no cover
@@ -112,7 +112,7 @@ async def test_wrong_incoming_types():
         await some_func({"key", 1})
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_wrong_return_types():
     @inject
     async def some_func(a: int) -> dict:
@@ -122,7 +122,7 @@ async def test_wrong_return_types():
         await some_func("2")
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_annotated():
     A = Annotated[int, Field(..., alias="b")]
 
@@ -134,7 +134,7 @@ async def test_annotated():
     assert isinstance(await some_func(b="2"), float)
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_args_kwargs_1():
     @inject
     async def simple_func(
@@ -150,7 +150,7 @@ async def test_args_kwargs_1():
     )
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_args_kwargs_2():
     @inject
     async def simple_func(
@@ -168,7 +168,7 @@ async def test_args_kwargs_2():
     )
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_args_kwargs_3():
     @inject
     async def simple_func(a: int, *, b: int):
@@ -180,7 +180,7 @@ async def test_args_kwargs_3():
     )
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_generator():
     @inject
     async def simple_func(a: str) -> int:

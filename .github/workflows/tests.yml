@@ -20,12 +20,6 @@ jobs:
             pydantic-version: "pydantic-v2"
             experimental: true
       fail-fast: false
-    
-    services:
-      redis:
-        image: rabbitmq
-        ports:
-          - 5672:5672
 
     steps:
       - uses: actions/checkout@v4

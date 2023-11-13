@@ -1,9 +1,9 @@
 name: Publish
 
 on:
-  workflow_run:
-    workflows: [Test]
-    types: [completed]
+  push:
+    tags:
+      - "*"
 
 jobs:
   publish:

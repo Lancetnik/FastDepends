@@ -62,7 +62,8 @@ def build_call_model(
     custom_fields: Dict[str, CustomField] = {}
     positional_args: List[str] = []
     keyword_args: List[str] = []
-    for param in typed_params:
+
+    for param_name, param in typed_params.parameters.items():
         dep: Optional[Depends] = None
         custom: Optional[CustomField] = None
 
@@ -78,7 +79,7 @@ def build_call_model(
 
             assert (
                 len(custom_annotations) <= 1
-            ), f"Cannot specify multiple `Annotated` Custom arguments for `{param.name}`!"
+            ), f"Cannot specify multiple `Annotated` Custom arguments for `{param_name}`!"
 
             next_custom = next(iter(custom_annotations), None)
             if next_custom is not None:
@@ -96,9 +97,9 @@ def build_call_model(
             annotation = param.annotation
 
         default: Any
-        if param.name == "args":
+        if param_name == "args":
             default = ()
-        elif param.name == "kwargs":
+        elif param_name == "kwargs":
             default = {}
         else:
             default = param.default
@@ -116,16 +117,16 @@ def build_call_model(
             custom = default
 
         elif default is inspect._empty:
-            class_fields[param.name] = (annotation, ...)
+            class_fields[param_name] = (annotation, ...)
 
         else:
-            class_fields[param.name] = (annotation, default)
+            class_fields[param_name] = (annotation, default)
 
         if dep:
             if not cast:
                 dep.cast = False
 
-            dependencies[param.name] = build_call_model(
+            dependencies[param_name] = build_call_model(
                 dep.dependency,
                 cast=dep.cast,
                 use_cache=dep.use_cache,
@@ -133,31 +134,31 @@ def build_call_model(
             )
 
             if dep.cast is True:
-                class_fields[param.name] = (annotation, ...)
-            keyword_args.append(param.name)
+                class_fields[param_name] = (annotation, ...)
+            keyword_args.append(param_name)
 
         elif custom:
             assert not (
                 is_sync and is_coroutine_callable(custom.use)
             ), f"You cannot use async custom field `{type(custom).__name__}` at sync `{name}`"
 
-            custom.set_param_name(param.name)
-            custom_fields[param.name] = custom
+            custom.set_param_name(param_name)
+            custom_fields[param_name] = custom
 
             if custom.cast is False:
                 annotation = Any
 
             if custom.required:
-                class_fields[param.name] = (annotation, ...)
+                class_fields[param_name] = (annotation, ...)
             else:
-                class_fields[param.name] = (Optional[annotation], None)
-            keyword_args.append(param.name)
+                class_fields[param_name] = (Optional[annotation], None)
+            keyword_args.append(param_name)
 
         else:
             if param.kind is param.KEYWORD_ONLY:
-                keyword_args.append(param.name)
-            elif param.name not in ("args", "kwargs"):
-                positional_args.append(param.name)
+                keyword_args.append(param_name)
+            elif param_name not in ("args", "kwargs"):
+                positional_args.append(param_name)
 
     func_model = create_model(  # type: ignore[call-overload]
         name,

@@ -2,6 +2,7 @@ import asyncio
 import functools
 import inspect
 from contextlib import AsyncExitStack, ExitStack, asynccontextmanager, contextmanager
+from types import FrameType
 from typing import (
     Any,
     AsyncGenerator,
@@ -11,7 +12,7 @@ from typing import (
     ContextManager,
     Dict,
     ForwardRef,
-    List,
+    Optional,
     Tuple,
     Union,
     cast,
@@ -65,27 +66,56 @@ def solve_generator_sync(
     return stack.enter_context(cm)
 
 
-def get_typed_signature(
-    call: Callable[..., Any]
-) -> Tuple[List[inspect.Parameter], Any]:
+def get_typed_signature(call: Callable[..., Any]) -> Tuple[inspect.Signature, Any]:
     signature = inspect.signature(call)
-    globalns = getattr(call, "__globals__", {})
 
-    return [
+    locals = getattr(
+        get_first_outer_frame(),
+        "f_locals",
+        {},
+    )
+
+    globalns = getattr(call, "__globals__", {})
+    typed_params = [
         inspect.Parameter(
             name=param.name,
             kind=param.kind,
             default=param.default,
-            annotation=get_typed_annotation(param.annotation, globalns),
+            annotation=get_typed_annotation(
+                param.annotation,
+                globalns,
+                locals,
+            ),
         )
         for param in signature.parameters.values()
-    ], signature.return_annotation
+    ]
+
+    return inspect.Signature(typed_params), get_typed_annotation(
+        signature.return_annotation,
+        globalns,
+        locals,
+    )
 
 
-def get_typed_annotation(annotation: Any, globalns: Dict[str, Any]) -> Any:
+def get_first_outer_frame() -> Optional[FrameType]:
+    frame = inspect.currentframe()
+    while frame is not None:
+        if "fast_depends" not in frame.f_code.co_filename:
+            break
+
+        frame = frame.f_back
+
+    return frame
+
+
+def get_typed_annotation(
+    annotation: Any,
+    globalns: Dict[str, Any],
+    locals: Dict[str, Any],
+) -> Any:
     if isinstance(annotation, str):
         annotation = ForwardRef(annotation)
-        annotation = evaluate_forwardref(annotation, globalns, globalns)
+        annotation = evaluate_forwardref(annotation, globalns, locals)
     return annotation
 
 

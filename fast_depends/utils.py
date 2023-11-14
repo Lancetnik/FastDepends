@@ -11,7 +11,6 @@ from typing import (
     ContextManager,
     Dict,
     ForwardRef,
-    List,
     Tuple,
     Union,
     cast,
@@ -65,27 +64,54 @@ def solve_generator_sync(
     return stack.enter_context(cm)
 
 
-def get_typed_signature(
-    call: Callable[..., Any]
-) -> Tuple[List[inspect.Parameter], Any]:
+def get_typed_signature(call: Callable[..., Any]) -> Tuple[inspect.Signature, Any]:
     signature = inspect.signature(call)
-    globalns = getattr(call, "__globals__", {})
 
-    return [
+    locals = collect_outer_stack_locals()
+
+    globalns = getattr(call, "__globals__", {})
+    typed_params = [
         inspect.Parameter(
             name=param.name,
             kind=param.kind,
             default=param.default,
-            annotation=get_typed_annotation(param.annotation, globalns),
+            annotation=get_typed_annotation(
+                param.annotation,
+                globalns,
+                locals,
+            ),
         )
         for param in signature.parameters.values()
-    ], signature.return_annotation
+    ]
+
+    return inspect.Signature(typed_params), get_typed_annotation(
+        signature.return_annotation,
+        globalns,
+        locals,
+    )
 
 
-def get_typed_annotation(annotation: Any, globalns: Dict[str, Any]) -> Any:
+def collect_outer_stack_locals() -> Dict[str, Any]:
+    frame = inspect.currentframe()
+
+    locals = {}
+    while frame is not None:
+        if "fast_depends" not in frame.f_code.co_filename:
+            locals.update(frame.f_locals)
+
+        frame = frame.f_back
+
+    return locals
+
+
+def get_typed_annotation(
+    annotation: Any,
+    globalns: Dict[str, Any],
+    locals: Dict[str, Any],
+) -> Any:
     if isinstance(annotation, str):
         annotation = ForwardRef(annotation)
-        annotation = evaluate_forwardref(annotation, globalns, globalns)
+        annotation = evaluate_forwardref(annotation, globalns, locals)
     return annotation
 
 

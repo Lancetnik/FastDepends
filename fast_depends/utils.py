@@ -2,7 +2,6 @@ import asyncio
 import functools
 import inspect
 from contextlib import AsyncExitStack, ExitStack, asynccontextmanager, contextmanager
-from types import FrameType
 from typing import (
     Any,
     AsyncGenerator,
@@ -12,7 +11,6 @@ from typing import (
     ContextManager,
     Dict,
     ForwardRef,
-    Optional,
     Tuple,
     Union,
     cast,
@@ -69,11 +67,7 @@ def solve_generator_sync(
 def get_typed_signature(call: Callable[..., Any]) -> Tuple[inspect.Signature, Any]:
     signature = inspect.signature(call)
 
-    locals = getattr(
-        get_first_outer_frame(),
-        "f_locals",
-        {},
-    )
+    locals = collect_outer_stack_locals()
 
     globalns = getattr(call, "__globals__", {})
     typed_params = [
@@ -97,15 +91,17 @@ def get_typed_signature(call: Callable[..., Any]) -> Tuple[inspect.Signature, An
     )
 
 
-def get_first_outer_frame() -> Optional[FrameType]:
+def collect_outer_stack_locals() -> Dict[str, Any]:
     frame = inspect.currentframe()
+
+    locals = {}
     while frame is not None:
         if "fast_depends" not in frame.f_code.co_filename:
-            break
+            locals.update(frame.f_locals)
 
         frame = frame.f_back
 
-    return frame
+    return locals
 
 
 def get_typed_annotation(

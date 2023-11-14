@@ -5,11 +5,15 @@ from pydantic import BaseModel
 from fast_depends import inject
 
 
+def wrap(func):
+    return inject(func)
+
+
 def test_localns():
     class M(BaseModel):
         a: str
 
-    @inject
+    @wrap
     def m(a: M) -> M:
         return a
 

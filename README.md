@@ -33,7 +33,7 @@ This is a small library which provides you with the ability to use lovely FastAP
 projects or tools.
 
 Thanks to [*fastapi*](https://fastapi.tiangolo.com/) and [*pydantic*](https://docs.pydantic.dev/) projects for this
-greate functionality. This package is just a small change of the original FastAPI sources to provide DI functionality in a pyre-Python way.
+greate functionality. This package is just a small change of the original FastAPI sources to provide DI functionality in a pure-Python way.
 
 Async and sync modes are both supported.
 

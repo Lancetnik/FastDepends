@@ -6,7 +6,7 @@ from starlette.responses import PlainTextResponse
 from starlette.routing import Route
 
 class Path(CustomField):
-    def use(self, *, request, **kwargs):
+    def use(self, /, *, request, **kwargs):
         return {
             **super().use(request=request, **kwargs),
             self.param_name: request.path_params.get(self.param_name)

@@ -10,7 +10,7 @@ from fast_depends.library import CustomField
 
 
 class Header(CustomField):
-    def use(self, **kwargs: Callable[..., Any]) -> Callable[..., Any]:
+    def use(self, /, **kwargs: Callable[..., Any]) -> Callable[..., Any]:
         kwargs = super().use(**kwargs)
         if kwargs.get("headers", {}).get(self.param_name):
             kwargs[self.param_name] = kwargs.get("headers", {}).get(self.param_name)
@@ -28,6 +28,15 @@ def test_header():
         return key
 
     assert sync_catch(headers={"key": "1"}) == 1
+
+
+def test_custom_with_class():
+    class T:
+        @inject
+        def __init__(self, key: int = Header()):
+            self.key = key
+
+    assert T(headers={"key": "1"}).key == 1
 
 
 @pytest.mark.anyio

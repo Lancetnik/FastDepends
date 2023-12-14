@@ -7,11 +7,11 @@ def _get_var():
 
 class Class:
     @inject
-    def __init__(self, a = Depends(_get_var)) -> None:
+    def __init__(self, a=Depends(_get_var)) -> None:
         self.a = a
 
     @inject
-    def calc(self, a = Depends(_get_var)) -> int:
+    def calc(self, a=Depends(_get_var)) -> int:
         return a + self.a
 
 

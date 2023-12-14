@@ -9,7 +9,12 @@ class CustomField(ABC):
     cast: bool
     required: bool
 
-    def __init__(self, *, cast: bool = True, required: bool = True) -> None:
+    def __init__(
+        self,
+        *,
+        cast: bool = True,
+        required: bool = True,
+    ) -> None:
         self.cast = cast
         self.param_name = None
         self.required = required
@@ -18,6 +23,6 @@ class CustomField(ABC):
         self.param_name = name
         return self
 
-    def use(self, **kwargs: Dict[str, Any]) -> Dict[str, Any]:
+    def use(self, /, **kwargs: Dict[str, Any]) -> Dict[str, Any]:
         assert self.param_name, "You should specify `param_name` before using"
         return kwargs

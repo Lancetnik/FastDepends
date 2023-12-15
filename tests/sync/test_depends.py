@@ -1,5 +1,6 @@
 import logging
 from dataclasses import dataclass
+from functools import partial
 from unittest.mock import Mock
 
 import pytest
@@ -244,3 +245,14 @@ def test_generator():
         assert i == 1
 
     mock.end.assert_called_once()
+
+
+def test_partial():
+    def dep(a):
+        return a
+
+    @inject
+    def func(a=Depends(partial(dep, 10))):
+        return a
+
+    assert func() == 10

@@ -13,6 +13,7 @@ from typing import (
 
 from typing_extensions import ParamSpec, Protocol, TypeVar
 
+from fast_depends._compat import ConfigDict
 from fast_depends.core import CallModel, build_call_model
 from fast_depends.dependencies import dependency_provider, model
 
@@ -46,10 +47,11 @@ class _InjectWrapper(Protocol[P, T]):
 def inject(  # pragma: no cover
     func: None,
     *,
-    dependency_overrides_provider: Optional[Any] = dependency_provider,
-    extra_dependencies: Sequence[model.Depends] = (),
-    wrap_model: Callable[[CallModel[P, T]], CallModel[P, T]] = lambda x: x,
     cast: bool = True,
+    extra_dependencies: Sequence[model.Depends] = (),
+    pydantic_config: Optional[ConfigDict] = None,
+    dependency_overrides_provider: Optional[Any] = dependency_provider,
+    wrap_model: Callable[[CallModel[P, T]], CallModel[P, T]] = lambda x: x,
 ) -> _InjectWrapper[P, T]:
     ...
 
@@ -58,10 +60,11 @@ def inject(  # pragma: no cover
 def inject(  # pragma: no cover
     func: Callable[P, T],
     *,
-    dependency_overrides_provider: Optional[Any] = dependency_provider,
-    extra_dependencies: Sequence[model.Depends] = (),
-    wrap_model: Callable[[CallModel[P, T]], CallModel[P, T]] = lambda x: x,
     cast: bool = True,
+    extra_dependencies: Sequence[model.Depends] = (),
+    pydantic_config: Optional[ConfigDict] = None,
+    dependency_overrides_provider: Optional[Any] = dependency_provider,
+    wrap_model: Callable[[CallModel[P, T]], CallModel[P, T]] = lambda x: x,
 ) -> Callable[P, T]:
     ...
 
@@ -69,16 +72,18 @@ def inject(  # pragma: no cover
 def inject(
     func: Optional[Callable[P, T]] = None,
     *,
-    dependency_overrides_provider: Optional[Any] = dependency_provider,
-    extra_dependencies: Sequence[model.Depends] = (),
-    wrap_model: Callable[[CallModel[P, T]], CallModel[P, T]] = lambda x: x,
     cast: bool = True,
+    extra_dependencies: Sequence[model.Depends] = (),
+    pydantic_config: Optional[ConfigDict] = None,
+    dependency_overrides_provider: Optional[Any] = dependency_provider,
+    wrap_model: Callable[[CallModel[P, T]], CallModel[P, T]] = lambda x: x,
 ) -> Union[Callable[P, T], _InjectWrapper[P, T],]:
     decorator = _wrap_inject(
         dependency_overrides_provider=dependency_overrides_provider,
         wrap_model=wrap_model,
         extra_dependencies=extra_dependencies,
         cast=cast,
+        pydantic_config=pydantic_config,
     )
 
     if func is None:
@@ -96,6 +101,7 @@ def _wrap_inject(
     ],
     extra_dependencies: Sequence[model.Depends],
     cast: bool,
+    pydantic_config: Optional[ConfigDict],
 ) -> _InjectWrapper[P, T]:
     if (
         dependency_overrides_provider
@@ -113,9 +119,10 @@ def _wrap_inject(
         if model is None:
             real_model = wrap_model(
                 build_call_model(
-                    func,
+                    call=func,
                     extra_dependencies=extra_dependencies,
                     cast=cast,
+                    pydantic_config=pydantic_config,
                 )
             )
         else:
@@ -162,6 +169,7 @@ def _wrap_inject(
                             **kwargs,
                         )
                         return r
+
                     raise AssertionError("unreachable")
 
         return injected_wrapper

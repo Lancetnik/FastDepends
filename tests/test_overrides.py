@@ -50,6 +50,23 @@ def test_sync_override(provider):
     assert not mock.original.called
 
 
+def test_override_context(provider):
+    def base_dep():
+        return 1
+
+    def override_dep():
+        return 2
+
+    @inject
+    def func(d=Depends(base_dep)):
+        return d
+
+    with provider.scope(base_dep, override_dep):
+        assert func() == 2
+
+    assert func() == 1
+
+
 def test_sync_by_async_override(provider):
     def base_dep():  # pragma: no cover
         return 1

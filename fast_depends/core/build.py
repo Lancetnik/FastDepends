@@ -21,7 +21,7 @@ from typing_extensions import (
     get_origin,
 )
 
-from fast_depends._compat import CreateBaseModel, create_model
+from fast_depends._compat import ConfigDict, create_model, get_config_base
 from fast_depends.core.model import CallModel, ResponseModel
 from fast_depends.dependencies import Depends
 from fast_depends.library import CustomField
@@ -44,6 +44,7 @@ def build_call_model(
     use_cache: bool = True,
     is_sync: Optional[bool] = None,
     extra_dependencies: Sequence[Depends] = (),
+    pydantic_config: Optional[ConfigDict] = None,
 ) -> CallModel[P, T]:
     name = getattr(call, "__name__", type(call).__name__)
 
@@ -131,6 +132,7 @@ def build_call_model(
                 cast=dep.cast,
                 use_cache=dep.use_cache,
                 is_sync=is_sync,
+                pydantic_config=pydantic_config,
             )
 
             if dep.cast is True:
@@ -162,14 +164,15 @@ def build_call_model(
 
     func_model = create_model(  # type: ignore[call-overload]
         name,
-        __base__=(CreateBaseModel,),
+        __config__=get_config_base(pydantic_config),
         **class_fields,
     )
 
+    response_model: Optional[Type[ResponseModel[T]]]
     if cast and return_annotation and return_annotation is not inspect._empty:
-        response_model: Optional[Type[ResponseModel[T]]] = create_model(
+        response_model = create_model(  # type: ignore[assignment]
             "ResponseModel",
-            __base__=(CreateBaseModel,),  # type: ignore[arg-type]
+            __config__=get_config_base(pydantic_config),
             response=(return_annotation, ...),
         )
     else:
@@ -192,6 +195,7 @@ def build_call_model(
                 cast=d.cast,
                 use_cache=d.use_cache,
                 is_sync=is_sync,
+                pydantic_config=pydantic_config,
             )
             for d in extra_dependencies
         ],

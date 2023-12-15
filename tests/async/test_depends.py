@@ -1,5 +1,6 @@
 import logging
 from dataclasses import dataclass
+from functools import partial
 from unittest.mock import Mock
 
 import pytest
@@ -350,3 +351,15 @@ async def test_generator():
         assert i == 1
 
     mock.end.assert_called_once()
+
+
+@pytest.mark.anyio
+async def test_partial():
+    async def dep(a):
+        return a
+
+    @inject
+    async def func(a=Depends(partial(dep, 10))):
+        return a
+
+    assert await func() == 10

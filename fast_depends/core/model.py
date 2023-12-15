@@ -1,5 +1,5 @@
-import inspect
 from contextlib import AsyncExitStack, ExitStack
+from inspect import _empty, unwrap
 from typing import (
     Any,
     Awaitable,
@@ -17,7 +17,7 @@ from typing import (
 
 from typing_extensions import ParamSpec, TypeVar, assert_never
 
-from fast_depends._compat import PYDANTIC_V2, BaseModel, FieldInfo
+from fast_depends._compat import BaseModel, FieldInfo, get_model_fields
 from fast_depends.library import CustomField
 from fast_depends.utils import (
     async_map,
@@ -48,7 +48,7 @@ class CallModel(Generic[P, T]):
     response_model: Optional[Type[ResponseModel[T]]]
 
     params: Dict[str, FieldInfo]
-    alias_arguments: List[str]
+    alias_arguments: Tuple[str, ...]
 
     dependencies: Dict[str, "CallModel[..., Any]"]
     extra_dependencies: Iterable["CallModel[..., Any]"]
@@ -79,7 +79,8 @@ class CallModel(Generic[P, T]):
 
     @property
     def call_name(self) -> str:
-        return getattr(self.call, "__name__", type(self.call).__name__)
+        call = unwrap(self.call)
+        return getattr(call, "__name__", type(call).__name__)
 
     @property
     def real_params(self) -> Dict[str, FieldInfo]:
@@ -117,17 +118,13 @@ class CallModel(Generic[P, T]):
         self.model = model
         self.response_model = response_model
 
-        fields: Dict[str, FieldInfo]
-        if PYDANTIC_V2:
-            fields = self.model.model_fields
-        else:
-            fields = self.model.__fields__  # type: ignore
+        fields: Dict[str, FieldInfo] = get_model_fields(model)
 
         self.dependencies = dependencies or {}
         self.extra_dependencies = extra_dependencies or []
         self.custom_fields = custom_fields or {}
 
-        self.alias_arguments = [f.alias or name for name, f in fields.items()]
+        self.alias_arguments = tuple(f.alias or name for name, f in fields.items())
         self.keyword_args = tuple(keyword_args or ())
         self.positional_args = tuple(positional_args or ())
 
@@ -168,12 +165,25 @@ class CallModel(Generic[P, T]):
             ]
         ] = None,
         **kwargs: P.kwargs,
-    ) -> Generator[Tuple[Iterable[Any], Dict[str, Any]], Any, T]:
+    ) -> Generator[
+        Tuple[
+            Iterable[Any],
+            Dict[str, Any],
+            Union[
+                Callable[P, T],
+                Callable[P, Awaitable[T]],
+            ],
+        ],
+        Any,
+        T,
+    ]:
         if dependency_overrides:
-            self.call = dependency_overrides.get(self.call, self.call)
+            call = dependency_overrides.get(self.call, self.call)
             assert self.is_async or not is_coroutine_callable(
-                self.call
+                call
             ), f"You cannot use async dependency `{self.call_name}` at sync main"
+        else:
+            call = self.call
 
         if self.use_cache and self.call in cache_dependencies:
             return cache_dependencies[self.call]
@@ -181,72 +191,75 @@ class CallModel(Generic[P, T]):
         kw = {}
 
         for arg in self.keyword_args:
-            v = kwargs.pop(arg, inspect._empty)
-            if v is not inspect._empty:
+            if (v := kwargs.pop(arg, _empty)) is not _empty:
                 kw[arg] = v
 
         if "kwargs" in self.alias_arguments:
             kw["kwargs"] = kwargs
-
         else:
             kw.update(kwargs)
-
-        has_args = "args" in self.alias_arguments
 
         for arg in self.positional_args:
             if args:
                 kw[arg], args = args[0], args[1:]
+            else:
+                break
 
-        if has_args:
+        if has_args := "args" in self.alias_arguments:
             kw["args"] = args
+            keyword_args = self.keyword_args
 
         else:
+            keyword_args = self.keyword_args + self.positional_args
             for arg in self.keyword_args:
                 if args:
                     kw[arg], args = args[0], args[1:]
+                else:
+                    break
 
         solved_kw: Dict[str, Any]
-        solved_kw = yield (), kw
-
-        casted_model: object
-        if self.cast:
-            casted_model = self.model(**solved_kw)
-        else:
-            casted_model = object()
-
-        kwargs_ = {
-            arg: getattr(casted_model, arg, solved_kw.get(arg))
-            for arg in (
-                self.keyword_args + self.positional_args
-                if not has_args
-                else self.keyword_args
-            )
-        }
-        kwargs_.update(getattr(casted_model, "kwargs", {}))
+        solved_kw = yield (), kw, call
 
         args_: Iterable[Any]
-        if has_args:
-            args_ = [
-                getattr(casted_model, arg, solved_kw.get(arg))
-                for arg in self.positional_args
-            ]
-            args_.extend(getattr(casted_model, "args", ()))
+        if self.cast:
+            casted_model = self.model(**solved_kw)
+
+            kwargs_ = {
+                arg: getattr(casted_model, arg, solved_kw.get(arg))
+                for arg in keyword_args
+            }
+            kwargs_.update(getattr(casted_model, "kwargs", {}))
+
+            if has_args:
+                args_ = [
+                    getattr(casted_model, arg, solved_kw.get(arg))
+                    for arg in self.positional_args
+                ]
+                args_.extend(getattr(casted_model, "args", ()))
+            else:
+                args_ = ()
+
         else:
-            args_ = ()
+            kwargs_ = {arg: solved_kw.get(arg) for arg in keyword_args}
+
+            if has_args:
+                args_ = map(solved_kw.get, self.positional_args)
+            else:
+                args_ = ()
 
         response: T
-        response = yield args_, kwargs_
+        response = yield args_, kwargs_, call
 
         if self.cast and not self.is_generator:
             response = self._cast_response(response)
 
         if self.use_cache:  # pragma: no branch
-            cache_dependencies[self.call] = response
+            cache_dependencies[call] = response
 
         return response
 
     def _cast_response(self, /, value: Any) -> Any:
-        if self.response_model is not None and self.cast:
+        if self.response_model is not None:
             return self.response_model(response=value).response
         else:
             return value
@@ -285,7 +298,7 @@ class CallModel(Generic[P, T]):
             **kwargs,
         )
         try:
-            _, kwargs = next(cast_gen)
+            _, kwargs, _ = next(cast_gen)
         except StopIteration as e:
             cached_value: T = e.value
             return cached_value
@@ -311,7 +324,7 @@ class CallModel(Generic[P, T]):
         for custom in self.custom_fields.values():
             kwargs = custom.use(**kwargs)
 
-        final_args, final_kwargs = cast_gen.send(kwargs)
+        final_args, final_kwargs, call = cast_gen.send(kwargs)
 
         if self.is_generator and nested:
             response = solve_generator_sync(
@@ -322,7 +335,7 @@ class CallModel(Generic[P, T]):
             )
 
         else:
-            response = self.call(*final_args, **final_kwargs)
+            response = call(*final_args, **final_kwargs)
 
         try:
             cast_gen.send(response)
@@ -371,7 +384,7 @@ class CallModel(Generic[P, T]):
             **kwargs,
         )
         try:
-            _, kwargs = next(cast_gen)
+            _, kwargs, _ = next(cast_gen)
         except StopIteration as e:
             cached_value: T = e.value
             return cached_value
@@ -397,7 +410,7 @@ class CallModel(Generic[P, T]):
         for custom in self.custom_fields.values():
             kwargs = await run_async(custom.use, **kwargs)
 
-        final_args, final_kwargs = cast_gen.send(kwargs)
+        final_args, final_kwargs, call = cast_gen.send(kwargs)
 
         if self.is_generator and nested:
             response = await solve_generator_async(
@@ -407,7 +420,7 @@ class CallModel(Generic[P, T]):
                 **final_kwargs,
             )
         else:
-            response = await run_async(self.call, *final_args, **final_kwargs)
+            response = await run_async(call, *final_args, **final_kwargs)
 
         try:
             cast_gen.send(response)

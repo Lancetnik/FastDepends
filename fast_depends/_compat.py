@@ -10,7 +10,6 @@ __all__ = (
     "evaluate_forwardref",
     "PYDANTIC_V2",
     "get_config_base",
-    "model_schema",
     "get_model_fields",
     "ConfigDict",
 )
@@ -32,9 +31,6 @@ if PYDANTIC_V2:
     def get_config_base(config_data: Optional[ConfigDict] = None) -> ConfigDict:
         return config_data or ConfigDict(**default_pydantic_config)  # type: ignore[typeddict-item]
 
-    def model_schema(model: Type[BaseModel], **kwargs: Any) -> Dict[str, Any]:
-        return model.model_json_schema(**kwargs)
-
     def get_model_fields(model: Type[BaseModel]) -> Dict[str, FieldInfo]:
         return model.model_fields
 
@@ -45,9 +41,6 @@ else:
 
     def get_config_base(config_data: Optional[ConfigDict] = None) -> Type[BaseConfig]:  # type: ignore[misc]
         return get_config(config_data or ConfigDict(**default_pydantic_config))  # type: ignore[typeddict-item]
-
-    def model_schema(model: Type[BaseModel], **kwargs: Any) -> Dict[str, Any]:
-        return model.schema(**kwargs)
 
     def get_model_fields(model: Type[BaseModel]) -> Dict[str, FieldInfo]:
         return model.__fields__  # type: ignore[return-value]

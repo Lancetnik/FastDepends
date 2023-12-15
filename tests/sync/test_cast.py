@@ -184,3 +184,18 @@ def test_generator():
 
     for i in simple_func("1"):
         assert i == 1
+
+
+def test_args_kwargs_without_cast():
+    @inject(cast=False)
+    def simple_func(
+        a: int,
+        *args: Tuple[float, ...],
+        b: int,
+        **kwargs: Dict[str, int],
+    ):
+        return a, args, b, kwargs
+
+    assert (1.0, (2.0, 3), 3.0, {"key": 1.0}) == simple_func(
+        1.0, 2.0, 3, b=3.0, key=1.0
+    )

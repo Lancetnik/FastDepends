@@ -221,6 +221,7 @@ class CallModel(Generic[P, T]):
         solved_kw = yield (), kw, call
 
         args_: Iterable[Any]
+
         if self.cast:
             casted_model = self.model(**solved_kw)
 
@@ -228,22 +229,24 @@ class CallModel(Generic[P, T]):
                 arg: getattr(casted_model, arg, solved_kw.get(arg))
                 for arg in keyword_args
             }
-            kwargs_.update(getattr(casted_model, "kwargs", {}))
+            kwargs_.update(getattr(casted_model, "kwargs", solved_kw.get("kwargs", {})))
 
             if has_args:
                 args_ = [
                     getattr(casted_model, arg, solved_kw.get(arg))
                     for arg in self.positional_args
                 ]
-                args_.extend(getattr(casted_model, "args", ()))
+                args_.extend(getattr(casted_model, "args", solved_kw.get("args", ())))
             else:
                 args_ = ()
 
         else:
             kwargs_ = {arg: solved_kw.get(arg) for arg in keyword_args}
+            kwargs_.update(solved_kw.get("kwargs", {}))
 
             if has_args:
-                args_ = map(solved_kw.get, self.positional_args)
+                args_ = [solved_kw.get(arg) for arg in self.positional_args]
+                args_.extend(solved_kw.get("args", ()))
             else:
                 args_ = ()
 

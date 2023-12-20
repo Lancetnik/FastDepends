@@ -40,7 +40,7 @@ jobs:
       - name: Test
         run: bash scripts/test.sh
         env:
-          COVERAGE_FILE: coverage/.coverage.${{ runner.os }}-py${{ matrix.python-version }}-${{ matrix.pydantic-version }}
+          COVERAGE_FILE: .coverage.${{ runner.os }}-py${{ matrix.python-version }}-${{ matrix.pydantic-version }}
           CONTEXT: ${{ runner.os }}-py${{ matrix.python-version }}-${{ matrix.pydantic-version }}
       - name: Store coverage files
         uses: actions/upload-artifact@v4
@@ -64,6 +64,7 @@ jobs:
         with:
           pattern: .coverage*
           path: coverage
+          merge-multiple: true
 
       - run: pip install coverage[toml]
 

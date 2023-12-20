@@ -6,7 +6,7 @@ on:
       - main
     paths:
       - docs/**
-      - .github/workflows/documentation.yaml
+      - .github/workflows/documentation.yml
       - fast_depends/__about__.py
 
 permissions:

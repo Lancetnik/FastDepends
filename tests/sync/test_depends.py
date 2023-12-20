@@ -154,9 +154,11 @@ def test_not_cast():
     def some_func(
         b,
         a: A = Depends(dep, cast=False),
+        c: str = Depends(lambda: 1, cast=False),
         logger: logging.Logger = Depends(get_logger, cast=False),
     ):
         assert a.a == 1
+        assert c == 1
         assert logger
         return b
 

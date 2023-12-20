@@ -1,7 +1,6 @@
 site_name: FastDepends
 site_description: FastDepends - extracted and cleared from HTTP domain logic FastAPI Dependency Injection System
 site_url: https://lancetnik.github.io/FastDepends/
-dev_addr: 0.0.0.0:8000
 
 repo_name: lancetnik/fastdepends
 repo_url: https://github.com/lancetnik/FastDepends
@@ -42,6 +41,8 @@ theme:
     - content.tabs.link
     - content.code.copy
     - content.code.annotate
+    - navigation.top
+    - navigation.footer
   i18n:
     prev: 'Previous'
     next: 'Next'
@@ -52,6 +53,13 @@ plugins:
   - search
   - markdownextradata:
       data: data
+  - minify:
+      minify_html: true
+      minify_js: true
+      minify_css: true
+      htmlmin_opts:
+        remove_comments: true
+      cache_safe: true
 
 markdown_extensions:  # do not reorder
   - toc:
@@ -71,8 +79,8 @@ markdown_extensions:  # do not reorder
         class: mermaid
         format: !!python/name:pymdownx.superfences.fence_code_format ''
   - pymdownx.emoji:
-      emoji_index: !!python/name:materialx.emoji.twemoji ""
-      emoji_generator: !!python/name:materialx.emoji.to_svg ""
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
   - pymdownx.tabbed:
       alternate_style: true
   - attr_list

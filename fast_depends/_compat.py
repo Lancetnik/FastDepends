@@ -34,6 +34,10 @@ if PYDANTIC_V2:
     def get_model_fields(model: Type[BaseModel]) -> Dict[str, FieldInfo]:
         return model.model_fields
 
+    class CreateBaseModel(BaseModel):
+        """Just to support FastStream < 0.3.7."""
+        model_config = ConfigDict(arbitrary_types_allowed=True)
+
 else:
     from pydantic.fields import ModelField as FieldInfo  # type: ignore
     from pydantic.typing import evaluate_forwardref as evaluate_forwardref  # type: ignore[no-redef]
@@ -44,3 +48,8 @@ else:
 
     def get_model_fields(model: Type[BaseModel]) -> Dict[str, FieldInfo]:
         return model.__fields__  # type: ignore[return-value]
+
+    class CreateBaseModel(BaseModel):  # type: ignore[no-redef]
+        """Just to support FastStream < 0.3.7."""
+        class Config:
+            arbitrary_types_allowed = True

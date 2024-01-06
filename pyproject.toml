@@ -12,7 +12,7 @@ authors = [
 
 keywords = ["fastapi", "dependency injection"]
 
-requires-python = ">=3.7"
+requires-python = ">=3.8"
 
 classifiers = [
     "Development Status :: 5 - Production/Stable",
@@ -48,7 +48,7 @@ dependencies = [
 [project.optional-dependencies]
 test = [
     "coverage[toml]>=7.2.0,<8.0.0",
-    "pytest==7.4.3",
+    "pytest>=7.4.0,<8",
 ]
 
 doc = [
@@ -62,11 +62,8 @@ dev = [
     "fast-depends[test]",
     "fast-depends[doc]",
 
-    "mypy==1.7.1",
-    "isort==5.13.2",
-    "black==23.12.0",
-    "ruff==0.1.8",
-    "pyupgrade-directories==0.3.0",
+    "mypy>=1.8.0",
+    "ruff==0.1.9",
 ]
 
 [project.urls]
@@ -90,7 +87,7 @@ exclude = [
 ]
 
 [tool.hatch.envs.default]
-python = "3.11" 
+python = "3.12" 
 skip-install = false
 features = [
   "dev",
@@ -105,10 +102,10 @@ features = [
 run = "pytest -q"
 
 [[tool.hatch.envs.test.matrix]]
-python = ["37", "38", "39", "310", "311"]
+python = ["38", "39", "310", "311", "312"]
 
 [tool.hatch.envs.test-last]
-python = "3.11"
+python = "3.12"
 features = [
   "test",
 ]
@@ -127,13 +124,16 @@ known_third_party = ["pydantic", "anyio"]
 
 [tool.ruff]
 select = [
-    "E",   # pycodestyle errors
-    "W",   # pycodestyle warnings
-    "F",   # pyflakes
-    "I",   # isort
-    "C",   # flake8-comprehensions
-    "B",   # flake8-bugbear
-    "T20", # flake8-print
+    "E",     # pycodestyle errors     https://docs.astral.sh/ruff/rules/#error-e
+    "W",     # pycodestyle warnings   https://docs.astral.sh/ruff/rules/#warning-w
+    "I",     # isort                  https://docs.astral.sh/ruff/rules/#isort-i
+    "F",     # pyflakes               https://docs.astral.sh/ruff/rules/#pyflakes-f
+    "C4",    # flake8-comprehensions  https://docs.astral.sh/ruff/rules/#flake8-comprehensions-c4
+    "B",     # flake8-bugbear         https://docs.astral.sh/ruff/rules/#flake8-bugbear-b
+    "Q",     # flake8-quotes          https://docs.astral.sh/ruff/rules/#flake8-quotes-q
+    "T20",   # flake8-print           https://docs.astral.sh/ruff/rules/#flake8-print-t20
+    "PERF",  # Perflint               https://docs.astral.sh/ruff/rules/#perflint-perf
+    "UP",    # pyupgrade              https://docs.astral.sh/ruff/rules/#pyupgrade-up
 ]
 ignore = [
     "E501",  # line too long, handled by black
@@ -173,8 +173,7 @@ omit = [
 [tool.coverage.report]
 show_missing = true
 skip_empty = true
-exclude_lines = [
-    ".*# pragma: no cover",
+exclude_also = [
     "if __name__ == .__main__.:",
     "self.logger",
     "def __repr__",

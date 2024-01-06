@@ -361,7 +361,7 @@ async def test_partial():
         return a
 
     @inject
-    async def func(a=Depends(partial(dep, 10))):
+    async def func(a=Depends(partial(dep, 10))):  # noqa D008
         return a
 
     assert await func() == 10

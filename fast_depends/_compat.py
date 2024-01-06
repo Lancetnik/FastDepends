@@ -36,6 +36,7 @@ if PYDANTIC_V2:
 
     class CreateBaseModel(BaseModel):
         """Just to support FastStream < 0.3.7."""
+
         model_config = ConfigDict(arbitrary_types_allowed=True)
 
 else:
@@ -51,5 +52,6 @@ else:
 
     class CreateBaseModel(BaseModel):  # type: ignore[no-redef]
         """Just to support FastStream < 0.3.7."""
+
         class Config:
             arbitrary_types_allowed = True

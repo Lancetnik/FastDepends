@@ -1,5 +1,8 @@
-pyup_dirs --py37-plus --recursive propan tests
+echo "Running mypy..."
 mypy fast_depends
+
+echo "Running ruff linter (isort, flake, pyupgrade, etc. replacement)..."
 ruff fast_depends tests --fix
-black fast_depends tests
-isort fast_depends tests
+
+echo "Running ruff formatter (black replacement)..."
+ruff format tests

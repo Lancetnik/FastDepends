@@ -62,23 +62,23 @@ If you are using **hatch** use following environments to run tests:
 
 ##### **TEST**
 
-Run tests at all python 3.7-3.11 versions.
+Run tests at all python 3.8-3.12 versions.
 
 All python versions should be avalilable at your system.
 
 ```bash
-# Run test at all python 3.7-3.11 versions
+# Run test at all python 3.8-3.12 versions
 hatch run test:run
 ```
 
 ##### **TEST-LAST**
 
-Run tests at python 3.11 version.
+Run tests at python 3.12 version.
 
 ```bash
-# Run tests at python 3.11
+# Run tests at python 3.12
 hatch run test-last:run
 
-# Run all tests at python 3.11 and show coverage
+# Run all tests at python 3.12 and show coverage
 hatch run test-last:cov
 ```

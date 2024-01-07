@@ -68,7 +68,7 @@ def build_call_model(
         dep: Optional[Depends] = None
         custom: Optional[CustomField] = None
 
-        if param.annotation is inspect._empty:
+        if param.annotation is inspect.Parameter.empty:
             annotation = Any
 
         elif get_origin(param.annotation) is Annotated:
@@ -117,7 +117,7 @@ def build_call_model(
             ), "You can not use `CustomField` with `Annotated` and default both"
             custom = default
 
-        elif default is inspect._empty:
+        elif default is inspect.Parameter.empty:
             class_fields[param_name] = (annotation, ...)
 
         else:
@@ -169,7 +169,7 @@ def build_call_model(
     )
 
     response_model: Optional[Type[ResponseModel[T]]]
-    if cast and return_annotation and return_annotation is not inspect._empty:
+    if cast and return_annotation and return_annotation is not inspect.Parameter.empty:
         response_model = create_model(  # type: ignore[assignment]
             "ResponseModel",
             __config__=get_config_base(pydantic_config),

@@ -1,5 +1,5 @@
 from contextlib import AsyncExitStack, ExitStack
-from inspect import _empty, unwrap
+from inspect import Parameter, unwrap
 from typing import (
     Any,
     Awaitable,
@@ -191,7 +191,7 @@ class CallModel(Generic[P, T]):
         kw = {}
 
         for arg in self.keyword_args:
-            if (v := kwargs.pop(arg, _empty)) is not _empty:
+            if (v := kwargs.pop(arg, Parameter.empty)) is not Parameter.empty:
                 kw[arg] = v
 
         if "kwargs" in self.alias_arguments:

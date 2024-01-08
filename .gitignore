@@ -20,3 +20,4 @@ coverage.json
 site
 wtf.py
 .DS_Store
+.idea/

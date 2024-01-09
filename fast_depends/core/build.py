@@ -16,7 +16,6 @@ from typing_extensions import (
     Annotated,
     ParamSpec,
     TypeVar,
-    assert_never,
     get_args,
     get_origin,
 )
@@ -25,7 +24,12 @@ from fast_depends._compat import ConfigDict, create_model, get_config_base
 from fast_depends.core.model import CallModel, ResponseModel
 from fast_depends.dependencies import Depends
 from fast_depends.library import CustomField
-from fast_depends.utils import get_typed_signature, is_coroutine_callable
+from fast_depends.utils import (
+    get_typed_signature,
+    is_async_gen_callable,
+    is_coroutine_callable,
+    is_gen_callable,
+)
 
 CUSTOM_ANNOTATIONS = (Depends, CustomField)
 
@@ -57,6 +61,12 @@ def build_call_model(
         ), f"You cannot use async dependency `{name}` at sync main"
 
     typed_params, return_annotation = get_typed_signature(call)
+    if (
+        (is_call_generator := is_gen_callable(call) or
+        is_async_gen_callable(call)) and
+        (return_args := get_args(return_annotation))
+    ):
+        return_annotation = return_args[0]
 
     class_fields: Dict[str, Tuple[Any, Any]] = {}
     dependencies: Dict[str, "CallModel[..., Any]"] = {}
@@ -89,7 +99,7 @@ def build_call_model(
                 elif isinstance(next_custom, CustomField):
                     custom = next_custom
                 else:  # pragma: no cover
-                    assert_never()
+                    raise AssertionError("unreachable")
 
                 annotation = type_annotation
             else:
@@ -185,6 +195,7 @@ def build_call_model(
         cast=cast,
         use_cache=use_cache,
         is_async=is_call_async,
+        is_generator=is_call_generator,
         dependencies=dependencies,
         custom_fields=custom_fields,
         positional_args=positional_args,

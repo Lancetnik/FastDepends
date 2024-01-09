@@ -86,34 +86,6 @@ exclude = [
     "/docs",
 ]
 
-[tool.hatch.envs.default]
-python = "3.12" 
-skip-install = false
-features = [
-  "dev",
-]
-
-[tool.hatch.envs.test]
-features = [
-  "test",
-]
-
-[tool.hatch.envs.test.scripts]
-run = "pytest -q"
-
-[[tool.hatch.envs.test.matrix]]
-python = ["38", "39", "310", "311", "312"]
-
-[tool.hatch.envs.test-last]
-python = "3.12"
-features = [
-  "test",
-]
-
-[tool.hatch.envs.test-last.scripts]
-run = "pytest -q"
-cov = "bash ./scripts/test-cov.sh -v"
-
 [tool.mypy]
 strict = true
 ignore_missing_imports = true

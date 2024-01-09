@@ -1,3 +1,5 @@
+import sys
+from importlib.metadata import version as get_version
 from typing import Any, Dict, Optional, Type
 
 from pydantic import BaseModel, create_model
@@ -12,6 +14,7 @@ __all__ = (
     "get_config_base",
     "get_model_fields",
     "ConfigDict",
+    "ExceptionGroup",
 )
 
 
@@ -55,3 +58,14 @@ else:
 
         class Config:
             arbitrary_types_allowed = True
+
+
+ANYIO_V3 = get_version("anyio").startswith("3.")
+
+if ANYIO_V3:
+    from anyio import ExceptionGroup as ExceptionGroup
+else:
+    if sys.version_info < (3, 11):
+        from exceptiongroup import ExceptionGroup as ExceptionGroup
+    else:
+        ExceptionGroup = ExceptionGroup

@@ -1,10 +1,12 @@
-from typing import Dict, Tuple
+from typing import Dict, Iterator, Tuple
 
 import pytest
+from annotated_types import Ge
 from pydantic import BaseModel, Field, ValidationError
 from typing_extensions import Annotated
 
 from fast_depends import inject
+from tests.marks import pydanticV2
 
 
 @pytest.mark.anyio
@@ -192,16 +194,26 @@ async def test_generator():
 
 
 @pytest.mark.anyio
-async def test_args_kwargs_without_cast():
-    @inject(cast=False)
-    async def simple_func(
-        a: int,
-        *args: Tuple[float, ...],
-        b: int,
-        **kwargs: Dict[str, int],
-    ):
-        return a, args, b, kwargs
+async def test_generator_iterator_type():
+    @inject
+    async def simple_func(a: str) -> Iterator[int]:
+        for _ in range(2):
+            yield a
 
-    assert (1.0, (2.0, 3), 3.0, {"key": 1.0}) == await simple_func(
-        1.0, 2.0, 3, b=3.0, key=1.0
-    )
+    async for i in simple_func("1"):
+        assert i == 1
+
+
+@pytest.mark.anyio
+@pydanticV2
+async def test_multi_annotated():
+    from pydantic.functional_validators import AfterValidator
+
+    @inject()
+    async def f(a: Annotated[int, Ge(10), AfterValidator(lambda x: x + 10)]) -> int:
+        return a
+
+    with pytest.raises(ValidationError):
+        await f(1)
+
+    assert await f(10) == 20

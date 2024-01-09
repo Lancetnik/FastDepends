@@ -1,4 +1,6 @@
+from collections import namedtuple
 from contextlib import AsyncExitStack, ExitStack
+from functools import partial
 from inspect import Parameter, unwrap
 from typing import (
     Any,
@@ -10,14 +12,16 @@ from typing import (
     Iterable,
     List,
     Optional,
+    Sequence,
     Tuple,
     Type,
     Union,
 )
 
-from typing_extensions import ParamSpec, TypeVar, assert_never
+import anyio
+from typing_extensions import ParamSpec, TypeVar
 
-from fast_depends._compat import BaseModel, FieldInfo, get_model_fields
+from fast_depends._compat import BaseModel, ExceptionGroup, FieldInfo, get_model_fields
 from fast_depends.library import CustomField
 from fast_depends.utils import (
     async_map,
@@ -31,6 +35,11 @@ from fast_depends.utils import (
 
 P = ParamSpec("P")
 T = TypeVar("T")
+
+
+PriorityPair = namedtuple(
+    "PriorityPair", ("call", "dependencies_number", "dependencies_names")
+)
 
 
 class ResponseModel(BaseModel, Generic[T]):
@@ -52,6 +61,7 @@ class CallModel(Generic[P, T]):
 
     dependencies: Dict[str, "CallModel[..., Any]"]
     extra_dependencies: Iterable["CallModel[..., Any]"]
+    sorted_dependencies: Tuple[Tuple["CallModel[..., Any]", int], ...]
     custom_fields: Dict[str, CustomField]
     keyword_args: Tuple[str, ...]
     positional_args: Tuple[str, ...]
@@ -72,6 +82,7 @@ class CallModel(Generic[P, T]):
         "positional_args",
         "dependencies",
         "extra_dependencies",
+        "sorted_dependencies",
         "custom_fields",
         "use_cache",
         "cast",
@@ -96,6 +107,38 @@ class CallModel(Generic[P, T]):
             params.update(d.flat_params)
         return params
 
+    @property
+    def flat_dependencies(
+        self,
+    ) -> Dict[
+        Callable[..., Any],
+        Tuple[
+            "CallModel[..., Any]",
+            Tuple[Callable[..., Any], ...],
+        ],
+    ]:
+        flat: Dict[
+            Callable[..., Any],
+            Tuple[
+                "CallModel[..., Any]",
+                Tuple[Callable[..., Any], ...],
+            ],
+        ] = {}
+
+        for i in (*self.dependencies.values(), *self.extra_dependencies):
+            flat.update(
+                {
+                    i.call: (
+                        i,
+                        tuple(j.call for j in i.dependencies.values()),
+                    )
+                }
+            )
+
+            flat.update(i.flat_dependencies)
+
+        return flat
+
     def __init__(
         self,
         /,
@@ -108,6 +151,7 @@ class CallModel(Generic[P, T]):
         use_cache: bool = True,
         cast: bool = True,
         is_async: bool = False,
+        is_generator: bool = False,
         dependencies: Optional[Dict[str, "CallModel[..., Any]"]] = None,
         extra_dependencies: Optional[Iterable["CallModel[..., Any]"]] = None,
         keyword_args: Optional[List[str]] = None,
@@ -121,7 +165,7 @@ class CallModel(Generic[P, T]):
         fields: Dict[str, FieldInfo] = get_model_fields(model)
 
         self.dependencies = dependencies or {}
-        self.extra_dependencies = extra_dependencies or []
+        self.extra_dependencies = extra_dependencies or ()
         self.custom_fields = custom_fields or {}
 
         self.alias_arguments = tuple(f.alias or name for name, f in fields.items())
@@ -135,16 +179,25 @@ class CallModel(Generic[P, T]):
         self.use_cache = use_cache
         self.cast = cast
         self.is_async = (
-            is_async or is_coroutine_callable(call) or is_async_gen_callable(self.call)
+            is_async or is_coroutine_callable(call) or is_async_gen_callable(call)
         )
-        self.is_generator = is_gen_callable(self.call) or is_async_gen_callable(
-            self.call
+        self.is_generator = (
+            is_generator or is_gen_callable(call) or is_async_gen_callable(call)
+        )
+
+        sorted_dep: List["CallModel[..., Any]"] = []
+        flat = self.flat_dependencies
+        for calls in flat.values():
+            _sort_dep(sorted_dep, calls, flat)
+
+        self.sorted_dependencies = tuple(
+            (i, len(i.sorted_dependencies)) for i in sorted_dep if i.use_cache
         )
 
     def _solve(
         self,
         /,
-        *args: P.args,
+        *args: Tuple[Any, ...],
         cache_dependencies: Dict[
             Union[
                 Callable[P, T],
@@ -164,15 +217,12 @@ class CallModel(Generic[P, T]):
                 ],
             ]
         ] = None,
-        **kwargs: P.kwargs,
+        **kwargs: Dict[str, Any],
     ) -> Generator[
         Tuple[
-            Iterable[Any],
+            Sequence[Any],
             Dict[str, Any],
-            Union[
-                Callable[P, T],
-                Callable[P, Awaitable[T]],
-            ],
+            Callable[..., Any],
         ],
         Any,
         T,
@@ -182,13 +232,14 @@ class CallModel(Generic[P, T]):
             assert self.is_async or not is_coroutine_callable(
                 call
             ), f"You cannot use async dependency `{self.call_name}` at sync main"
+
         else:
             call = self.call
 
-        if self.use_cache and self.call in cache_dependencies:
-            return cache_dependencies[self.call]
+        if self.use_cache and call in cache_dependencies:
+            return cache_dependencies[call]
 
-        kw = {}
+        kw: Dict[str, Any] = {}
 
         for arg in self.keyword_args:
             if (v := kwargs.pop(arg, Parameter.empty)) is not Parameter.empty:
@@ -220,8 +271,7 @@ class CallModel(Generic[P, T]):
         solved_kw: Dict[str, Any]
         solved_kw = yield (), kw, call
 
-        args_: Iterable[Any]
-
+        args_: Sequence[Any]
         if self.cast:
             casted_model = self.model(**solved_kw)
 
@@ -229,24 +279,22 @@ class CallModel(Generic[P, T]):
                 arg: getattr(casted_model, arg, solved_kw.get(arg))
                 for arg in keyword_args
             }
-            kwargs_.update(getattr(casted_model, "kwargs", solved_kw.get("kwargs", {})))
+            kwargs_.update(getattr(casted_model, "kwargs", {}))
 
             if has_args:
                 args_ = [
                     getattr(casted_model, arg, solved_kw.get(arg))
                     for arg in self.positional_args
                 ]
-                args_.extend(getattr(casted_model, "args", solved_kw.get("args", ())))
+                args_.extend(getattr(casted_model, "args", ()))
             else:
                 args_ = ()
 
         else:
             kwargs_ = {arg: solved_kw.get(arg) for arg in keyword_args}
-            kwargs_.update(solved_kw.get("kwargs", {}))
 
             if has_args:
-                args_ = [solved_kw.get(arg) for arg in self.positional_args]
-                args_.extend(solved_kw.get("args", ()))
+                args_ = tuple(map(solved_kw.get, self.positional_args))
             else:
                 args_ = ()
 
@@ -270,7 +318,7 @@ class CallModel(Generic[P, T]):
     def solve(
         self,
         /,
-        *args: P.args,
+        *args: Tuple[Any, ...],
         stack: ExitStack,
         cache_dependencies: Dict[
             Union[
@@ -292,7 +340,7 @@ class CallModel(Generic[P, T]):
             ]
         ] = None,
         nested: bool = False,
-        **kwargs: P.kwargs,
+        **kwargs: Dict[str, Any],
     ) -> T:
         cast_gen = self._solve(
             *args,
@@ -306,6 +354,17 @@ class CallModel(Generic[P, T]):
             cached_value: T = e.value
             return cached_value
 
+        # Heat cache and solve extra dependencies
+        for dep, _ in self.sorted_dependencies:
+            dep.solve(
+                stack=stack,
+                cache_dependencies=cache_dependencies,
+                dependency_overrides=dependency_overrides,
+                nested=True,
+                **kwargs,
+            )
+
+        # Always get from cache
         for dep in self.extra_dependencies:
             dep.solve(
                 stack=stack,
@@ -325,7 +384,10 @@ class CallModel(Generic[P, T]):
             )
 
         for custom in self.custom_fields.values():
-            kwargs = custom.use(**kwargs)
+            if custom.field:
+                custom.use_field(kwargs)
+            else:
+                kwargs = custom.use(**kwargs)
 
         final_args, final_kwargs, call = cast_gen.send(kwargs)
 
@@ -351,12 +413,12 @@ class CallModel(Generic[P, T]):
             else:
                 return map(self._cast_response, value)  # type: ignore[no-any-return, call-overload]
 
-        assert_never(response)  # pragma: no cover
+        raise AssertionError("unreachable")
 
     async def asolve(
         self,
         /,
-        *args: P.args,
+        *args: Tuple[Any, ...],
         stack: AsyncExitStack,
         cache_dependencies: Dict[
             Union[
@@ -378,7 +440,7 @@ class CallModel(Generic[P, T]):
             ]
         ] = None,
         nested: bool = False,
-        **kwargs: P.kwargs,
+        **kwargs: Dict[str, Any],
     ) -> T:
         cast_gen = self._solve(
             *args,
@@ -392,6 +454,31 @@ class CallModel(Generic[P, T]):
             cached_value: T = e.value
             return cached_value
 
+        # Heat cache and solve extra dependencies
+        dep_to_solve: List[Callable[..., Awaitable[Any]]] = []
+        try:
+            async with anyio.create_task_group() as tg:
+                for dep, subdep in self.sorted_dependencies:
+                    solve = partial(
+                        dep.asolve,
+                        stack=stack,
+                        cache_dependencies=cache_dependencies,
+                        dependency_overrides=dependency_overrides,
+                        nested=True,
+                        **kwargs,
+                    )
+                    if not subdep:
+                        tg.start_soon(solve)
+                    else:
+                        dep_to_solve.append(solve)
+        except ExceptionGroup as exgr:
+            for ex in exgr.exceptions:
+                raise ex from None
+
+        for i in dep_to_solve:
+            await i()
+
+        # Always get from cache
         for dep in self.extra_dependencies:
             await dep.asolve(
                 stack=stack,
@@ -410,8 +497,22 @@ class CallModel(Generic[P, T]):
                 **kwargs,
             )
 
-        for custom in self.custom_fields.values():
-            kwargs = await run_async(custom.use, **kwargs)
+        custom_to_solve: List[CustomField] = []
+
+        try:
+            async with anyio.create_task_group() as tg:
+                for custom in self.custom_fields.values():
+                    if custom.field:
+                        tg.start_soon(run_async, custom.use_field, kwargs)
+                    else:
+                        custom_to_solve.append(custom)
+
+        except ExceptionGroup as exgr:
+            for ex in exgr.exceptions:
+                raise ex from None
+
+        for j in custom_to_solve:
+            kwargs = await run_async(j.use, **kwargs)
 
         final_args, final_kwargs, call = cast_gen.send(kwargs)
 
@@ -436,4 +537,37 @@ class CallModel(Generic[P, T]):
             else:
                 return async_map(self._cast_response, value)  # type: ignore[return-value, arg-type]
 
-        assert_never(response)  # pragma: no cover
+        raise AssertionError("unreachable")
+
+
+def _sort_dep(
+    collector: List["CallModel[..., Any]"],
+    items: Tuple[
+        "CallModel[..., Any]",
+        Tuple[Callable[..., Any], ...],
+    ],
+    flat: Dict[
+        Callable[..., Any],
+        Tuple[
+            "CallModel[..., Any]",
+            Tuple[Callable[..., Any], ...],
+        ],
+    ],
+) -> None:
+    model, calls = items
+
+    if model in collector:
+        return
+
+    if not calls:
+        position = -1
+
+    else:
+        for i in calls:
+            sub_model, _ = flat[i]
+            if sub_model not in collector:
+                _sort_dep(collector, flat[i], flat)
+
+        position = max(collector.index(flat[i][0]) for i in calls)
+
+    collector.insert(position + 1, model)

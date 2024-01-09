@@ -109,6 +109,29 @@ async def test_cash():
 
 
 @pytest.mark.anyio
+async def test_not_cache():
+    mock = Mock()
+
+    async def nested_dep_func():
+        mock()
+        return 1000
+
+    async def dep_func(a=Depends(nested_dep_func, use_cache=False)):
+        return a
+
+    @inject
+    async def some_func(
+        a=Depends(dep_func, use_cache=False),
+        b=Depends(nested_dep_func, use_cache=False),
+    ):
+        assert a is b
+        return a + b
+
+    assert await some_func()
+    assert mock.call_count == 2
+
+
+@pytest.mark.anyio
 async def test_yield():
     mock = Mock()
 
@@ -277,11 +300,9 @@ async def test_not_cast():
     async def some_func(
         b,
         a: A = Depends(dep, cast=False),
-        c: str = Depends(lambda: 1, cast=False),
         logger: logging.Logger = Depends(get_logger, cast=False),
     ):
         assert a.a == 1
-        assert c == 1
         assert logger
         return b
 

@@ -19,7 +19,6 @@ Key features:
 * Composable: decoupled internal APIs give you the flixibility to customize wiring, execution and binding.
 * Performant: `di` can execute dependencies in parallel and cache results ins scopes.
 
-
 ## [Dependency Injector](https://python-dependency-injector.etc-labs.org)
 
 Dependency Injector is a dependency injection framework for Python.

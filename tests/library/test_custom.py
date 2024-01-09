@@ -25,7 +25,7 @@ class FieldHeader(Header):
         self.field = True
 
     def use_field(self, kwargs: Any) -> None:
-        if v := kwargs.get("headers", {}).get(self.param_name):
+        if v := kwargs.get("headers", {}).get(self.param_name):  # pragma: no branch
             kwargs[self.param_name] = v
 
 
@@ -41,7 +41,7 @@ class AsyncFieldHeader(Header):
 
     async def use_field(self, kwargs: Any) -> None:
         await anyio.sleep(0.1)
-        if v := kwargs.get("headers", {}).get(self.param_name):
+        if v := kwargs.get("headers", {}).get(self.param_name):  # pragma: no branch
             kwargs[self.param_name] = v
 
 

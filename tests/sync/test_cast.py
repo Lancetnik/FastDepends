@@ -3,10 +3,10 @@ from typing import Dict, Iterator, Tuple
 import pytest
 from annotated_types import Ge
 from pydantic import BaseModel, Field, ValidationError
-from pydantic.functional_validators import AfterValidator
 from typing_extensions import Annotated
 
 from fast_depends import inject
+from tests.marks import pydanticV2
 
 
 def test_not_annotated():
@@ -198,7 +198,10 @@ def test_generator_iterator_type():
         assert i == 1
 
 
+@pydanticV2
 def test_multi_annotated():
+    from pydantic.functional_validators import AfterValidator
+
     @inject()
     def f(a: Annotated[int, Ge(10), AfterValidator(lambda x: x + 10)]) -> int:
         return a

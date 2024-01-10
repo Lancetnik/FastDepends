@@ -103,7 +103,7 @@ class CallModel(Generic[P, T]):
     @property
     def flat_params(self) -> Dict[str, FieldInfo]:
         params = self.real_params
-        for d in self.dependencies.values():
+        for d in (*self.dependencies.values(), *self.extra_dependencies):
             params.update(d.flat_params)
         return params
 

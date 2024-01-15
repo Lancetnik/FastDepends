@@ -63,7 +63,7 @@ dev = [
     "fast-depends[doc]",
 
     "mypy>=1.8.0",
-    "ruff==0.1.11",
+    "ruff==0.1.13",
 ]
 
 [project.urls]

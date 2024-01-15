@@ -78,6 +78,60 @@ You can use this library without any frameworks in both **sync** and **async** c
 
     These are two main defferences from native FastAPI DI System.   
 
+## Dependencies Overriding
+
+Also, **FastDepends** can be used as a lightweight DI container. Using it, you can easily override basic dependencies with application startup or in tests.
+
+```python
+from typing import Annotated
+
+from fast_depends import Depends, dependency_provider, inject
+
+def abc_func() -> int:
+    raise NotImplementedError()
+
+def real_func() -> int:
+    return 1
+
+@inject
+def func(
+    dependency: Annotated[int, Depends(abc_func)]
+) -> int:
+    return dependency
+
+with dependency_provider.scope(abc_func, real_func):
+    assert func() == 1
+```
+
+`dependency_provider` in this case is just a default container already declared in the library. But you can use your own the same way:
+
+```python
+from typing import Annotated
+
+from fast_depends import Depends, Provider, inject
+
+provider = Provider()
+
+def abc_func() -> int:
+    raise NotImplementedError()
+
+def real_func() -> int:
+    return 1
+
+@inject(dependency_overrides_provider=provider)
+def func(
+    dependency: Annotated[int, Depends(abc_func)]
+) -> int:
+    return dependency
+
+with provider.scope(abc_func, real_func):
+    assert func() == 1
+```
+
+This way you can inherit the basic `Provider` class and define any extra logic you want!
+
+---
+
 ## Custom Fields
 
 If you wish to write your own FastAPI or another closely by architecture tool, you should define your own custom fields to specify application behavior.

@@ -6,7 +6,7 @@ repo_name: lancetnik/fastdepends
 repo_url: https://github.com/lancetnik/FastDepends
 edit_uri: https://github.com/lancetnik/FastDepends
 
-copyright: Copyright &copy; 2019 - 2023 Pastukhov Nikita
+copyright: Copyright &copy; 2023 - 2024 Pastukhov Nikita
 
 docs_dir: docs
 
@@ -41,8 +41,6 @@ theme:
     - content.tabs.link
     - content.code.copy
     - content.code.annotate
-    - navigation.top
-    - navigation.footer
   i18n:
     prev: 'Previous'
     next: 'Next'
@@ -53,13 +51,6 @@ plugins:
   - search
   - markdownextradata:
       data: data
-  - minify:
-      minify_html: true
-      minify_js: true
-      minify_css: true
-      htmlmin_opts:
-        remove_comments: true
-      cache_safe: true
 
 markdown_extensions:  # do not reorder
   - toc:

@@ -19,9 +19,7 @@ def test_params():
     def extra_func(n):
         ...
 
-    model = build_call_model(main, extra_dependencies=(
-        Depends(extra_func),
-    ))
+    model = build_call_model(main, extra_dependencies=(Depends(extra_func),))
 
-    assert set(model.real_params.keys()) == {"a", "b"}
+    assert set(model.params.keys()) == {"a", "b"}
     assert set(model.flat_params.keys()) == {"a", "b", "c", "m", "n"}

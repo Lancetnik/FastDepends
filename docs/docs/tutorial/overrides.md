@@ -28,7 +28,7 @@ To override a dependency for testing, you put as a key the original dependency (
 
 And then **FastDepends** will call that override instead of the original dependency.
 
-```python hl_lines="4 7 9 15 18" linenums="1"
+```python hl_lines="4 7 10 13 18" linenums="1"
 {!> docs_src/tutorial_5_overrides/example.py !}
 ```
 
@@ -39,7 +39,7 @@ And then **FastDepends** will call that override instead of the original depende
 
 So, if you don't wish to override dependency everywhere, I extremely recommend to use the following fixture for your tests
 
-```python linenums="1" hl_lines="7-10"
+```python linenums="1" hl_lines="18-21"
 {!> docs_src/tutorial_5_overrides/fixture.py !}
 ```
 

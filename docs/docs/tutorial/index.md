@@ -81,7 +81,7 @@ just declare `Depends` requirement at original dependency function.
 
 !!! Tip "Cache"
     At the examples above `another_dependency` was called **AT ONCE!**.
-    `FastDepends` cashes all dependecies responses throw **ONE** `@inject` callstask.
+    `FastDepends` caches all dependecies responses throw **ONE** `@inject` callstask.
     It means, that all nested dependencies give a one-time cached response. But,
     with different injected function calls, cache will differ too.
 

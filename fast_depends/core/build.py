@@ -69,7 +69,7 @@ def build_call_model(
         return_annotation = return_args[0]
 
     class_fields: Dict[str, Tuple[Any, Any]] = {}
-    dependencies: Dict[str, "CallModel[..., Any]"] = {}
+    dependencies: Dict[str, CallModel[..., Any]] = {}
     custom_fields: Dict[str, CustomField] = {}
     positional_args: List[str] = []
     keyword_args: List[str] = []
@@ -178,20 +178,19 @@ def build_call_model(
         **class_fields,
     )
 
-    response_model: Optional[Type[ResponseModel[T]]]
+    response_model: Optional[Type[ResponseModel[T]]] = None
     if cast and return_annotation and return_annotation is not inspect.Parameter.empty:
-        response_model = create_model(  # type: ignore[assignment]
+        response_model = create_model(
             "ResponseModel",
-            __config__=get_config_base(pydantic_config),
+            __config__=get_config_base(pydantic_config),  # type: ignore[assignment]
             response=(return_annotation, ...),
         )
-    else:
-        response_model = None
 
     return CallModel(
         call=call,
         model=func_model,
         response_model=response_model,
+        params=class_fields,
         cast=cast,
         use_cache=use_cache,
         is_async=is_call_async,

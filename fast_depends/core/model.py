@@ -156,10 +156,6 @@ class CallModel(Generic[P, T]):
         self.call = call
         self.model = model
 
-        for name in chain(self.dependencies.keys(), self.custom_fields.keys()):
-            params.pop(name, None)
-        self.params = params
-
         if model:
             self.alias_arguments = get_aliases(model)
         else:
@@ -167,12 +163,15 @@ class CallModel(Generic[P, T]):
 
         self.keyword_args = tuple(keyword_args or ())
         self.positional_args = tuple(positional_args or ())
-
         self.response_model = response_model
 
         self.dependencies = dependencies or {}
         self.extra_dependencies = extra_dependencies or ()
         self.custom_fields = custom_fields or {}
+
+        for name in chain(self.dependencies.keys(), self.custom_fields.keys()):
+            params.pop(name, None)
+        self.params = params
 
         self.use_cache = use_cache
         self.cast = cast

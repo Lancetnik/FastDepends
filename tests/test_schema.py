@@ -1,10 +1,14 @@
 from typing import Optional
 
+from dirty_equals import IsDict, IsPartialDict
 from pydantic import BaseModel, Field
 
 from fast_depends import Depends
+from fast_depends._compat import PYDANTIC_V2
 from fast_depends.core import build_call_model
 from fast_depends.schema import get_schema
+
+REF_KEY = "$defs" if PYDANTIC_V2 else "definitions"
 
 
 def test_base():
@@ -41,7 +45,7 @@ class TestNoType:
 
         schema = get_schema(build_call_model(handler))
         assert schema == {
-            "properties": {"a": {"default": None, "title": "A"}},
+            "properties": {"a": IsPartialDict({"title": "A"})},
             "title": "handler",
             "type": "object",
         }, schema
@@ -51,7 +55,7 @@ class TestNoType:
             pass
 
         schema = get_schema(build_call_model(handler), embed=True)
-        assert schema == {"default": None, "title": "A"}, schema
+        assert schema == IsPartialDict({"title": "A"}), schema
 
 
 class TestOneArg:
@@ -81,7 +85,10 @@ class TestOneArg:
         schema = get_schema(build_call_model(handler))
         assert schema == {
             "properties": {
-                "a": {"anyOf": [{"type": "integer"}, {"type": "null"}], "title": "A"}
+                "a": IsDict(
+                    {"anyOf": [{"type": "integer"}, {"type": "null"}], "title": "A"}
+                )
+                | IsDict({"type": "integer", "title": "A"})
             },
             "required": ["a"],
             "title": "handler",
@@ -117,7 +124,7 @@ class TestOneArgWithModel:
 
         schema = get_schema(build_call_model(handler))
         assert schema == {
-            "$defs": {
+            REF_KEY: {
                 "Model": {
                     "properties": {"a": {"title": "A", "type": "integer"}},
                     "required": ["a"],
@@ -125,7 +132,7 @@ class TestOneArgWithModel:
                     "type": "object",
                 }
             },
-            "properties": {"a": {"$ref": "#/$defs/Model"}},
+            "properties": {"a": {"$ref": f"#/{REF_KEY}/Model"}},
             "required": ["a"],
             "title": "handler",
             "type": "object",
@@ -163,18 +170,28 @@ class TestOneArgWithModel:
         schema = get_schema(build_call_model(handler), resolve_refs=True)
         assert schema == {
             "properties": {
-                "a": {
-                    "anyOf": [
-                        {
-                            "properties": {"a": {"title": "A", "type": "integer"}},
-                            "required": ["a"],
-                            "title": "Model",
-                            "type": "object",
-                        },
-                        {"type": "null"},
-                    ],
-                    "default": None,
-                }
+                "a": IsDict(
+                    {
+                        "anyOf": [
+                            {
+                                "properties": {"a": {"title": "A", "type": "integer"}},
+                                "required": ["a"],
+                                "title": "Model",
+                                "type": "object",
+                            },
+                            {"type": "null"},
+                        ],
+                        "default": None,
+                    }
+                )
+                | IsDict(
+                    {
+                        "properties": {"a": {"title": "A", "type": "integer"}},
+                        "required": ["a"],
+                        "title": "Model",
+                        "type": "object",
+                    }
+                )
             },
             "title": "handler",
             "type": "object",
@@ -188,17 +205,26 @@ class TestOneArgWithModel:
             pass
 
         schema = get_schema(build_call_model(handler), resolve_refs=True, embed=True)
-        assert schema == {
-            "anyOf": [
-                {
-                    "properties": {"a": {"title": "A", "type": "integer"}},
-                    "required": ["a"],
-                    "title": "Model",
-                    "type": "object",
-                },
-                {"type": "null"},
-            ]
-        }, schema
+        assert schema == IsDict(
+            {
+                "anyOf": [
+                    {
+                        "properties": {"a": {"title": "A", "type": "integer"}},
+                        "required": ["a"],
+                        "title": "Model",
+                        "type": "object",
+                    },
+                    {"type": "null"},
+                ]
+            }
+        ) | IsDict(
+            {
+                "properties": {"a": {"title": "A", "type": "integer"}},
+                "required": ["a"],
+                "title": "Model",
+                "type": "object",
+            }
+        ), schema
 
     def test_nested_resolved_model(self):
         class Model2(BaseModel):
@@ -325,7 +351,7 @@ class TestMultiArgs:
 
         schema = get_schema(build_call_model(handler))
         assert schema == {
-            "$defs": {
+            REF_KEY: {
                 "Model": {
                     "properties": {
                         "a": {
@@ -341,7 +367,7 @@ class TestMultiArgs:
             },
             "properties": {
                 "a": {"title": "A", "type": "string"},
-                "b": {"$ref": "#/$defs/Model"},
+                "b": {"$ref": f"#/{REF_KEY}/Model"},
             },
             "required": ["a", "b"],
             "title": "handler",

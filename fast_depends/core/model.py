@@ -158,7 +158,7 @@ class CallModel(Generic[P, T]):
 
         if model:
             self.alias_arguments = get_aliases(model)
-        else:
+        else:  # pragma: no cover
             self.alias_arguments = ()
 
         self.keyword_args = tuple(keyword_args or ())
@@ -563,7 +563,7 @@ def _sort_dep(
     else:
         for i in calls:
             sub_model, _ = flat[i]
-            if sub_model not in collector:
+            if sub_model not in collector:  # pragma: no branch
                 _sort_dep(collector, flat[i], flat)
 
         position = max(collector.index(flat[i][0]) for i in calls)

@@ -53,7 +53,7 @@ async def run_async(
 async def run_in_threadpool(
     func: Callable[P, T], *args: P.args, **kwargs: P.kwargs
 ) -> T:
-    if kwargs:  # pragma: no cover
+    if kwargs:
         func = functools.partial(func, **kwargs)
     return await anyio.to_thread.run_sync(func, *args)
 

@@ -122,7 +122,7 @@ async def test_async_depends_annotated_str_partial():
     async def some_func(
         a: int,
         b: int,
-        c: Annotated["float", "Depends(adep_func)"],
+        c: Annotated["float", Depends(adep_func)],
     ) -> float:
         assert isinstance(c, float)
         return a + b + c
@@ -130,7 +130,7 @@ async def test_async_depends_annotated_str_partial():
     @inject
     async def another_func(
         a: int,
-        c: Annotated["float", "Depends(adep_func)"],
+        c: Annotated["float", Depends(adep_func)],
     ):
         return a + c
 

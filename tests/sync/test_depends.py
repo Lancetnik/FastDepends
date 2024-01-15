@@ -103,7 +103,7 @@ def test_depends_annotated_str_partial():
     def some_func(
         a: int,
         b: int,
-        c: Annotated["float", "Depends(dep_func)"],
+        c: Annotated["float", Depends(dep_func)],
     ) -> float:
         assert isinstance(c, float)
         return a + b + c
@@ -111,7 +111,7 @@ def test_depends_annotated_str_partial():
     @inject
     def another_func(
         a: int,
-        c: Annotated["float", "Depends(dep_func)"],
+        c: Annotated["float", Depends(dep_func)],
     ):
         return a + c
 

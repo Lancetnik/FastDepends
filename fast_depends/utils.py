@@ -3,6 +3,7 @@ import functools
 import inspect
 from contextlib import AsyncExitStack, ExitStack, asynccontextmanager, contextmanager
 from typing import (
+    TYPE_CHECKING,
     Any,
     AsyncGenerator,
     AsyncIterable,
@@ -11,15 +12,25 @@ from typing import (
     ContextManager,
     Dict,
     ForwardRef,
+    List,
     Tuple,
     Union,
     cast,
 )
 
 import anyio
-from typing_extensions import ParamSpec, TypeVar
+from typing_extensions import (
+    Annotated,
+    ParamSpec,
+    TypeVar,
+    get_args,
+    get_origin,
+)
 
 from fast_depends._compat import evaluate_forwardref
+
+if TYPE_CHECKING:
+    from types import FrameType
 
 P = ParamSpec("P")
 T = TypeVar("T")
@@ -42,7 +53,7 @@ async def run_async(
 async def run_in_threadpool(
     func: Callable[P, T], *args: P.args, **kwargs: P.kwargs
 ) -> T:
-    if kwargs:  # pragma: no cover
+    if kwargs:
         func = functools.partial(func, **kwargs)
     return await anyio.to_thread.run_sync(func, *args)
 
@@ -94,12 +105,15 @@ def get_typed_signature(call: Callable[..., Any]) -> Tuple[inspect.Signature, An
 def collect_outer_stack_locals() -> Dict[str, Any]:
     frame = inspect.currentframe()
 
-    locals = {}
+    frames: List["FrameType"] = []
     while frame is not None:
         if "fast_depends" not in frame.f_code.co_filename:
-            locals.update(frame.f_locals)
-
+            frames.append(frame)
         frame = frame.f_back
+
+    locals = {}
+    for f in frames[::-1]:
+        locals.update(f.f_locals)
 
     return locals
 
@@ -111,7 +125,17 @@ def get_typed_annotation(
 ) -> Any:
     if isinstance(annotation, str):
         annotation = ForwardRef(annotation)
+
+    if isinstance(annotation, ForwardRef):
         annotation = evaluate_forwardref(annotation, globalns, locals)
+
+    if (
+        get_origin(annotation) is Annotated
+        and (args := get_args(annotation))
+    ):
+        solved_args = [get_typed_annotation(x, globalns, locals) for x in args]
+        annotation.__origin__, annotation.__metadata__ = solved_args[0], tuple(solved_args[1:])
+
     return annotation
 
 
@@ -157,8 +181,8 @@ def is_coroutine_callable(call: Callable[..., Any]) -> bool:
     if asyncio.iscoroutinefunction(call):
         return True
 
-    call_ = getattr(call, "__call__", None)  # noqa: B004
-    return asyncio.iscoroutinefunction(call_)
+    dunder_call = getattr(call, "__call__", None)  # noqa: B004
+    return asyncio.iscoroutinefunction(dunder_call)
 
 
 async def async_map(

@@ -1,8 +1,19 @@
-from unittest.mock import Mock
-
 import pytest
 from fast_depends import dependency_provider, inject, Depends
 
+# Base code
+
+def base_dep():
+    return 1
+
+def override_dep():
+    return 2
+
+@inject
+def func(d = Depends(base_dep)):
+    return d
+
+# Tests
 
 @pytest.fixture
 def provider():
@@ -10,23 +21,5 @@ def provider():
     dependency_provider.clear() # (1)!
 
 def test_sync_overide(provider):
-    mock = Mock()
-
-    def base_dep():
-        mock.original()
-        return 1
-
-    def override_dep():
-        mock.override()
-        return 2
-
     provider.override(base_dep, override_dep)
-
-    @inject
-    def func(d = Depends(base_dep)):
-        assert d == 2
-
-    func()
-
-    mock.override.assert_called_once()
-    assert not mock.original.called
+    assert func() == 2

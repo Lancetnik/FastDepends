@@ -25,11 +25,11 @@ async def test_depends():
 
 @pytest.mark.anyio
 async def test_sync_depends():
-    def dep_func(a: int) -> float:
+    def sync_dep_func(a: int) -> float:
         return a
 
     @inject
-    async def some_func(a: int, b: int, c=Depends(dep_func)) -> float:
+    async def some_func(a: int, b: int, c=Depends(sync_dep_func)) -> float:
         assert isinstance(c, float)
         return a + b + c
 
@@ -89,7 +89,57 @@ async def test_depends_annotated():
 
 
 @pytest.mark.anyio
-async def test_cash():
+async def test_async_depends_annotated_str():
+    async def dep_func(a):
+        return a
+
+    @inject
+    async def some_func(
+        a: int,
+        b: int,
+        c: "Annotated[int, Depends(dep_func)]",
+    ) -> float:
+        assert isinstance(c, int)
+        return a + b + c
+
+    @inject
+    async def another_func(
+        a: int,
+        c: "Annotated[int, Depends(dep_func)]",
+    ):
+        return a + c
+
+    assert await some_func("1", "2")
+    assert await another_func("3") == 6.0
+
+
+@pytest.mark.anyio
+async def test_async_depends_annotated_str_partial():
+    async def adep_func(a):
+        return a
+
+    @inject
+    async def some_func(
+        a: int,
+        b: int,
+        c: Annotated["float", Depends(adep_func)],
+    ) -> float:
+        assert isinstance(c, float)
+        return a + b + c
+
+    @inject
+    async def another_func(
+        a: int,
+        c: Annotated["float", Depends(adep_func)],
+    ):
+        return a + c
+
+    assert await some_func("1", "2")
+    assert await another_func("3") == 6.0
+
+
+@pytest.mark.anyio
+async def test_cache():
     mock = Mock()
 
     async def nested_dep_func():
@@ -155,13 +205,13 @@ async def test_yield():
 async def test_sync_yield():
     mock = Mock()
 
-    def dep_func():
+    def sync_dep_func():
         mock()
         yield 1000
         mock.exit()
 
     @inject
-    async def some_func(a=Depends(dep_func)):
+    async def some_func(a=Depends(sync_dep_func)):
         assert mock.called
         assert not mock.exit.called
         return a
@@ -175,13 +225,13 @@ async def test_sync_yield():
 async def test_sync_yield_exception():
     mock = Mock()
 
-    def dep_func():
+    def sync_dep_func():
         mock()
         yield 1000
         raise ValueError()
 
     @inject
-    async def some_func(a=Depends(dep_func)):
+    async def some_func(a=Depends(sync_dep_func)):
         assert mock.called
         assert not mock.exit.called
         return a
@@ -197,11 +247,11 @@ async def test_sync_yield_exception():
 async def test_sync_yield_exception_start():
     mock = Mock()
 
-    def dep_func():
+    def sync_dep_func():
         raise ValueError()
 
     @inject
-    async def some_func(a=Depends(dep_func)):  # pragma: no cover
+    async def some_func(a=Depends(sync_dep_func)):  # pragma: no cover
         mock()
         return a
 
@@ -215,7 +265,7 @@ async def test_sync_yield_exception_start():
 async def test_sync_yield_exception_main():
     mock = Mock()
 
-    def dep_func():
+    def sync_dep_func():
         mock()
         try:
             yield 1000
@@ -223,7 +273,7 @@ async def test_sync_yield_exception_main():
             mock.exit()
 
     @inject
-    async def some_func(a=Depends(dep_func)):
+    async def some_func(a=Depends(sync_dep_func)):
         assert mock.called
         assert not mock.exit.called
         raise ValueError()

@@ -2,6 +2,7 @@ from collections import namedtuple
 from contextlib import AsyncExitStack, ExitStack
 from functools import partial
 from inspect import Parameter, unwrap
+from itertools import chain
 from typing import (
     Any,
     Awaitable,
@@ -21,7 +22,7 @@ from typing import (
 import anyio
 from typing_extensions import ParamSpec, TypeVar
 
-from fast_depends._compat import BaseModel, ExceptionGroup, FieldInfo, get_model_fields
+from fast_depends._compat import BaseModel, ExceptionGroup, get_aliases
 from fast_depends.library import CustomField
 from fast_depends.utils import (
     async_map,
@@ -53,10 +54,10 @@ class CallModel(Generic[P, T]):
     ]
     is_async: bool
     is_generator: bool
-    model: Type[BaseModel]
+    model: Optional[Type[BaseModel]]
     response_model: Optional[Type[ResponseModel[T]]]
 
-    params: Dict[str, FieldInfo]
+    params: Dict[str, Tuple[Any, Any]]
     alias_arguments: Tuple[str, ...]
 
     dependencies: Dict[str, "CallModel[..., Any]"]
@@ -94,15 +95,8 @@ class CallModel(Generic[P, T]):
         return getattr(call, "__name__", type(call).__name__)
 
     @property
-    def real_params(self) -> Dict[str, FieldInfo]:
-        params = self.params.copy()
-        for name in self.custom_fields.keys():
-            params.pop(name, None)
-        return params
-
-    @property
-    def flat_params(self) -> Dict[str, FieldInfo]:
-        params = self.real_params
+    def flat_params(self) -> Dict[str, Tuple[Any, Any]]:
+        params = self.params
         for d in (*self.dependencies.values(), *self.extra_dependencies):
             params.update(d.flat_params)
         return params
@@ -146,7 +140,8 @@ class CallModel(Generic[P, T]):
             Callable[P, T],
             Callable[P, Awaitable[T]],
         ],
-        model: Type[BaseModel],
+        model: Optional[Type[BaseModel]],
+        params: Dict[str, Tuple[Any, Any]],
         response_model: Optional[Type[ResponseModel[T]]] = None,
         use_cache: bool = True,
         cast: bool = True,
@@ -160,21 +155,23 @@ class CallModel(Generic[P, T]):
     ):
         self.call = call
         self.model = model
-        self.response_model = response_model
 
-        fields: Dict[str, FieldInfo] = get_model_fields(model)
+        if model:
+            self.alias_arguments = get_aliases(model)
+        else:  # pragma: no cover
+            self.alias_arguments = ()
+
+        self.keyword_args = tuple(keyword_args or ())
+        self.positional_args = tuple(positional_args or ())
+        self.response_model = response_model
 
         self.dependencies = dependencies or {}
         self.extra_dependencies = extra_dependencies or ()
         self.custom_fields = custom_fields or {}
 
-        self.alias_arguments = tuple(f.alias or name for name, f in fields.items())
-        self.keyword_args = tuple(keyword_args or ())
-        self.positional_args = tuple(positional_args or ())
-
-        self.params = fields.copy()
-        for name in self.dependencies.keys():
-            self.params.pop(name, None)
+        for name in chain(self.dependencies.keys(), self.custom_fields.keys()):
+            params.pop(name, None)
+        self.params = params
 
         self.use_cache = use_cache
         self.cast = cast
@@ -273,6 +270,7 @@ class CallModel(Generic[P, T]):
 
         args_: Sequence[Any]
         if self.cast:
+            assert self.model, "Cast should be used only with model"
             casted_model = self.model(**solved_kw)
 
             kwargs_ = {
@@ -565,7 +563,7 @@ def _sort_dep(
     else:
         for i in calls:
             sub_model, _ = flat[i]
-            if sub_model not in collector:
+            if sub_model not in collector:  # pragma: no branch
                 _sort_dep(collector, flat[i], flat)
 
         position = max(collector.index(flat[i][0]) for i in calls)

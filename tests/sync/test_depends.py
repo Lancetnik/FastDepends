@@ -71,6 +71,54 @@ def test_depends_annotated():
     assert another_func("3") == 6.0
 
 
+def test_depends_annotated_str():
+    def dep_func(a):
+        return a
+
+    @inject
+    def some_func(
+        a: int,
+        b: int,
+        c: "Annotated[int, Depends(dep_func)]",
+    ) -> float:
+        assert isinstance(c, int)
+        return a + b + c
+
+    @inject
+    def another_func(
+        a: int,
+        c: "Annotated[int, Depends(dep_func)]",
+    ):
+        return a + c
+
+    assert some_func("1", "2")
+    assert another_func("3") == 6.0
+
+
+def test_depends_annotated_str_partial():
+    def dep_func(a):
+        return a
+
+    @inject
+    def some_func(
+        a: int,
+        b: int,
+        c: Annotated["float", Depends(dep_func)],
+    ) -> float:
+        assert isinstance(c, float)
+        return a + b + c
+
+    @inject
+    def another_func(
+        a: int,
+        c: Annotated["float", Depends(dep_func)],
+    ):
+        return a + c
+
+    assert some_func("1", "2")
+    assert another_func("3") == 6.0
+
+
 def test_cache():
     mock = Mock()
 
@@ -277,7 +325,7 @@ def test_partial():
         return a
 
     @inject
-    def func(a=Depends(partial(dep, 10))):
+    def func(a=Depends(partial(dep, 10))):  # noqa: B008
         return a
 
     assert func() == 10

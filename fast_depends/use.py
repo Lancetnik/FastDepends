@@ -8,6 +8,7 @@ from typing import (
     Optional,
     Sequence,
     Union,
+    cast,
     overload,
 )
 
@@ -77,7 +78,10 @@ def inject(
     pydantic_config: Optional[ConfigDict] = None,
     dependency_overrides_provider: Optional[Any] = dependency_provider,
     wrap_model: Callable[[CallModel[P, T]], CallModel[P, T]] = lambda x: x,
-) -> Union[Callable[P, T], _InjectWrapper[P, T],]:
+) -> Union[
+    Callable[P, T],
+    _InjectWrapper[P, T],
+]:
     decorator = _wrap_inject(
         dependency_overrides_provider=dependency_overrides_provider,
         wrap_model=wrap_model,
@@ -178,7 +182,7 @@ def _wrap_inject(
 
 
 class solve_async_gen:
-    iter: Optional[AsyncIterator[Any]]
+    _iter: Optional[AsyncIterator[Any]]
 
     def __init__(
         self,
@@ -193,27 +197,30 @@ class solve_async_gen:
         self.overrides = overrides
 
     def __aiter__(self) -> "solve_async_gen":
-        self.iter = None
+        self._iter = None
         self.stack = AsyncExitStack()
         return self
 
     async def __anext__(self) -> Any:
-        if self.iter is None:
+        if self._iter is None:
             stack = self.stack = AsyncExitStack()
             await self.stack.__aenter__()
-            self.iter: AsyncIterator[Any] = (
-                await self.call.asolve(
-                    *self.args,
-                    stack=stack,
-                    dependency_overrides=self.overrides,
-                    cache_dependencies={},
-                    nested=False,
-                    **self.kwargs,
-                )
-            ).__aiter__()
+            self._iter = cast(
+                AsyncIterator[Any],
+                (
+                    await self.call.asolve(
+                        *self.args,
+                        stack=stack,
+                        dependency_overrides=self.overrides,
+                        cache_dependencies={},
+                        nested=False,
+                        **self.kwargs,
+                    )
+                ).__aiter__(),
+            )
 
         try:
-            r = await self.iter.__anext__()
+            r = await self._iter.__anext__()
         except StopAsyncIteration as e:
             await self.stack.__aexit__(None, None, None)
             raise e
@@ -222,7 +229,7 @@ class solve_async_gen:
 
 
 class solve_gen:
-    iter: Optional[Iterator[Any]]
+    _iter: Optional[Iterator[Any]]
 
     def __init__(
         self,
@@ -237,27 +244,30 @@ class solve_gen:
         self.overrides = overrides
 
     def __iter__(self) -> "solve_gen":
-        self.iter = None
+        self._iter = None
         self.stack = ExitStack()
         return self
 
     def __next__(self) -> Any:
-        if self.iter is None:
+        if self._iter is None:
             stack = self.stack = ExitStack()
             self.stack.__enter__()
-            self.iter: AsyncIterator[Any] = iter(
-                self.call.solve(
-                    *self.args,
-                    stack=stack,
-                    dependency_overrides=self.overrides,
-                    cache_dependencies={},
-                    nested=False,
-                    **self.kwargs,
-                )
+            self._iter = cast(
+                Iterator[Any],
+                iter(
+                    self.call.solve(
+                        *self.args,
+                        stack=stack,
+                        dependency_overrides=self.overrides,
+                        cache_dependencies={},
+                        nested=False,
+                        **self.kwargs,
+                    )
+                ),
             )
 
         try:
-            r = next(self.iter)
+            r = next(self._iter)
         except StopIteration as e:
             self.stack.__exit__(None, None, None)
             raise e

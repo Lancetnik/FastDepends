@@ -24,7 +24,6 @@ hide:
     <img alt="GitHub" src="https://img.shields.io/github/license/Lancetnik/FastDepends?color=%23007ec6">
 </a>
 
-
 FastDepends - FastAPI Dependency Injection system extracted from FastAPI and cleared of all HTTP logic.
 This is a small library which provides you with the ability to use lovely FastAPI interfaces in your own
 projects or tools.

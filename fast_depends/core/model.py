@@ -165,14 +165,6 @@ class CallModel(Generic[P, T]):
         self.positional_args = tuple(positional_args or ())
         self.response_model = response_model
 
-        self.dependencies = dependencies or {}
-        self.extra_dependencies = extra_dependencies or ()
-        self.custom_fields = custom_fields or {}
-
-        for name in chain(self.dependencies.keys(), self.custom_fields.keys()):
-            params.pop(name, None)
-        self.params = params
-
         self.use_cache = use_cache
         self.cast = cast
         self.is_async = (
@@ -182,6 +174,10 @@ class CallModel(Generic[P, T]):
             is_generator or is_gen_callable(call) or is_async_gen_callable(call)
         )
 
+        self.dependencies = dependencies or {}
+        self.extra_dependencies = extra_dependencies or ()
+        self.custom_fields = custom_fields or {}
+
         sorted_dep: List["CallModel[..., Any]"] = []
         flat = self.flat_dependencies
         for calls in flat.values():
@@ -190,6 +186,10 @@ class CallModel(Generic[P, T]):
         self.sorted_dependencies = tuple(
             (i, len(i.sorted_dependencies)) for i in sorted_dep if i.use_cache
         )
+
+        for name in chain(self.dependencies.keys(), self.custom_fields.keys()):
+            params.pop(name, None)
+        self.params = params
 
     def _solve(
         self,

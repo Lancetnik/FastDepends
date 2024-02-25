@@ -24,6 +24,6 @@ jobs:
         with:
           key: ${{ github.ref }}
           path: .cache
-      - run: pip install -e ".[doc]"
+      - run: pip install -r requirements.docs.txt
       - working-directory: ./docs
         run: mkdocs gh-deploy --force

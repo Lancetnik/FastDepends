@@ -4,6 +4,7 @@ __pycache__
 .vscode
 .pypirc
 venv
+.venv
 app
 serve.py
 test.py

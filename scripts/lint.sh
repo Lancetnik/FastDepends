@@ -6,3 +6,6 @@ ruff fast_depends tests --fix
 
 echo "Running ruff formatter (black replacement)..."
 ruff format tests
+
+echo "Running codespell to find typos..."
+codespell

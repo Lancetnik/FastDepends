@@ -1,7 +1,7 @@
 # CustomField
 
 !!! warning "Packages developers"
-    This is the part of documentation will talks you about some features, that can be helpfull to develop your own packages with `FastDepends`
+    This is the part of documentation will talks you about some features, that can be helpful to develop your own packages with `FastDepends`
 
 ## Custom Arguments Field
 
@@ -65,7 +65,7 @@ class CustomField:
 
 !!! note
     Pydantic understands only python-native annotation or Pydantic classes. If users will annotate your fields by other classes,
-    you should set `cast=False` to avoid pydantic exeptions.
+    you should set `cast=False` to avoid pydantic exceptions.
 
 ```python
 def use(self, **kwargs: AnyDict) -> AnyDict: ...

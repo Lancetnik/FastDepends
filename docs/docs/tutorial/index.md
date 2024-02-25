@@ -4,7 +4,7 @@ I suppose, if you are already here, you are exactly known about this library usa
 
 It is using the same way as [FastAPI](https://fastapi.tiangolo.com/tutorial/dependencies/) is.
 
-But, I can remember you, if it's nessesary.
+But, I can remember you, if it's necessary.
 
 ## Basic usage
 
@@ -62,7 +62,7 @@ That was easy, isn't it?
 
 ## Nested Dependencies
 
-Dependecies are also able to contain their own dependencies. There is nothing unexpected with this case:
+Dependencies are also able to contain their own dependencies. There is nothing unexpected with this case:
 just declare `Depends` requirement at original dependency function.
 
 === "Sync"
@@ -81,19 +81,18 @@ just declare `Depends` requirement at original dependency function.
 
 !!! Tip "Cache"
     At the examples above `another_dependency` was called **AT ONCE!**.
-    `FastDepends` caches all dependecies responses throw **ONE** `@inject` callstask.
+    `FastDepends` caches all dependencies responses throw **ONE** `@inject` callstask.
     It means, that all nested dependencies give a one-time cached response. But,
     with different injected function calls, cache will differ too.
 
     To disable that behavior, just use `Depends(..., cache=False)`. This way dependency will
     be executed each time.
 
-
 ## Dependencies type casting
 
-If you remember, `FastDepends` casts function `return` too. This means, dependecy output
-will be casted twice: at dependecy function *out* and at the injector *in*. Nothing bad,
-if they are the same type, nothing overhead occures. Just keep it in your mind. Or don't...
+If you remember, `FastDepends` casts function `return` too. This means, dependency output
+will be casted twice: at dependency function *out* and at the injector *in*. Nothing bad,
+if they are the same type, nothing overhead occurs. Just keep it in your mind. Or don't...
 My work is done anyway.
 
 ```python linenums="1"
@@ -110,7 +109,7 @@ def method(a: int, d: int = Depends(simple_dependency)):
 assert method("1") == 5
 ```
 
-Also, `return` type will be cached. If you are using this dependcy at `N` functions,
+Also, `return` type will be cached. If you are using this dependency at `N` functions,
 cached return will be casted `N` times.
 
 To avoid this problem use [mypy](https://www.mypy-lang.org) to check types at your project or

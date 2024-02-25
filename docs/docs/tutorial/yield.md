@@ -1,6 +1,6 @@
 # Generators
 
-Sometimes we want to call something *before* and *after* original funtion call.
+Sometimes we want to call something *before* and *after* original function call.
 
 That purpouse can be reached by using `yield` keyword.
 
@@ -28,7 +28,7 @@ The code following the `yield` statement is executed after the original function
     and only `sync` declaration with a `sync` one.
 
 !!! warning
-All errors occures at original function or another dependencies will be raised this place
+All errors occurs at original function or another dependencies will be raised this place
 ```python linenums="1" hl_lines="3"
 {!> docs_src/tutorial_3_yield/tutorial_1.py !}
 ```

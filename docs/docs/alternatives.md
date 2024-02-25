@@ -2,7 +2,7 @@
 
 `FastDepend` is a very small toolkit to achieve one point: provide you with opportunity to use **FastAPI** `Depends` and typecasting everywhere.
 
-Sometimes, more complex tools are required. In these cases I can reccomend you to take a look at the following projects
+Sometimes, more complex tools are required. In these cases I can recommend you to take a look at the following projects
 
 ## [DI](https://adriangb.com/di/)
 
@@ -14,7 +14,7 @@ Key features:
 * Auto-wiring: `di` also supports auto-wiring using type annotations
 * Scopes: inspired by `pytest scopes`, but defined by users
 * Composable: decoupled internal APIs give you the flixibility to customize wiring, execution and binding.
-* Performant: `di` can execute dependencies in parallel and cache results ins scopes.
+* Performance: `di` can execute dependencies in parallel and cache results ins scopes.
 
 ## [Dependency Injector](https://python-dependency-injector.etc-labs.org)
 
@@ -32,5 +32,5 @@ Key features:
 * Wiring
 * Asynchronous
 * Typing
-* Perfomance
+* Performance
 * Maturity

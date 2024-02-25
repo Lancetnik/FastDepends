@@ -33,13 +33,13 @@ This is a small library which provides you with the ability to use lovely FastAP
 projects or tools.
 
 Thanks to [*fastapi*](https://fastapi.tiangolo.com/) and [*pydantic*](https://docs.pydantic.dev/) projects for this
-greate functionality. This package is just a small change of the original FastAPI sources to provide DI functionality in a pure-Python way.
+great functionality. This package is just a small change of the original FastAPI sources to provide DI functionality in a pure-Python way.
 
 Async and sync modes are both supported.
 
 # For why?
 
-This project should be extreamly helpfull to boost your not-**FastAPI** applications (even **Flask**, I know that u like some legacy).
+This project should be extremely helpful to boost your not-**FastAPI** applications (even **Flask**, I know that u like some legacy).
 
 Also the project can be a core of your own framework for anything. Actually, it was build for my another project - :rocket:[**Propan**](https://github.com/Lancetnik/Propan):rocket: (and [**FastStream**](https://github.com/airtai/faststream)), check it to see full-featured **FastDepends** usage example.
 

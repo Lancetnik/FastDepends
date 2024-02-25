@@ -29,7 +29,7 @@ will be the type of your dependency:
 ### CALL (2-nd call)
 
 If you wish to specify your dependency behavior earlier, you can use `__call__` method of
-already inititalized class object.
+already initialized class object.
 
 ```python linenums="1" hl_lines="7-8 11"
 {!> docs_src/tutorial_2_classes/tutorial_3.py !}

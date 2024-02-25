@@ -144,3 +144,6 @@ omit = [
     '*/__main__.py',
     '*/__init__.py',
 ]
+
+[tool.codespell]
+skip = "venv,./docs/site/*,*.js,*.css"

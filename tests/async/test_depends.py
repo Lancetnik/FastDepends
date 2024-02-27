@@ -24,6 +24,19 @@ async def test_depends():
 
 
 @pytest.mark.anyio
+async def test_empty_main_body():
+    async def dep_func(a: int) -> float:
+        return a
+
+    @inject
+    async def some_func(c=Depends(dep_func)):
+        assert isinstance(c, float)
+        assert c == 1.0
+
+    await some_func("1")
+
+
+@pytest.mark.anyio
 async def test_sync_depends():
     def sync_dep_func(a: int) -> float:
         return a

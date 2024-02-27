@@ -258,15 +258,15 @@ class CallModel(Generic[P, T]):
             keyword_args = self.keyword_args
 
         else:
-            keyword_args = self.keyword_args + self.positional_args
-            for arg in self.keyword_args:
+            keyword_args = set(self.keyword_args + self.positional_args)
+            for arg in keyword_args - set(self.dependencies.keys()):
                 if args:
                     kw[arg], args = args[0], args[1:]
                 else:
                     break
 
         solved_kw: Dict[str, Any]
-        solved_kw = yield (), kw, call
+        solved_kw = yield args, kw, call
 
         args_: Sequence[Any]
         if self.cast:
@@ -347,7 +347,7 @@ class CallModel(Generic[P, T]):
             **kwargs,
         )
         try:
-            _, kwargs, _ = next(cast_gen)
+            args, kwargs, _ = next(cast_gen)
         except StopIteration as e:
             cached_value: T = e.value
             return cached_value
@@ -355,6 +355,7 @@ class CallModel(Generic[P, T]):
         # Heat cache and solve extra dependencies
         for dep, _ in self.sorted_dependencies:
             dep.solve(
+                *args,
                 stack=stack,
                 cache_dependencies=cache_dependencies,
                 dependency_overrides=dependency_overrides,
@@ -365,6 +366,7 @@ class CallModel(Generic[P, T]):
         # Always get from cache
         for dep in self.extra_dependencies:
             dep.solve(
+                *args,
                 stack=stack,
                 cache_dependencies=cache_dependencies,
                 dependency_overrides=dependency_overrides,
@@ -447,7 +449,7 @@ class CallModel(Generic[P, T]):
             **kwargs,
         )
         try:
-            _, kwargs, _ = next(cast_gen)
+            args, kwargs, _ = next(cast_gen)
         except StopIteration as e:
             cached_value: T = e.value
             return cached_value
@@ -459,6 +461,7 @@ class CallModel(Generic[P, T]):
                 for dep, subdep in self.sorted_dependencies:
                     solve = partial(
                         dep.asolve,
+                        *args,
                         stack=stack,
                         cache_dependencies=cache_dependencies,
                         dependency_overrides=dependency_overrides,
@@ -479,6 +482,7 @@ class CallModel(Generic[P, T]):
         # Always get from cache
         for dep in self.extra_dependencies:
             await dep.asolve(
+                *args,
                 stack=stack,
                 cache_dependencies=cache_dependencies,
                 dependency_overrides=dependency_overrides,

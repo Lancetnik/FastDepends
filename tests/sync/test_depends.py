@@ -22,6 +22,18 @@ def test_depends():
     assert some_func("2") == 7
 
 
+def test_empty_main_body():
+    def dep_func(a: int) -> float:
+        return a
+
+    @inject
+    def some_func(c=Depends(dep_func)):
+        assert isinstance(c, float)
+        assert c == 1.0
+
+    some_func("1")
+
+
 def test_depends_error():
     def dep_func(b: dict, a: int = 3) -> float:  # pragma: no cover
         return a + b

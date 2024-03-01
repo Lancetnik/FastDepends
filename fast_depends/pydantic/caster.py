@@ -5,8 +5,8 @@ from fast_depends.library.caster import Caster, OptionItem
 from fast_depends.pydantic._compat import (
     ConfigDict,
     create_model,
-    get_aliases,
     get_config_base,
+    get_model_fields,
 )
 
 
@@ -21,10 +21,7 @@ class PydanticCaster(Caster):
     ):
         self.name = name
 
-        class_options = {
-            i.field_name: (i.field_type, i.default_value)
-            for i in options
-        }
+        class_options = {i.field_name: (i.field_type, i.default_value) for i in options}
 
         config = get_config_base(pydantic_config)
 
@@ -43,17 +40,18 @@ class PydanticCaster(Caster):
         else:
             self.response_model = None
 
-    def __call__(self, options: Dict[str, Any]) -> Dict[str, Any]:
-        casted_model = self.model(**options)
-        return {
-            i: getattr(casted_model, i)
-            for i in casted_model.model_fields.keys()
-        }
-
-    def get_aliases(self) -> Tuple[str, ...]:
-        return get_aliases(self.model)
-
     def response(self, value: Any) -> Any:
         if self.response_model is not None:
             return self.response_model(response=value).response
         return value
+
+    def __call__(self, options: Dict[str, Any]) -> Dict[str, Any]:
+        casted_model = self.model(**options)
+        return {
+            i: getattr(casted_model, i) for i in get_model_fields(casted_model).keys()
+        }
+
+    def get_aliases(self) -> Tuple[str, ...]:
+        return tuple(
+            f.alias or name for name, f in get_model_fields(self.model).items()
+        )

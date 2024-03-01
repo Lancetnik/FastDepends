@@ -24,7 +24,7 @@ if PYDANTIC_V2:
     from pydantic._internal._typing_extra import (  # type: ignore[no-redef]
         eval_type_lenient as evaluate_forwardref,
     )
-    from pydantic import FieldInfo
+    from pydantic.fields import FieldInfo
 
     def model_schema(model: Type[BaseModel]) -> Dict[str, Any]:
         return model.model_json_schema()

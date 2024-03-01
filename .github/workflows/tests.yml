@@ -67,7 +67,7 @@ jobs:
         run: pip install -r requirements.test.txt
       - run: mkdir coverage
       - name: Test
-        run: bash scripts/test.sh
+        run: pytest tests/test_no_pydantic.py
         env:
           COVERAGE_FILE: coverage/.coverage.${{ runner.os }}-py${{ matrix.python-version }}-${{ matrix.pydantic-version }}
           CONTEXT: ${{ runner.os }}-py${{ matrix.python-version }}-${{ matrix.pydantic-version }}
@@ -79,7 +79,7 @@ jobs:
           if-no-files-found: error
 
   coverage-combine:
-    needs: [test]
+    needs: [test,test-no-pydantic]
     runs-on: ubuntu-latest
 
     steps:

@@ -7,7 +7,6 @@ from typing import (
     List,
     Optional,
     Sequence,
-    Tuple,
     Type,
     Union,
 )
@@ -20,10 +19,10 @@ from typing_extensions import (
     get_origin,
 )
 
-from fast_depends._compat import ConfigDict, create_model, get_config_base
-from fast_depends.core.model import CallModel, ResponseModel
+from fast_depends.core.model import CallModel
 from fast_depends.dependencies import Depends
 from fast_depends.library import CustomField
+from fast_depends.library.caster import Caster, OptionItem
 from fast_depends.utils import (
     get_typed_signature,
     is_async_gen_callable,
@@ -44,13 +43,13 @@ def build_call_model(
         Callable[P, Awaitable[T]],
     ],
     *,
-    cast: bool = True,
     use_cache: bool = True,
     is_sync: Optional[bool] = None,
     extra_dependencies: Sequence[Depends] = (),
-    pydantic_config: Optional[ConfigDict] = None,
+    caster_cls: Optional[Type[Caster]] = None,
+    **caster_kwargs: Any,
 ) -> CallModel[P, T]:
-    name = getattr(call, "__name__", type(call).__name__)
+    name = getattr(inspect.unwrap(call), "__name__", type(call).__name__)
 
     is_call_async = is_coroutine_callable(call)
     if is_sync is None:
@@ -68,11 +67,13 @@ def build_call_model(
     ):
         return_annotation = return_args[0]
 
-    class_fields: Dict[str, Tuple[Any, Any]] = {}
+    class_fields: List[OptionItem] = []
     dependencies: Dict[str, CallModel[..., Any]] = {}
     custom_fields: Dict[str, CustomField] = {}
     positional_args: List[str] = []
     keyword_args: List[str] = []
+    args_name: Optional[str] = None
+    kwargs_name: Optional[str] = None
 
     for param_name, param in typed_params.parameters.items():
         dep: Optional[Depends] = None
@@ -127,26 +128,28 @@ def build_call_model(
             ), "You can not use `CustomField` with `Annotated` and default both"
             custom = default
 
-        elif default is inspect.Parameter.empty:
-            class_fields[param_name] = (annotation, ...)
-
         else:
-            class_fields[param_name] = (annotation, default)
+            class_fields.append(OptionItem(
+                field_name=param_name,
+                field_type=annotation,
+                default_value=... if default is inspect.Parameter.empty else default
+            ))
 
         if dep:
-            if not cast:
-                dep.cast = False
-
             dependencies[param_name] = build_call_model(
                 dep.dependency,
-                cast=dep.cast,
                 use_cache=dep.use_cache,
                 is_sync=is_sync,
-                pydantic_config=pydantic_config,
+                caster_cls=caster_cls,
+                **caster_kwargs,
             )
 
-            if dep.cast is True:
-                class_fields[param_name] = (annotation, ...)
+            if caster_cls is not None:
+                class_fields.append(OptionItem(
+                    field_name=param_name,
+                    field_type=annotation,
+                ))
+
             keyword_args.append(param_name)
 
         elif custom:
@@ -157,41 +160,47 @@ def build_call_model(
             custom.set_param_name(param_name)
             custom_fields[param_name] = custom
 
-            if custom.cast is False:
+            if not custom.cast:
                 annotation = Any
 
             if custom.required:
-                class_fields[param_name] = (annotation, ...)
+                class_fields.append(OptionItem(
+                    field_name=param_name,
+                    field_type=annotation,
+                ))
+
             else:
-                class_fields[param_name] = (Optional[annotation], None)
+                class_fields.append(OptionItem(
+                    field_name=param_name,
+                    field_type=Optional[annotation],
+                    default_value=None,
+                ))
+
             keyword_args.append(param_name)
 
         else:
             if param.kind is param.KEYWORD_ONLY:
                 keyword_args.append(param_name)
-            elif param_name not in ("args", "kwargs"):
+            elif param.kind is param.VAR_KEYWORD:
+                kwargs_name = param_name
+            elif param.kind is param.VAR_POSITIONAL:
+                args_name = param_name
+            else:
                 positional_args.append(param_name)
 
-    func_model = create_model(  # type: ignore[call-overload]
-        name,
-        __config__=get_config_base(pydantic_config),
-        **class_fields,
-    )
-
-    response_model: Optional[Type[ResponseModel[T]]] = None
-    if cast and return_annotation and return_annotation is not inspect.Parameter.empty:
-        response_model = create_model(
-            "ResponseModel",
-            __config__=get_config_base(pydantic_config),  # type: ignore[assignment]
-            response=(return_annotation, ...),
+    caster: Optional[Caster] = None
+    if caster_cls is not None:
+        caster = caster_cls(
+            name=name,
+            options=class_fields,
+            response_type=return_annotation,
+            **caster_kwargs,
         )
 
     return CallModel(
         call=call,
-        model=func_model,
-        response_model=response_model,
-        params=class_fields,
-        cast=cast,
+        caster=caster,
+        params=tuple(i for i in class_fields if i.field_name not in dependencies and i.field_name not in custom_fields),
         use_cache=use_cache,
         is_async=is_call_async,
         is_generator=is_call_generator,
@@ -199,13 +208,15 @@ def build_call_model(
         custom_fields=custom_fields,
         positional_args=positional_args,
         keyword_args=keyword_args,
+        args_name=args_name,
+        kwargs_name=kwargs_name,
         extra_dependencies=[
             build_call_model(
                 d.dependency,
-                cast=d.cast,
                 use_cache=d.use_cache,
                 is_sync=is_sync,
-                pydantic_config=pydantic_config,
+                caster_cls=caster_cls,
+                **caster_kwargs,
             )
             for d in extra_dependencies
         ],

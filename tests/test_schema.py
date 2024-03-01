@@ -4,9 +4,10 @@ from dirty_equals import IsDict, IsPartialDict
 from pydantic import BaseModel, Field
 
 from fast_depends import Depends
-from fast_depends._compat import PYDANTIC_V2
 from fast_depends.core import build_call_model
-from fast_depends.schema import get_schema
+from fast_depends.pydantic._compat import PYDANTIC_V2
+from fast_depends.pydantic.caster import PydanticCaster
+from fast_depends.pydantic.schema import get_schema
 
 REF_KEY = "$defs" if PYDANTIC_V2 else "definitions"
 
@@ -15,7 +16,7 @@ def test_base():
     def handler():
         pass
 
-    schema = get_schema(build_call_model(handler))
+    schema = get_schema(build_call_model(handler, caster_cls=PydanticCaster))
     assert schema == {"title": "handler", "type": "null"}, schema
 
 
@@ -24,7 +25,7 @@ class TestNoType:
         def handler(a):
             pass
 
-        schema = get_schema(build_call_model(handler))
+        schema = get_schema(build_call_model(handler, caster_cls=PydanticCaster))
         assert schema == {
             "properties": {"a": {"title": "A"}},
             "required": ["a"],
@@ -36,14 +37,16 @@ class TestNoType:
         def handler(a):
             pass
 
-        schema = get_schema(build_call_model(handler), embed=True)
+        schema = get_schema(
+            build_call_model(handler, caster_cls=PydanticCaster), embed=True
+        )
         assert schema == {"title": "A"}, schema
 
     def test_no_type_with_default(self):
         def handler(a=None):
             pass
 
-        schema = get_schema(build_call_model(handler))
+        schema = get_schema(build_call_model(handler, caster_cls=PydanticCaster))
         assert schema == {
             "properties": {"a": IsPartialDict({"title": "A"})},
             "title": "handler",
@@ -54,7 +57,9 @@ class TestNoType:
         def handler(a=None):
             pass
 
-        schema = get_schema(build_call_model(handler), embed=True)
+        schema = get_schema(
+            build_call_model(handler, caster_cls=PydanticCaster), embed=True
+        )
         assert schema == IsPartialDict({"title": "A"}), schema
 
 
@@ -63,7 +68,7 @@ class TestOneArg:
         def handler(a: int):
             pass
 
-        schema = get_schema(build_call_model(handler))
+        schema = get_schema(build_call_model(handler, caster_cls=PydanticCaster))
         assert schema == {
             "properties": {"a": {"title": "A", "type": "integer"}},
             "required": ["a"],
@@ -75,14 +80,16 @@ class TestOneArg:
         def handler(a: int):
             pass
 
-        schema = get_schema(build_call_model(handler), embed=True)
+        schema = get_schema(
+            build_call_model(handler, caster_cls=PydanticCaster), embed=True
+        )
         assert schema == {"title": "A", "type": "integer"}, schema
 
     def test_one_arg_with_optional(self):
         def handler(a: Optional[int]):
             pass
 
-        schema = get_schema(build_call_model(handler))
+        schema = get_schema(build_call_model(handler, caster_cls=PydanticCaster))
         assert schema == {
             "properties": {
                 "a": IsDict(
@@ -99,7 +106,7 @@ class TestOneArg:
         def handler(a: int = 0):
             pass
 
-        schema = get_schema(build_call_model(handler))
+        schema = get_schema(build_call_model(handler, caster_cls=PydanticCaster))
         assert schema == {
             "properties": {"a": {"default": 0, "title": "A", "type": "integer"}},
             "title": "handler",
@@ -110,7 +117,9 @@ class TestOneArg:
         def handler(a: int = 0):
             pass
 
-        schema = get_schema(build_call_model(handler), embed=True)
+        schema = get_schema(
+            build_call_model(handler, caster_cls=PydanticCaster), embed=True
+        )
         assert schema == {"default": 0, "title": "A", "type": "integer"}, schema
 
 
@@ -122,7 +131,7 @@ class TestOneArgWithModel:
         def handler(a: Model):
             pass
 
-        schema = get_schema(build_call_model(handler))
+        schema = get_schema(build_call_model(handler, caster_cls=PydanticCaster))
         assert schema == {
             REF_KEY: {
                 "Model": {
@@ -145,7 +154,9 @@ class TestOneArgWithModel:
         def handler(a: Model):
             pass
 
-        schema = get_schema(build_call_model(handler), resolve_refs=True)
+        schema = get_schema(
+            build_call_model(handler, caster_cls=PydanticCaster), resolve_refs=True
+        )
         assert schema == {
             "properties": {
                 "a": {
@@ -167,7 +178,9 @@ class TestOneArgWithModel:
         def handler(a: Optional[Model] = None):
             pass
 
-        schema = get_schema(build_call_model(handler), resolve_refs=True)
+        schema = get_schema(
+            build_call_model(handler, caster_cls=PydanticCaster), resolve_refs=True
+        )
         assert schema == {
             "properties": {
                 "a": IsDict(
@@ -204,7 +217,11 @@ class TestOneArgWithModel:
         def handler(a: Optional[Model]):
             pass
 
-        schema = get_schema(build_call_model(handler), resolve_refs=True, embed=True)
+        schema = get_schema(
+            build_call_model(handler, caster_cls=PydanticCaster),
+            resolve_refs=True,
+            embed=True,
+        )
         assert schema == IsDict(
             {
                 "anyOf": [
@@ -236,7 +253,9 @@ class TestOneArgWithModel:
         def handler(a: Model):
             pass
 
-        schema = get_schema(build_call_model(handler), resolve_refs=True)
+        schema = get_schema(
+            build_call_model(handler, caster_cls=PydanticCaster), resolve_refs=True
+        )
         assert schema == {
             "properties": {
                 "a": {
@@ -265,7 +284,11 @@ class TestOneArgWithModel:
         def handler(a: Model):
             pass
 
-        schema = get_schema(build_call_model(handler), resolve_refs=True, embed=True)
+        schema = get_schema(
+            build_call_model(handler, caster_cls=PydanticCaster),
+            resolve_refs=True,
+            embed=True,
+        )
         assert schema == {
             "properties": {"a": {"title": "A", "type": "integer"}},
             "required": ["a"],
@@ -283,7 +306,11 @@ class TestOneArgWithModel:
         def handler(a: Model):
             pass
 
-        schema = get_schema(build_call_model(handler), resolve_refs=True, embed=True)
+        schema = get_schema(
+            build_call_model(handler, caster_cls=PydanticCaster),
+            resolve_refs=True,
+            embed=True,
+        )
         assert schema == {
             "properties": {
                 "a": {
@@ -304,7 +331,7 @@ class TestMultiArgs:
         def handler(a, b):
             pass
 
-        schema = get_schema(build_call_model(handler))
+        schema = get_schema(build_call_model(handler, caster_cls=PydanticCaster))
         assert schema == {
             "properties": {"a": {"title": "A"}, "b": {"title": "B"}},
             "required": ["a", "b"],
@@ -316,7 +343,7 @@ class TestMultiArgs:
         def handler(a: str, b: int = 0):
             pass
 
-        schema = get_schema(build_call_model(handler))
+        schema = get_schema(build_call_model(handler, caster_cls=PydanticCaster))
         assert schema == {
             "properties": {
                 "a": {"title": "A", "type": "string"},
@@ -331,7 +358,9 @@ class TestMultiArgs:
         def handler(a: str, b: int = 0):
             pass
 
-        schema = get_schema(build_call_model(handler), embed=True)
+        schema = get_schema(
+            build_call_model(handler, caster_cls=PydanticCaster), embed=True
+        )
         assert schema == {
             "properties": {
                 "a": {"title": "A", "type": "string"},
@@ -349,7 +378,7 @@ class TestMultiArgs:
         def handler(a: str, b: Model):
             pass
 
-        schema = get_schema(build_call_model(handler))
+        schema = get_schema(build_call_model(handler, caster_cls=PydanticCaster))
         assert schema == {
             REF_KEY: {
                 "Model": {
@@ -381,7 +410,9 @@ class TestMultiArgs:
         def handler(a: str, b: Model):
             pass
 
-        schema = get_schema(build_call_model(handler), resolve_refs=True)
+        schema = get_schema(
+            build_call_model(handler, caster_cls=PydanticCaster), resolve_refs=True
+        )
         assert schema == {
             "properties": {
                 "a": {"title": "A", "type": "string"},
@@ -427,7 +458,11 @@ def test_depends():
         ...
 
     schema = get_schema(
-        build_call_model(handler, extra_dependencies=(Depends(dep4),)),
+        build_call_model(
+            handler,
+            extra_dependencies=(Depends(dep4),),
+            caster_cls=PydanticCaster,
+        ),
         resolve_refs=True,
         embed=True,
     )

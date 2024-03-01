@@ -2,7 +2,7 @@ import pytest
 from pydantic import ValidationError
 
 from fast_depends import Depends, inject
-from fast_depends._compat import PYDANTIC_V2
+from fast_depends.pydantic._compat import PYDANTIC_V2
 
 
 def dep(a: str):

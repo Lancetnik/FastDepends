@@ -34,6 +34,41 @@ def test_empty_main_body():
     some_func("1")
 
 
+def test_empty_main_body_multiple_args():
+    def dep2(b):
+        return b
+
+    def dep(a):
+        return a
+
+    @inject()
+    def handler(d=Depends(dep2), c=Depends(dep)):
+        return d, c
+
+    handler(a=1, b=2) == (2, 1)
+    handler(1, b=2) == (2, 1)
+    handler(1, a=2) == (1, 2)
+    handler(1, 2) == (1, 1)  # all dependencies takes the first arg
+
+
+def test_ignore_depends_if_setted_manual():
+    mock = Mock()
+
+    def dep_func(a, b) -> int:
+        mock(a, b)
+        return a + b
+
+    @inject
+    def some_func(c=Depends(dep_func)) -> int:
+        return c
+
+    assert some_func(c=2) == 2
+    assert not mock.called
+
+    assert some_func(1, 2) == 3
+    mock.assert_called_once_with(1, 2)
+
+
 def test_depends_error():
     def dep_func(b: dict, a: int = 3) -> float:  # pragma: no cover
         return a + b

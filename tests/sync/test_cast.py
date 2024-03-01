@@ -52,8 +52,10 @@ def test_arbitrary_response():
 
 def test_validation_error():
     @inject
-    def some_func(a, b: str = Field(..., max_length=1)):  # pragma: no cover
-        pass
+    def some_func(a, b: str = Field(..., max_length=1)):
+        return 1
+
+    assert some_func(1, "a") == 1
 
     with pytest.raises(ValidationError):
         assert some_func()
@@ -176,6 +178,40 @@ def test_args_kwargs_3():
         1.0,
         b=3.0,
     )
+
+
+def test_args_kwargs_4():
+    @inject
+    def simple_func(
+        *args: Tuple[float, ...],
+        **kwargs: Dict[str, int],
+    ):
+        return args, kwargs
+
+    assert (
+        (1.0, 2.0, 3.0),
+        {
+            "key": 1,
+            "b": 3,
+        },
+    ) == simple_func(1.0, 2.0, 3, b=3.0, key=1.0)
+
+
+def test_args_kwargs_5():
+    @inject
+    def simple_func(
+        *a: Tuple[float, ...],
+        **kw: Dict[str, int],
+    ):
+        return a, kw
+
+    assert (
+        (1.0, 2.0, 3.0),
+        {
+            "key": 1,
+            "b": 3,
+        },
+    ) == simple_func(1.0, 2.0, 3, b=3.0, key=1.0)
 
 
 def test_generator():

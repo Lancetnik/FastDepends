@@ -21,5 +21,5 @@ def test_params():
 
     model = build_call_model(main, extra_dependencies=(Depends(extra_func),))
 
-    assert set(model.params.keys()) == {"a", "b"}
-    assert set(model.flat_params.keys()) == {"a", "b", "c", "m", "n"}
+    assert {p.field_name for p in model.params} == {"a", "b"}
+    assert {p.field_name for p in model.flat_params} == {"a", "b", "c", "m", "n"}

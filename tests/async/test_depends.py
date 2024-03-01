@@ -24,6 +24,25 @@ async def test_depends():
 
 
 @pytest.mark.anyio
+async def test_ignore_depends_if_setted_manual():
+    mock = Mock()
+
+    async def dep_func(a, b) -> int:
+        mock(a, b)
+        return a + b
+
+    @inject
+    async def some_func(c=Depends(dep_func)) -> int:
+        return c
+
+    assert (await some_func(c=2)) == 2
+    assert not mock.called
+
+    assert (await some_func(1, 2)) == 3
+    mock.assert_called_once_with(1, 2)
+
+
+@pytest.mark.anyio
 async def test_empty_main_body():
     async def dep_func(a: int) -> float:
         return a
@@ -34,6 +53,24 @@ async def test_empty_main_body():
         assert c == 1.0
 
     await some_func("1")
+
+
+@pytest.mark.anyio
+async def test_empty_main_body_multiple_args():
+    def dep2(b):
+        return b
+
+    async def dep(a):
+        return a
+
+    @inject()
+    async def handler(d=Depends(dep2), c=Depends(dep)):
+        return d, c
+
+    await handler(a=1, b=2) == (2, 1)
+    await handler(1, b=2) == (2, 1)
+    await handler(1, a=2) == (1, 2)
+    await handler(1, 2) == (1, 1)  # all dependencies takes the first arg
 
 
 @pytest.mark.anyio

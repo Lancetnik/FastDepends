@@ -7,6 +7,7 @@ from typing import (
     Iterator,
     Optional,
     Sequence,
+    Type,
     Union,
     cast,
     overload,
@@ -14,9 +15,15 @@ from typing import (
 
 from typing_extensions import ParamSpec, Protocol, TypeVar
 
-from fast_depends._compat import ConfigDict
 from fast_depends.core import CallModel, build_call_model
 from fast_depends.dependencies import dependency_provider, model
+from fast_depends.library.caster import Caster
+
+try:
+    from fast_depends.pydantic.caster import PydanticCaster as CasterCls
+except ImportError:
+    CasterCls = None
+
 
 P = ParamSpec("P")
 T = TypeVar("T")
@@ -50,9 +57,10 @@ def inject(  # pragma: no cover
     *,
     cast: bool = True,
     extra_dependencies: Sequence[model.Depends] = (),
-    pydantic_config: Optional[ConfigDict] = None,
     dependency_overrides_provider: Optional[Any] = dependency_provider,
     wrap_model: Callable[[CallModel[P, T]], CallModel[P, T]] = lambda x: x,
+    caster_cls: Optional[Type[Caster]] = CasterCls,
+    **caster_options: Any,
 ) -> _InjectWrapper[P, T]:
     ...
 
@@ -63,9 +71,10 @@ def inject(  # pragma: no cover
     *,
     cast: bool = True,
     extra_dependencies: Sequence[model.Depends] = (),
-    pydantic_config: Optional[ConfigDict] = None,
     dependency_overrides_provider: Optional[Any] = dependency_provider,
     wrap_model: Callable[[CallModel[P, T]], CallModel[P, T]] = lambda x: x,
+    caster_cls: Optional[Type[Caster]] = CasterCls,
+    **caster_options: Any,
 ) -> Callable[P, T]:
     ...
 
@@ -75,9 +84,10 @@ def inject(
     *,
     cast: bool = True,
     extra_dependencies: Sequence[model.Depends] = (),
-    pydantic_config: Optional[ConfigDict] = None,
     dependency_overrides_provider: Optional[Any] = dependency_provider,
     wrap_model: Callable[[CallModel[P, T]], CallModel[P, T]] = lambda x: x,
+    caster_cls: Optional[Type[Caster]] = CasterCls,
+    **caster_options: Any,
 ) -> Union[
     Callable[P, T],
     _InjectWrapper[P, T],
@@ -87,7 +97,8 @@ def inject(
         wrap_model=wrap_model,
         extra_dependencies=extra_dependencies,
         cast=cast,
-        pydantic_config=pydantic_config,
+        caster_cls=caster_cls,
+        **caster_options,
     )
 
     if func is None:
@@ -105,7 +116,8 @@ def _wrap_inject(
     ],
     extra_dependencies: Sequence[model.Depends],
     cast: bool,
-    pydantic_config: Optional[ConfigDict],
+    caster_cls: Optional[Type[Caster]] = CasterCls,
+    **caster_options: Any,
 ) -> _InjectWrapper[P, T]:
     if (
         dependency_overrides_provider
@@ -125,8 +137,8 @@ def _wrap_inject(
                 build_call_model(
                     call=func,
                     extra_dependencies=extra_dependencies,
-                    cast=cast,
-                    pydantic_config=pydantic_config,
+                    caster_cls=caster_cls if cast else None,
+                    **caster_options,
                 )
             )
         else:
@@ -143,7 +155,7 @@ def _wrap_inject(
                 @wraps(func)
                 async def injected_wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
                     async with AsyncExitStack() as stack:
-                        r = await real_model.asolve(
+                        return await real_model.asolve(
                             *args,
                             stack=stack,
                             dependency_overrides=overrides,
@@ -151,7 +163,6 @@ def _wrap_inject(
                             nested=False,
                             **kwargs,
                         )
-                        return r
 
                     raise AssertionError("unreachable")
 
@@ -164,7 +175,7 @@ def _wrap_inject(
                 @wraps(func)
                 def injected_wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
                     with ExitStack() as stack:
-                        r = real_model.solve(
+                        return real_model.solve(
                             *args,
                             stack=stack,
                             dependency_overrides=overrides,
@@ -172,7 +183,6 @@ def _wrap_inject(
                             nested=False,
                             **kwargs,
                         )
-                        return r
 
                     raise AssertionError("unreachable")
 

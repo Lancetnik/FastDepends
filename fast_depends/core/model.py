@@ -201,7 +201,7 @@ class CallModel:
         stack: ExitStack,
         cache_dependencies: dict[Callable[..., Any], Any],
         nested: bool = False,
-        depencency_provider: "Provider | None" = None,
+        dependency_provider: "Provider | None" = None,
         **kwargs: dict[str, Any],
     ) -> Any:
         cast_gen = self._solve(
@@ -215,8 +215,8 @@ class CallModel:
             cached_value = e.value
             return cached_value
 
-        if depencency_provider:
-            provider = self.dependency_provider.merge(depencency_provider)
+        if dependency_provider:
+            provider = self.dependency_provider.merge(dependency_provider)
         else:
             provider = self.dependency_provider
 
@@ -279,7 +279,7 @@ class CallModel:
         stack: AsyncExitStack,
         cache_dependencies: dict[Callable[..., Any], Any],
         nested: bool = False,
-        depencency_provider: "Provider | None" = None,
+        dependency_provider: "Provider | None" = None,
         **kwargs: dict[str, Any],
     ) -> Any:
         cast_gen = self._solve(
@@ -293,8 +293,8 @@ class CallModel:
             cached_value = e.value
             return cached_value
 
-        if depencency_provider:
-            provider = self.dependency_provider.merge(depencency_provider)
+        if dependency_provider:
+            provider = self.dependency_provider.merge(dependency_provider)
         else:
             provider = self.dependency_provider
 

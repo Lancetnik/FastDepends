@@ -27,6 +27,3 @@ class Provider:
         self.dependency_overrides[original] = override
         yield
         self.dependency_overrides.pop(original, None)
-
-
-dependency_provider = Provider()

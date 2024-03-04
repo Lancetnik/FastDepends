@@ -1,4 +1,5 @@
 from typing import Dict, Tuple
+from unittest.mock import MagicMock
 
 from fast_depends import Depends, inject
 
@@ -30,3 +31,24 @@ def test_args_kwargs_1():
         3.0,
         {"key": 1.0},
     ) == simple_func(1.0, 2.0, 3, b=3.0, key=1.0)
+
+
+def test_generator():
+    mock = MagicMock()
+
+    def func():
+        mock.start()
+        yield
+        mock.end()
+
+    @inject
+    def simple_func(a: str, d=Depends(func)):
+        for _ in range(2):
+            yield a
+
+    for i in simple_func("1"):
+        mock.start.assert_called_once()
+        assert not mock.end.called
+        assert i == "1"
+
+    mock.end.assert_called_once()

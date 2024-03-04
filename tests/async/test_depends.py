@@ -67,10 +67,10 @@ async def test_empty_main_body_multiple_args():
     async def handler(d=Depends(dep2), c=Depends(dep)):
         return d, c
 
-    await handler(a=1, b=2) == (2, 1)
-    await handler(1, b=2) == (2, 1)
-    await handler(1, a=2) == (1, 2)
-    await handler(1, 2) == (1, 1)  # all dependencies takes the first arg
+    assert await handler(a=1, b=2) == (2, 1)
+    assert await handler(1, b=2) == (2, 1)
+    assert await handler(1, a=2) == (1, 2)
+    assert await handler(1, 2) == (1, 1)  # all dependencies takes the first arg
 
 
 @pytest.mark.anyio

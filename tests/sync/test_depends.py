@@ -4,12 +4,18 @@ from functools import partial
 from unittest.mock import Mock
 
 import pytest
-from pydantic import ValidationError
 from typing_extensions import Annotated
 
+try:
+    from pydantic import ValidationError
+except ImportError:
+    ValidationError = None
+
 from fast_depends import Depends, inject
+from tests.marks import HAS_PYDANTIC, pydantic
 
 
+@pydantic
 def test_depends():
     def dep_func(b: int, a: int = 3) -> float:
         return a + b
@@ -23,15 +29,14 @@ def test_depends():
 
 
 def test_empty_main_body():
-    def dep_func(a: int) -> float:
-        return a
+    def dep_func(a):
+        return a + 1
 
     @inject
     def some_func(c=Depends(dep_func)):
-        assert isinstance(c, float)
-        assert c == 1.0
+        assert c == 2
 
-    some_func("1")
+    some_func(1)
 
 
 def test_empty_main_body_multiple_args():
@@ -45,10 +50,10 @@ def test_empty_main_body_multiple_args():
     def handler(d=Depends(dep2), c=Depends(dep)):
         return d, c
 
-    handler(a=1, b=2) == (2, 1)
-    handler(1, b=2) == (2, 1)
-    handler(1, a=2) == (1, 2)
-    handler(1, 2) == (1, 1)  # all dependencies takes the first arg
+    assert handler(a=1, b=2) == (2, 1)
+    assert handler(1, b=2) == (2, 1)
+    assert handler(1, a=2) == (1, 2)
+    assert handler(1, 2) == (1, 1)  # all dependencies takes the first arg
 
 
 def test_ignore_depends_if_setted_manual():
@@ -362,7 +367,7 @@ def test_generator():
     for i in simple_func("1"):
         mock.start.assert_called_once()
         assert not mock.end.called
-        assert i == 1
+        assert i == (1 if HAS_PYDANTIC else "1")
 
     mock.end.assert_called_once()
 

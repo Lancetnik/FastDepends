@@ -2,11 +2,15 @@ from typing import Dict, Iterator, Tuple
 
 import pytest
 from annotated_types import Ge
-from pydantic import BaseModel, Field, ValidationError
 from typing_extensions import Annotated
 
 from fast_depends import inject
-from tests.marks import pydanticV2
+from tests.marks import pydantic, pydanticV2
+
+try:
+    from pydantic import BaseModel, Field, ValidationError
+except ImportError:
+    BaseModel, Field, ValidationError = None, None, None
 
 
 def test_not_annotated():
@@ -17,6 +21,7 @@ def test_not_annotated():
     assert isinstance(some_func("1", "2"), str)
 
 
+@pydantic
 def test_annotated_partial():
     @inject
     def some_func(a, b: int):
@@ -50,6 +55,7 @@ def test_arbitrary_response():
     assert isinstance(some_func(ArbitraryType()), ArbitraryType)
 
 
+@pydantic
 def test_validation_error():
     @inject
     def some_func(a, b: str = Field(..., max_length=1)):
@@ -64,6 +70,7 @@ def test_validation_error():
         assert some_func(1, "dsdas")
 
 
+@pydantic
 def test_types_casting():
     @inject
     def some_func(a: int, b: int) -> float:
@@ -76,6 +83,7 @@ def test_types_casting():
     assert isinstance(some_func("1", "2"), float)
 
 
+@pydantic
 def test_types_casting_from_str():
     @inject
     def some_func(a: "int") -> float:
@@ -84,6 +92,7 @@ def test_types_casting_from_str():
     assert isinstance(some_func("1"), float)
 
 
+@pydantic
 def test_pydantic_types_casting():
     class SomeModel(BaseModel):
         field: int
@@ -95,6 +104,7 @@ def test_pydantic_types_casting():
     assert isinstance(some_func({"field": "31"}), int)
 
 
+@pydantic
 def test_pydantic_field_types_casting():
     @inject
     def some_func(a: int = Field(..., alias="b")) -> float:
@@ -110,6 +120,7 @@ def test_pydantic_field_types_casting():
     assert isinstance(another_func(b="2"), float)
 
 
+@pydantic
 def test_wrong_incoming_types():
     @inject
     def some_func(a: int):  # pragma: no cover
@@ -119,6 +130,7 @@ def test_wrong_incoming_types():
         some_func({"key", 1})
 
 
+@pydantic
 def test_wrong_return_types():
     @inject
     def some_func(a: int) -> dict:
@@ -128,6 +140,7 @@ def test_wrong_return_types():
         some_func("2")
 
 
+@pydantic
 def test_annotated():
     A = Annotated[int, Field(..., alias="b")]
 
@@ -149,7 +162,18 @@ def test_args_kwargs_1():
     ):
         return a, args, b, kwargs
 
-    assert (1, (2.0, 3.0), 3, {"key": 1}) == simple_func(1.0, 2.0, 3, b=3.0, key=1.0)
+    assert (
+        1,
+        (2.0, 3.0),
+        3,
+        {"key": 1},
+    ) == simple_func(
+        1.0,
+        2.0,
+        3,
+        b=3.0,
+        key=1.0,
+    )
 
 
 def test_args_kwargs_2():
@@ -161,7 +185,11 @@ def test_args_kwargs_2():
     ):
         return a, args, b
 
-    assert (1, (2.0, 3.0), 3) == simple_func(
+    assert (
+        1,
+        (2.0, 3.0),
+        3,
+    ) == simple_func(
         1.0,
         2.0,
         3,
@@ -174,7 +202,10 @@ def test_args_kwargs_3():
     def simple_func(a: int, *, b: int):
         return a, b
 
-    assert (1, 3) == simple_func(
+    assert (
+        1,
+        3,
+    ) == simple_func(
         1.0,
         b=3.0,
     )
@@ -194,7 +225,13 @@ def test_args_kwargs_4():
             "key": 1,
             "b": 3,
         },
-    ) == simple_func(1.0, 2.0, 3, b=3.0, key=1.0)
+    ) == simple_func(
+        1.0,
+        2.0,
+        3,
+        b=3.0,
+        key=1.0,
+    )
 
 
 def test_args_kwargs_5():
@@ -214,6 +251,7 @@ def test_args_kwargs_5():
     ) == simple_func(1.0, 2.0, 3, b=3.0, key=1.0)
 
 
+@pydantic
 def test_generator():
     @inject
     def simple_func(a: str) -> int:
@@ -224,6 +262,7 @@ def test_generator():
         assert i == 1
 
 
+@pydantic
 def test_generator_iterator_type():
     @inject
     def simple_func(a: str) -> Iterator[int]:

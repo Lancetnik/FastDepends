@@ -61,7 +61,7 @@ jobs:
         id: cache
         with:
           path: ${{ env.pythonLocation }}
-          key: ${{ runner.os }}-python-${{ env.pythonLocation }}-${{ hashFiles('pyproject.toml') }}-test-v03
+          key: no-pydantic-python-${{ env.pythonLocation }}-${{ hashFiles('pyproject.toml') }}
       - name: Install Dependencies
         if: steps.cache.outputs.cache-hit != 'true'
         run: pip install -r requirements.test.txt

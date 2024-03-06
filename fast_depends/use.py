@@ -29,7 +29,7 @@ except ImportError:
 P = ParamSpec("P")
 T = TypeVar("T")
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no cover
     from fast_depends.core import CallModel
     from fast_depends.library.serializer import Serializer
 

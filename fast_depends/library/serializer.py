@@ -41,5 +41,5 @@ class Serializer(ABC):
     def get_aliases(self) -> Tuple[str, ...]:
         return ()
 
-    def response(self, value: Any) -> Any:
+    def response(self, value: Any) -> Any:  # pragma: no cover
         return value

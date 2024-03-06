@@ -1,8 +1,7 @@
 import pytest
-from pydantic import ValidationError
 
 from fast_depends import Depends, inject
-from fast_depends.pydantic._compat import PYDANTIC_V2
+from tests.marks import PYDANTIC_V2, pydantic
 
 
 async def dep(a: str):
@@ -19,8 +18,11 @@ async def regular(a=Depends(dep)):
     return a
 
 
+@pydantic
 @pytest.mark.anyio
 async def test_config():
+    from pydantic import ValidationError
+
     await regular("123")
 
     with pytest.raises(ValidationError):

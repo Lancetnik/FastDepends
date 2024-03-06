@@ -1,4 +1,4 @@
-from fast_depends.library.caster import Caster
 from fast_depends.library.model import CustomField
+from fast_depends.library.serializer import Serializer
 
-__all__ = ("CustomField", "Caster",)
+__all__ = ("CustomField", "Serializer",)

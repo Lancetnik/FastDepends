@@ -1,9 +1,8 @@
 from fast_depends.dependencies import Provider
-from fast_depends.use import Depends, dependency_provider, inject
+from fast_depends.use import Depends, inject
 
 __all__ = (
     "Depends",
-    "dependency_provider",
     "Provider",
     "inject",
 )

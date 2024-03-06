@@ -1,14 +1,13 @@
 import inspect
 from typing import (
+    TYPE_CHECKING,
     Any,
-    Awaitable,
     Callable,
     Dict,
     List,
     Optional,
     Sequence,
     Type,
-    Union,
 )
 
 from typing_extensions import (
@@ -20,9 +19,9 @@ from typing_extensions import (
 )
 
 from fast_depends.core.model import CallModel
-from fast_depends.dependencies import Depends
+from fast_depends.dependencies import Dependant
 from fast_depends.library import CustomField
-from fast_depends.library.caster import Caster, OptionItem
+from fast_depends.library.serializer import OptionItem, Serializer
 from fast_depends.utils import (
     get_typed_signature,
     is_async_gen_callable,
@@ -30,7 +29,11 @@ from fast_depends.utils import (
     is_gen_callable,
 )
 
-CUSTOM_ANNOTATIONS = (Depends, CustomField)
+if TYPE_CHECKING:
+    from fast_depends.dependencies.provider import Key, Provider
+
+
+CUSTOM_ANNOTATIONS = (Dependant, CustomField)
 
 
 P = ParamSpec("P")
@@ -38,17 +41,15 @@ T = TypeVar("T")
 
 
 def build_call_model(
-    call: Union[
-        Callable[P, T],
-        Callable[P, Awaitable[T]],
-    ],
+    call: Callable[..., Any],
     *,
+    dependency_provider: "Provider",
     use_cache: bool = True,
     is_sync: Optional[bool] = None,
-    extra_dependencies: Sequence[Depends] = (),
-    caster_cls: Optional[Type[Caster]] = None,
+    extra_dependencies: Sequence[Dependant] = (),
+    caster_cls: Optional[Type[Serializer]] = None,
     **caster_kwargs: Any,
-) -> CallModel[P, T]:
+) -> CallModel:
     name = getattr(inspect.unwrap(call), "__name__", type(call).__name__)
 
     is_call_async = is_coroutine_callable(call)
@@ -60,15 +61,13 @@ def build_call_model(
         ), f"You cannot use async dependency `{name}` at sync main"
 
     typed_params, return_annotation = get_typed_signature(call)
-    if (
-        (is_call_generator := is_gen_callable(call) or
-        is_async_gen_callable(call)) and
-        (return_args := get_args(return_annotation))
+    if (is_call_generator := is_gen_callable(call) or is_async_gen_callable(call)) and (
+        return_args := get_args(return_annotation)
     ):
         return_annotation = return_args[0]
 
     class_fields: List[OptionItem] = []
-    dependencies: Dict[str, CallModel[..., Any]] = {}
+    dependencies: Dict[str, "Key"] = {}
     custom_fields: Dict[str, CustomField] = {}
     positional_args: List[str] = []
     keyword_args: List[str] = []
@@ -76,7 +75,7 @@ def build_call_model(
     kwargs_name: Optional[str] = None
 
     for param_name, param in typed_params.parameters.items():
-        dep: Optional[Depends] = None
+        dep: Optional[Dependant] = None
         custom: Optional[CustomField] = None
 
         if param.annotation is inspect.Parameter.empty:
@@ -95,7 +94,7 @@ def build_call_model(
 
             next_custom = next(iter(custom_annotations), None)
             if next_custom is not None:
-                if isinstance(next_custom, Depends):
+                if isinstance(next_custom, Dependant):
                     dep = next_custom
                 elif isinstance(next_custom, CustomField):
                     custom = next_custom
@@ -116,7 +115,7 @@ def build_call_model(
         else:
             default = param.default
 
-        if isinstance(default, Depends):
+        if isinstance(default, Dependant):
             assert (
                 not dep
             ), "You can not use `Depends` with `Annotated` and default both"
@@ -129,26 +128,43 @@ def build_call_model(
             custom = default
 
         else:
-            class_fields.append(OptionItem(
-                field_name=param_name,
-                field_type=annotation,
-                default_value=... if default is inspect.Parameter.empty else default
-            ))
+            class_fields.append(
+                OptionItem(
+                    field_name=param_name,
+                    field_type=annotation,
+                    default_value=...
+                    if default is inspect.Parameter.empty
+                    else default,
+                )
+            )
 
         if dep:
-            dependencies[param_name] = build_call_model(
+            dependency = build_call_model(
                 dep.dependency,
+                dependency_provider=dependency_provider,
                 use_cache=dep.use_cache,
                 is_sync=is_sync,
                 caster_cls=caster_cls,
                 **caster_kwargs,
             )
 
+            key = dependency_provider.add_dependant(dependency)
+
+            overrided_dependency = dependency_provider.get_dependant(key)
+
+            assert not (
+                is_sync and is_coroutine_callable(overrided_dependency.call)
+            ), f"You cannot use async dependency `{overrided_dependency.call_name}` at sync main"
+
+            dependencies[param_name] = key
+
             if caster_cls is not None:
-                class_fields.append(OptionItem(
-                    field_name=param_name,
-                    field_type=annotation,
-                ))
+                class_fields.append(
+                    OptionItem(
+                        field_name=param_name,
+                        field_type=annotation,
+                    )
+                )
 
             keyword_args.append(param_name)
 
@@ -164,17 +180,21 @@ def build_call_model(
                 annotation = Any
 
             if custom.required:
-                class_fields.append(OptionItem(
-                    field_name=param_name,
-                    field_type=annotation,
-                ))
+                class_fields.append(
+                    OptionItem(
+                        field_name=param_name,
+                        field_type=annotation,
+                    )
+                )
 
             else:
-                class_fields.append(OptionItem(
-                    field_name=param_name,
-                    field_type=Optional[annotation],
-                    default_value=None,
-                ))
+                class_fields.append(
+                    OptionItem(
+                        field_name=param_name,
+                        field_type=Optional[annotation],
+                        default_value=None,
+                    )
+                )
 
             keyword_args.append(param_name)
 
@@ -188,19 +208,44 @@ def build_call_model(
             else:
                 positional_args.append(param_name)
 
-    caster: Optional[Caster] = None
+    serializer: Optional[Serializer] = None
     if caster_cls is not None:
-        caster = caster_cls(
+        serializer = caster_cls(
             name=name,
             options=class_fields,
             response_type=return_annotation,
             **caster_kwargs,
         )
 
+    solved_extra_dependencies: List["Key"] = []
+    for dep in extra_dependencies:
+        dependency = build_call_model(
+            dep.dependency,
+            dependency_provider=dependency_provider,
+            use_cache=dep.use_cache,
+            is_sync=is_sync,
+            caster_cls=caster_cls,
+            **caster_kwargs,
+        )
+
+        key = dependency_provider.add_dependant(dependency)
+
+        overrided_dependency = dependency_provider.get_dependant(key)
+
+        assert not (
+            is_sync and is_coroutine_callable(overrided_dependency.call)
+        ), f"You cannot use async dependency `{overrided_dependency.call_name}` at sync main"
+
+        solved_extra_dependencies.append(key)
+
     return CallModel(
         call=call,
-        caster=caster,
-        params=tuple(i for i in class_fields if i.field_name not in dependencies and i.field_name not in custom_fields),
+        serializer=serializer,
+        params=tuple(
+            i
+            for i in class_fields
+            if (i.field_name not in dependencies and i.field_name not in custom_fields)
+        ),
         use_cache=use_cache,
         is_async=is_call_async,
         is_generator=is_call_generator,
@@ -210,14 +255,6 @@ def build_call_model(
         keyword_args=keyword_args,
         args_name=args_name,
         kwargs_name=kwargs_name,
-        extra_dependencies=[
-            build_call_model(
-                d.dependency,
-                use_cache=d.use_cache,
-                is_sync=is_sync,
-                caster_cls=caster_cls,
-                **caster_kwargs,
-            )
-            for d in extra_dependencies
-        ],
+        extra_dependencies=solved_extra_dependencies,
+        dependency_provider=dependency_provider,
     )

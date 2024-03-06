@@ -1,10 +1,5 @@
 import pytest
 
-try:
-    from pydantic import ValidationError
-except ImportError:
-    ValidationError = None
-
 from fast_depends import Depends, inject
 from tests.marks import PYDANTIC_V2, pydantic
 
@@ -25,6 +20,8 @@ def regular(a=Depends(dep)):
 
 @pydantic
 def test_config():
+    from pydantic import ValidationError
+
     regular("123")
 
     with pytest.raises(ValidationError):

@@ -1,7 +1,7 @@
 import inspect
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
-from fast_depends.library.caster import Caster, OptionItem
+from fast_depends.library.serializer import OptionItem, Serializer
 from fast_depends.pydantic._compat import (
     PYDANTIC_V2,
     BaseModel,
@@ -9,12 +9,13 @@ from fast_depends.pydantic._compat import (
     PydanticUserError,
     TypeAdapter,
     create_model,
+    get_aliases,
     get_config_base,
     get_model_fields,
 )
 
 
-class PydanticCaster(Caster):
+class PydanticSerializer(Serializer):
     def __init__(
         self,
         *,
@@ -25,7 +26,10 @@ class PydanticCaster(Caster):
     ):
         self.name = name
 
-        class_options = {i.field_name: (i.field_type, i.default_value) for i in options}
+        class_options: Dict[str, Any] = {
+            i.field_name: (i.field_type, i.default_value)
+            for i in options
+        }
 
         config = get_config_base(pydantic_config)
 
@@ -36,15 +40,15 @@ class PydanticCaster(Caster):
         )
 
         self.response_callback: Optional[Callable[[Any], Any]] = None
+
         if response_type and response_type is not inspect.Parameter.empty:
             if issubclass(response_type, BaseModel):
                 if PYDANTIC_V2:
-                    self.response_callback = lambda x: response_type.model_validate
+                    self.response_callback = response_type.model_validate
                 else:
-                    self.response_callback = lambda x: response_type.validate
+                    self.response_callback = response_type.validate
 
             elif PYDANTIC_V2:
-                assert TypeAdapter
                 try:
                     response_pydantic_type = TypeAdapter(response_type, config=config)
                 except PydanticUserError:
@@ -59,22 +63,20 @@ class PydanticCaster(Caster):
                     r=(response_type, ...),
                 )
 
-                self.response_callback = lambda x: response_model(r=x).r
-        else:
-            self.response_model = None
+                self.response_callback = lambda x: response_model(r=x).r  # type: ignore[attr-defined]
+
+
+    def __call__(self, options: Dict[str, Any]) -> Dict[str, Any]:
+        casted_model = self.model(**options)
+        return {
+            i: getattr(casted_model, i)
+            for i in get_model_fields(casted_model).keys()
+        }
+
+    def get_aliases(self) -> Tuple[str, ...]:
+        return get_aliases(self.model)
 
     def response(self, value: Any) -> Any:
         if self.response_callback is not None:
             return self.response_callback(value)
         return value
-
-    def __call__(self, options: Dict[str, Any]) -> Dict[str, Any]:
-        casted_model = self.model(**options)
-        return {
-            i: getattr(casted_model, i) for i in get_model_fields(casted_model).keys()
-        }
-
-    def get_aliases(self) -> Tuple[str, ...]:
-        return tuple(
-            f.alias or name for name, f in get_model_fields(self.model).items()
-        )

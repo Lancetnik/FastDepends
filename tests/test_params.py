@@ -1,4 +1,4 @@
-from fast_depends import Depends
+from fast_depends import Depends, Provider
 from fast_depends.core import build_call_model
 from fast_depends.library import CustomField
 
@@ -19,7 +19,7 @@ def test_params():
     def extra_func(n):
         ...
 
-    model = build_call_model(main, extra_dependencies=(Depends(extra_func),))
+    model = build_call_model(main, extra_dependencies=(Depends(extra_func),), dependency_provider=Provider())
 
     assert {p.field_name for p in model.params} == {"a", "b"}
     assert {p.field_name for p in model.flat_params} == {"a", "b", "c", "m", "n"}

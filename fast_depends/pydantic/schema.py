@@ -5,16 +5,16 @@ from fast_depends.pydantic._compat import PYDANTIC_V2, create_model, model_schem
 
 
 def get_schema(
-    call: CallModel[Any, Any],
+    call: CallModel,
     embed: bool = False,
     resolve_refs: bool = False,
 ) -> Dict[str, Any]:
-    class_options = {
+    class_options: Dict[str, Any] = {
         i.field_name: (i.field_type, i.default_value)
         for i in call.flat_params
     }
 
-    name = getattr(call.caster, "name", "Undefined")
+    name = getattr(call.serializer, "name", "Undefined")
 
     if not class_options:
         return {"title": name, "type": "null"}

@@ -1,7 +1,8 @@
+from inspect import unwrap
 from typing import Any, Callable
 
 
-class Depends:
+class Dependant:
     use_cache: bool
     cast: bool
 
@@ -9,14 +10,15 @@ class Depends:
         self,
         dependency: Callable[..., Any],
         *,
-        use_cache: bool = True,
-        cast: bool = True,
+        use_cache: bool,
+        cast: bool,
     ) -> None:
         self.dependency = dependency
         self.use_cache = use_cache
         self.cast = cast
 
     def __repr__(self) -> str:
-        attr = getattr(self.dependency, "__name__", type(self.dependency).__name__)
+        call = unwrap(self.dependency)
+        attr = getattr(call, "__name__", type(call).__name__)
         cache = "" if self.use_cache else ", use_cache=False"
         return f"{self.__class__.__name__}({attr}{cache})"

@@ -20,7 +20,7 @@ class OptionItem:
         self.default_value = default_value
 
 
-class Caster(ABC):
+class Serializer(ABC):
     name: str
 
     @abstractmethod

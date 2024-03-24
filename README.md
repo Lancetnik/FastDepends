@@ -24,7 +24,7 @@
 
 ---
 
-Documentation: https://lancetnik.github.io/FastDepends/
+Documentation: <https://lancetnik.github.io/FastDepends/>
 
 ---
 

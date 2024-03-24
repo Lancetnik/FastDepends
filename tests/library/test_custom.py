@@ -3,12 +3,12 @@ from time import monotonic_ns
 from typing import Any, Dict
 
 import anyio
-import pydantic
 import pytest
 from typing_extensions import Annotated
 
 from fast_depends import Depends, inject
 from fast_depends.library import CustomField
+from tests.marks import pydantic
 
 
 class Header(CustomField):
@@ -50,7 +50,7 @@ def test_header():
     def sync_catch(key: int = Header()):  # noqa: B008
         return key
 
-    assert sync_catch(headers={"key": "1"}) == 1
+    assert sync_catch(headers={"key": 1}) == 1
 
 
 def test_custom_with_class():
@@ -59,10 +59,11 @@ def test_custom_with_class():
         def __init__(self, key: int = Header()):
             self.key = key
 
-    assert T(headers={"key": "1"}).key == 1
+    assert T(headers={"key": 1}).key == 1
 
 
 @pytest.mark.anyio
+@pydantic
 async def test_header_async():
     @inject
     async def async_catch(key: int = Header()):  # noqa: B008
@@ -71,6 +72,7 @@ async def test_header_async():
     assert (await async_catch(headers={"key": "1"})) == 1
 
 
+@pydantic
 def test_multiple_header():
     @inject
     def sync_catch(key: str = Header(), key2: int = Header()):  # noqa: B008
@@ -81,6 +83,7 @@ def test_multiple_header():
 
 
 @pytest.mark.anyio
+@pydantic
 async def test_async_header_async():
     @inject
     async def async_catch(  # noqa: B008
@@ -91,6 +94,7 @@ async def test_async_header_async():
     assert (await async_catch(headers={"key": "1", "key2": 1})) == (1.0, 1)
 
 
+@pydantic
 def test_sync_field_header():
     @inject
     def sync_catch(key: float = FieldHeader(), key2: int = FieldHeader()):  # noqa: B008
@@ -100,6 +104,7 @@ def test_sync_field_header():
 
 
 @pytest.mark.anyio
+@pydantic
 async def test_async_field_header():
     @inject
     async def async_catch(  # noqa: B008
@@ -125,18 +130,22 @@ def test_header_annotated():
     def sync_catch(key: Annotated[int, Header()]):
         return key
 
-    assert sync_catch(headers={"key": "1"}) == 1
+    assert sync_catch(headers={"key": 1}) == 1
 
 
+@pydantic
 def test_header_required():
-    @inject
-    def sync_catch(key2=Header()):  # pragma: no cover # noqa: B008
-        return key2
+    from pydantic import ValidationError
 
-    with pytest.raises(pydantic.ValidationError):
+    @inject
+    def sync_catch(key=Header()):  # pragma: no cover # noqa: B008
+        return key
+
+    with pytest.raises(ValidationError):
         sync_catch()
 
 
+@pydantic
 def test_header_not_required():
     @inject
     def sync_catch(key2=Header(required=False)):  # noqa: B008
@@ -153,7 +162,7 @@ def test_depends():
     def sync_catch(k=Depends(dep)):
         return k
 
-    assert sync_catch(headers={"key": "1"}) == 1
+    assert sync_catch(headers={"key": 1}) == 1
 
 
 def test_not_cast():

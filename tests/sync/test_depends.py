@@ -4,110 +4,84 @@ from functools import partial
 from unittest.mock import Mock
 
 import pytest
-from pydantic import ValidationError
 from typing_extensions import Annotated
 
 from fast_depends import Depends, inject
+from tests.marks import pydantic
 
 
 def test_depends():
-    def dep_func(b: int, a: int = 3) -> float:
+    def dep_func(b: int, a: int = 3):
         return a + b
 
     @inject
-    def some_func(b: int, c=Depends(dep_func)) -> int:
-        assert isinstance(c, float)
+    def some_func(b: int, c=Depends(dep_func)):
         return b + c
 
-    assert some_func("2") == 7
+    assert some_func(2) == 7
 
 
 def test_empty_main_body():
-    def dep_func(a: int) -> float:
+    def dep_func(a):
         return a
 
     @inject
-    def some_func(c=Depends(dep_func)):
-        assert isinstance(c, float)
-        assert c == 1.0
+    def some_func(c = Depends(dep_func)):
+        return c
 
-    some_func("1")
+    assert some_func(1) == 1
 
 
-def test_depends_error():
-    def dep_func(b: dict, a: int = 3) -> float:  # pragma: no cover
-        return a + b
-
-    def another_func(b: int, a: int = 3) -> dict:  # pragma: no cover
-        return a + b
+def test_class_depends():
+    class MyDep:
+        def __init__(self, a):
+            self.a = a
 
     @inject
-    def some_func(
-        b: int, c=Depends(dep_func), d=Depends(another_func)
-    ) -> int:  # pragma: no cover
-        assert c is None
+    def some_func(a = Depends(MyDep)):
+        assert isinstance(a, MyDep)
+        assert a.a == 3
+        return a
+
+    some_func(3)
+
+
+def test_empty_main_body_multiple_args():
+    def dep2(b):
         return b
 
-    with pytest.raises(ValidationError):
-        assert some_func("2") == 7
-
-
-def test_depends_response_cast():
-    def dep_func(a):
+    def dep(a):
         return a
 
-    @inject
-    def some_func(a: int, b: int, c: int = Depends(dep_func)) -> float:
-        assert isinstance(c, int)
-        return a + b + c
+    @inject()
+    def handler(d=Depends(dep2), c=Depends(dep)):
+        return d, c
 
-    assert some_func("1", "2")
+    assert handler(a=1, b=2) == (2, 1)
+    assert handler(1, b=2) == (2, 1)
+    assert handler(1, a=2) == (1, 2)
+    assert handler(1, 2) == (1, 1)  # all dependencies takes the first arg
 
 
-def test_depends_annotated():
-    def dep_func(a):
-        return a
+def test_ignore_depends_if_setted_manual():
+    mock = Mock()
 
-    D = Annotated[int, Depends(dep_func)]
-
-    @inject
-    def some_func(a: int, b: int, c: D = None) -> float:
-        assert isinstance(c, int)
-        return a + b + c
+    def dep_func(a, b) -> int:
+        mock(a, b)
+        return a + b
 
     @inject
-    def another_func(a: int, c: D):
-        return a + c
+    def some_func(c=Depends(dep_func)) -> int:
+        return c
 
-    assert some_func("1", "2")
-    assert another_func("3") == 6.0
+    assert some_func(c=2) == 2
+    assert not mock.called
 
-
-def test_depends_annotated_str():
-    def dep_func(a):
-        return a
-
-    @inject
-    def some_func(
-        a: int,
-        b: int,
-        c: "Annotated[int, Depends(dep_func)]",
-    ) -> float:
-        assert isinstance(c, int)
-        return a + b + c
-
-    @inject
-    def another_func(
-        a: int,
-        c: "Annotated[int, Depends(dep_func)]",
-    ):
-        return a + c
-
-    assert some_func("1", "2")
-    assert another_func("3") == 6.0
+    assert some_func(1, 2) == 3
+    mock.assert_called_once_with(1, 2)
 
 
-def test_depends_annotated_str_partial():
+def test_depends_annotated_type_str():
     def dep_func(a):
         return a
 
@@ -115,20 +89,19 @@ def test_depends_annotated_str_partial():
     def some_func(
         a: int,
         b: int,
-        c: Annotated["float", Depends(dep_func)],
-    ) -> float:
-        assert isinstance(c, float)
+        c: Annotated["int", Depends(dep_func)],
+    ):
         return a + b + c
 
     @inject
     def another_func(
         a: int,
-        c: Annotated["float", Depends(dep_func)],
+        c: Annotated["int", Depends(dep_func)],
     ):
         return a + c
 
-    assert some_func("1", "2")
-    assert another_func("3") == 6.0
+    assert some_func(1, 2) == 4
+    assert another_func(3) == 6
 
 
 def test_cache():
@@ -192,20 +165,6 @@ def test_yield():
     some_func()
     mock.assert_called_once()
     mock.exit.assert_called_once()
-
-
-def test_class_depends():
-    class MyDep:
-        def __init__(self, a: int):
-            self.a = a
-
-    @inject
-    def some_func(a=Depends(MyDep)):
-        assert isinstance(a, MyDep)
-        assert a.a == 3
-        return a
-
-    some_func(3)
 
 
 def test_callable_class_depends():
@@ -305,10 +264,19 @@ def test_async_depends():
         return a
 
     with pytest.raises(AssertionError):
-
         @inject
         def some_func(a: int, b: int, c=Depends(dep_func)) -> str:  # pragma: no cover
             return a + b + c
+
+
+def test_async_extra_depends():
+    async def dep_func(a: int) -> float:  # pragma: no cover
+        return a
+
+    with pytest.raises(AssertionError):
+        @inject(extra_dependencies=(Depends(dep_func),))
+        def some_func(a: int, b: int) -> str:  # pragma: no cover
+            return a + b
 
 
 def test_generator():
@@ -320,14 +288,14 @@ def test_generator():
         mock.end()
 
     @inject
-    def simple_func(a: str, d=Depends(func)) -> int:
+    def simple_func(a: str, d=Depends(func)):
         for _ in range(2):
             yield a
 
     for i in simple_func("1"):
         mock.start.assert_called_once()
         assert not mock.end.called
-        assert i == 1
+        assert i == "1"
 
     mock.end.assert_called_once()
 
@@ -341,3 +309,62 @@ def test_partial():
         return a
 
     assert func() == 10
+
+
+@pydantic
+class TestPydantic:
+    def test_depends_error(self):
+        from pydantic import ValidationError
+
+        def dep_func(b: dict, a: int = 3) -> float:  # pragma: no cover
+            return a + b
+
+        def another_func(b: int, a: int = 3) -> dict:  # pragma: no cover
+            return a + b
+
+        @inject
+        def some_func(
+            b: int, c=Depends(dep_func), d=Depends(another_func)
+        ) -> int:  # pragma: no cover
+            assert c is None
+            return b
+
+        with pytest.raises(ValidationError):
+            assert some_func("2") == 7
+
+
+    def test_depends_response_cast(self):
+        def dep_func(a):
+            return a
+
+        @inject
+        def some_func(a: int, b: int, c: int = Depends(dep_func)) -> float:
+            assert isinstance(c, int)
+            assert c == a
+            return a + b + c
+
+        assert some_func("1", "2")
+
+
+    def test_depends_annotated_str(self):
+        def dep_func(a):
+            return a
+
+        @inject
+        def some_func(
+            a: int,
+            b: int,
+            c: "Annotated[int, Depends(dep_func)]",
+        ) -> float:
+            assert isinstance(c, int)
+            return a + b + c
+
+        @inject
+        def another_func(
+            a: int,
+            c: "Annotated[int, Depends(dep_func)]",
+        ):
+            return a + c
+
+        assert some_func("1", "2")
+        assert another_func("3") == 6.0

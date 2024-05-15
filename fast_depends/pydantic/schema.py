@@ -1,24 +1,30 @@
 from typing import Any, Dict, List, Optional
 
-from fast_depends._compat import PYDANTIC_V2, create_model, model_schema
 from fast_depends.core import CallModel
+from fast_depends.pydantic._compat import PYDANTIC_V2, create_model, model_schema
 
 
 def get_schema(
-    call: CallModel[Any, Any],
+    call: CallModel,
     embed: bool = False,
     resolve_refs: bool = False,
 ) -> Dict[str, Any]:
-    assert call.model, "Call should has a model"
-    params_model = create_model(  # type: ignore[call-overload]
-        call.model.__name__,
-        **call.flat_params
+    class_options: Dict[str, Any] = {
+        i.field_name: (i.field_type, i.default_value)
+        for i in call.flat_params
+    }
+
+    name = getattr(call.serializer, "name", "Undefined")
+
+    if not class_options:
+        return {"title": name, "type": "null"}
+
+    params_model = create_model(
+        name,
+        **class_options
     )
 
-    body: Dict[str, Any] = model_schema(params_model)
-
-    if not call.flat_params:
-        body = {"title": body["title"], "type": "null"}
+    body = model_schema(params_model)
 
     if resolve_refs:
         pydantic_key = "$defs" if PYDANTIC_V2 else "definitions"

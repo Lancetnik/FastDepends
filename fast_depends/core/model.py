@@ -16,11 +16,12 @@ from typing import (
     Sequence,
     Tuple,
     Type,
+    TypeVar,
     Union,
 )
 
 import anyio
-from typing_extensions import ParamSpec, TypeVar
+from typing_extensions import ParamSpec
 
 from fast_depends._compat import BaseModel, ExceptionGroup, get_aliases
 from fast_depends.library import CustomField

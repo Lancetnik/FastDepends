@@ -9,13 +9,13 @@ from typing import (
     Sequence,
     Tuple,
     Type,
+    TypeVar,
     Union,
 )
 
 from typing_extensions import (
     Annotated,
     ParamSpec,
-    TypeVar,
     get_args,
     get_origin,
 )

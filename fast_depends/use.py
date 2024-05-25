@@ -7,12 +7,13 @@ from typing import (
     Iterator,
     Optional,
     Sequence,
+    TypeVar,
     Union,
     cast,
     overload,
 )
 
-from typing_extensions import ParamSpec, Protocol, TypeVar
+from typing_extensions import ParamSpec, Protocol
 
 from fast_depends._compat import ConfigDict
 from fast_depends.core import CallModel, build_call_model

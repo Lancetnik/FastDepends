@@ -7,7 +7,7 @@ name = "fast-depends"
 description = "FastDepends - extracted and cleared from HTTP domain logic FastAPI Dependency Injection System. Async and sync are both supported."
 readme = "README.md"
 authors = [
-    { name = "Pastukhov Nikita", email = "diementros@yandex.ru" },
+    { name = "Nikita Pastukhov", email = "nikita@pastukhov-dev.com" },
 ]
 
 keywords = ["fastapi", "dependency injection"]

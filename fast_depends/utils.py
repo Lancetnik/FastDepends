@@ -14,6 +14,7 @@ from typing import (
     ForwardRef,
     List,
     Tuple,
+    TypeVar,
     Union,
     cast,
 )
@@ -22,7 +23,6 @@ import anyio
 from typing_extensions import (
     Annotated,
     ParamSpec,
-    TypeVar,
     get_args,
     get_origin,
 )

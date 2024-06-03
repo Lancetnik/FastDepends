@@ -1,6 +1,7 @@
 import asyncio
 import functools
 import inspect
+import sys
 from contextlib import AsyncExitStack, ExitStack, asynccontextmanager, contextmanager
 from typing import (
     TYPE_CHECKING,
@@ -80,7 +81,9 @@ def get_typed_signature(call: Callable[..., Any]) -> Tuple[inspect.Signature, An
 
     locals = collect_outer_stack_locals()
 
-    globalns = getattr(call, "__globals__", {})
+    # If call is wrapped, __globals__ point to the wrapper's globals
+    # We need to get the globals of the wrapped function
+    globalns = sys.modules.get(call.__module__).__dict__
     typed_params = [
         inspect.Parameter(
             name=param.name,

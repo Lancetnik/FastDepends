@@ -1,7 +1,6 @@
 import asyncio
 import functools
 import inspect
-import sys
 from contextlib import AsyncExitStack, ExitStack, asynccontextmanager, contextmanager
 from typing import (
     TYPE_CHECKING,
@@ -81,9 +80,11 @@ def get_typed_signature(call: Callable[..., Any]) -> Tuple[inspect.Signature, An
 
     locals = collect_outer_stack_locals()
 
-    # If call is wrapped, __globals__ point to the wrapper's globals
-    # We need to get the globals of the wrapped function
-    globalns = sys.modules.get(call.__module__).__dict__
+    # We unwrap call to get the original unwrapped function
+    while hasattr(call, "__wrapped__"):
+        call = call.__wrapped__
+
+    globalns = getattr(call, "__globals__", {})
     typed_params = [
         inspect.Parameter(
             name=param.name,
@@ -132,12 +133,11 @@ def get_typed_annotation(
     if isinstance(annotation, ForwardRef):
         annotation = evaluate_forwardref(annotation, globalns, locals)
 
-    if (
-        get_origin(annotation) is Annotated
-        and (args := get_args(annotation))
-    ):
+    if get_origin(annotation) is Annotated and (args := get_args(annotation)):
         solved_args = [get_typed_annotation(x, globalns, locals) for x in args]
-        annotation.__origin__, annotation.__metadata__ = solved_args[0], tuple(solved_args[1:])
+        annotation.__origin__, annotation.__metadata__ = solved_args[0], tuple(
+            solved_args[1:]
+        )
 
     return annotation
 

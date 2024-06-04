@@ -26,9 +26,11 @@ def test_prebuild():
 
 
 def test_prebuild_with_wrapper():
+    func = noop_wrap(model_func)
+    assert func(Model(a="Hi!")) == "Hi!"
+
     # build_call_model should work even if function is wrapped with a
     # wrapper that is imported from different module
-    func = noop_wrap(model_func)
     call_model = build_call_model(func)
 
     assert call_model.model

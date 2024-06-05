@@ -73,7 +73,7 @@ ignore_missing_imports = true
 profile = "black"
 known_third_party = ["pydantic", "anyio"]
 
-[tool.ruff]
+[tool.ruff.lint]
 select = [
     "E",     # pycodestyle errors     https://docs.astral.sh/ruff/rules/#error-e
     "W",     # pycodestyle warnings   https://docs.astral.sh/ruff/rules/#warning-w
@@ -86,12 +86,13 @@ select = [
     "PERF",  # Perflint               https://docs.astral.sh/ruff/rules/#perflint-perf
     "UP",    # pyupgrade              https://docs.astral.sh/ruff/rules/#pyupgrade-up
 ]
+
 ignore = [
     "E501",  # line too long, handled by black
     "C901",  # too complex
 ]
 
-[tool.ruff.flake8-bugbear]
+[tool.ruff.lint.flake8-bugbear]
 extend-immutable-calls = [
     "fast_depends.Depends",
     "AsyncHeader", "Header", "MyDep",

@@ -1,11 +1,11 @@
 from __future__ import annotations
 
+from pydantic import BaseModel
+
 from fast_depends.core import build_call_model
 from fast_depends.use import inject
 
 from .wrapper import noop_wrap
-
-from pydantic import BaseModel
 
 
 class Model(BaseModel):
@@ -20,12 +20,12 @@ def model_func(m: Model) -> str:
     return m.a
 
 
-def test_prebuild():
+def test_prebuild() -> None:
     model = build_call_model(base_func)
     inject()(None, model)(1)
 
 
-def test_prebuild_with_wrapper():
+def test_prebuild_with_wrapper() -> None:
     func = noop_wrap(model_func)
     assert func(Model(a="Hi!")) == "Hi!"
 

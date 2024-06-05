@@ -35,4 +35,9 @@ def test_prebuild_with_wrapper():
 
     assert call_model.model
     # Fails if function unwrapping is not done at type introspection
-    call_model.model.model_rebuild()
+
+    if hasattr(call_model.model, "model_rebuild"):
+        call_model.model.model_rebuild()
+    else:
+        # pydantic v1
+        call_model.model.update_forward_refs()

@@ -81,8 +81,7 @@ def get_typed_signature(call: Callable[..., Any]) -> Tuple[inspect.Signature, An
     locals = collect_outer_stack_locals()
 
     # We unwrap call to get the original unwrapped function
-    while hasattr(call, "__wrapped__"):
-        call = call.__wrapped__
+    call = inspect.unwrap(call)
 
     globalns = getattr(call, "__globals__", {})
     typed_params = [
@@ -133,12 +132,11 @@ def get_typed_annotation(
     if isinstance(annotation, ForwardRef):
         annotation = evaluate_forwardref(annotation, globalns, locals)
 
-    if (
-        get_origin(annotation) is Annotated
-        and (args := get_args(annotation))
-    ):
+    if get_origin(annotation) is Annotated and (args := get_args(annotation)):
         solved_args = [get_typed_annotation(x, globalns, locals) for x in args]
-        annotation.__origin__, annotation.__metadata__ = solved_args[0], tuple(solved_args[1:])
+        annotation.__origin__, annotation.__metadata__ = solved_args[0], tuple(
+            solved_args[1:]
+        )
 
     return annotation
 

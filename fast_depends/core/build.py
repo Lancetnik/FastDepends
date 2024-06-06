@@ -1,4 +1,5 @@
 import inspect
+from copy import deepcopy
 from typing import (
     Any,
     Awaitable,
@@ -97,7 +98,7 @@ def build_call_model(
                 if isinstance(next_custom, Depends):
                     dep = next_custom
                 elif isinstance(next_custom, CustomField):
-                    custom = next_custom
+                    custom = deepcopy(next_custom)
                 else:  # pragma: no cover
                     raise AssertionError("unreachable")
 

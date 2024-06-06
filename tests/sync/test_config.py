@@ -10,8 +10,7 @@ def dep(a: str):
 
 
 @inject(pydantic_config={"str_max_length" if PYDANTIC_V2 else "max_anystr_length": 1})
-def limited_str(a=Depends(dep)):
-    ...
+def limited_str(a=Depends(dep)): ...
 
 
 @inject()

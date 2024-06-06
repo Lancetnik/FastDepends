@@ -108,7 +108,7 @@ def get_typed_signature(call: Callable[..., Any]) -> Tuple[inspect.Signature, An
 def collect_outer_stack_locals() -> Dict[str, Any]:
     frame = inspect.currentframe()
 
-    frames: List["FrameType"] = []
+    frames: List[FrameType] = []
     while frame is not None:
         if "fast_depends" not in frame.f_code.co_filename:
             frames.append(frame)

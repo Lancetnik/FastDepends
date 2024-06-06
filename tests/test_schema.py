@@ -346,7 +346,7 @@ class TestMultiArgs:
         class Model(BaseModel):
             a: int = Field(0, description="description")
 
-        def handler(a: str, b: Model)  -> None:
+        def handler(a: str, b: Model) -> None:
             pass
 
         schema = get_schema(build_call_model(handler))
@@ -411,20 +411,16 @@ def test_depends() -> None:
     class CustomClass:
         pass
 
-    def dep4(d: Model) -> None:
-        ...
+    def dep4(d: Model) -> None: ...
 
-    def dep2(c: float = Field(..., title="best")) -> None:
-        ...
+    def dep2(c: float = Field(..., title="best")) -> None: ...
 
-    def dep(a: float = 1, d: CustomClass = Depends(dep2)) -> None:
-        ...
+    def dep(a: float = 1, d: CustomClass = Depends(dep2)) -> None: ...
 
     def handler(
         b: str = Field(""),
-        a =Depends(dep),
-    ) -> None:
-        ...
+        a=Depends(dep),
+    ) -> None: ...
 
     schema = get_schema(
         build_call_model(handler, extra_dependencies=(Depends(dep4),)),

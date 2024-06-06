@@ -115,7 +115,7 @@ class CallModel(Generic[P, T]):
         flat: Dict[
             Callable[..., Any],
             Tuple[
-                "CallModel[..., Any]",
+                CallModel[..., Any],
                 Tuple[Callable[..., Any], ...],
             ],
         ] = {}
@@ -179,7 +179,7 @@ class CallModel(Generic[P, T]):
         self.extra_dependencies = extra_dependencies or ()
         self.custom_fields = custom_fields or {}
 
-        sorted_dep: List["CallModel[..., Any]"] = []
+        sorted_dep: List[CallModel[..., Any]] = []
         flat = self.flat_dependencies
         for calls in flat.values():
             _sort_dep(sorted_dep, calls, flat)

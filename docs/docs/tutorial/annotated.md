@@ -134,7 +134,7 @@ func(user_id=1)  # correct calling
 !!! tip ""
     I really recommend *do not use* `Annotated` as a positional argument
 
-    The best way to avoid all missunderstanding between you and Python - use `pydantic.Field` with `Annotated` everywhere
+    The best way to avoid all misunderstanding between you and Python - use `pydantic.Field` with `Annotated` everywhere
 
     Like in the following example
 

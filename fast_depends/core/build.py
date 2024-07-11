@@ -148,6 +148,7 @@ def build_call_model(
 
             if dep.cast is True:
                 class_fields[param_name] = (annotation, ...)
+
             keyword_args.append(param_name)
 
         elif custom:
@@ -163,8 +164,10 @@ def build_call_model(
 
             if custom.required:
                 class_fields[param_name] = (annotation, ...)
+
             else:
-                class_fields[param_name] = (Optional[annotation], None)
+                class_fields[param_name] = class_fields.get(param_name, (Optional[annotation], None))
+
             keyword_args.append(param_name)
 
         else:

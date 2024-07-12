@@ -183,3 +183,20 @@ def test_reusable_annotated() -> None:
 
     assert sync_catch(headers={"key": 1}) == 1
     assert sync_catch2(headers={"key2": 1}) == 1
+
+
+def test_arguments_mapping():
+    @inject
+    def func(
+        d: int = CustomField(cast=False),
+        b: int = CustomField(cast=False),
+        c: int = CustomField(cast=False),
+        a: int = CustomField(cast=False),
+    ):
+        assert d == 4
+        assert b == 2
+        assert c == 3
+        assert a == 1
+
+    for _ in range(50):
+        func(4, 2, 3, 1)

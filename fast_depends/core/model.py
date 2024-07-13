@@ -233,7 +233,7 @@ class CallModel(Generic[P, T]):
 
         else:
             call = self.call
-        # check if the return value is in the cache
+            
         if self.use_cache and call in cache_dependencies:
             return cache_dependencies[call]
 
@@ -393,7 +393,6 @@ class CallModel(Generic[P, T]):
             else:
                 kwargs = custom.use(**kwargs)
 
-        # here are prepared args and kwargs for the function call, including params from the call
         final_args, final_kwargs, call = cast_gen.send(kwargs)
 
         if self.is_generator and nested:

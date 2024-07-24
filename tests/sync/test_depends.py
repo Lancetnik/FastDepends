@@ -341,3 +341,14 @@ def test_partial():
         return a
 
     assert func() == 10
+
+
+def test_default_key_value():
+    def dep(a: str = "a"):
+        return a
+
+    @inject(cast=False)
+    def func(a=Depends(dep)):
+        return a
+
+    assert func() == "a"

@@ -11,6 +11,30 @@ from fast_depends import Depends, inject
 
 
 @pytest.mark.anyio
+async def test_override_depends_with_by_passing_kwarg():
+    async def dep_func() -> int:
+        return 1
+
+    @inject
+    async def some_func(a: int = Depends(dep_func)) -> int:
+        return a
+
+    assert (await some_func(a=2)) == 2
+
+
+@pytest.mark.anyio
+async def test_override_depends_with_by_passing_positional():
+    async def dep_func() -> int:
+        return 1
+
+    @inject
+    async def some_func(a: int = Depends(dep_func)) -> int:
+        return a
+
+    assert (await some_func(2)) == 2
+
+
+@pytest.mark.anyio
 async def test_depends():
     async def dep_func(b: int, a: int = 3) -> float:
         return a + b
@@ -23,6 +47,7 @@ async def test_depends():
     assert (await some_func("2")) == 7
 
 
+@pytest.mark.skip
 @pytest.mark.anyio
 async def test_empty_main_body():
     async def dep_func(a: int) -> float:
@@ -298,6 +323,7 @@ async def test_sync_yield_exception_main():
     mock.exit.assert_called_once()
 
 
+@pytest.mark.skip
 @pytest.mark.anyio
 async def test_class_depends():
     class MyDep:

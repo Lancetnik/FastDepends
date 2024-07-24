@@ -165,7 +165,6 @@ class CallModel(Generic[P, T]):
         self.keyword_args = tuple(keyword_args or ())
         self.positional_args = tuple(positional_args or ())
         self.response_model = response_model
-
         self.use_cache = use_cache
         self.cast = cast
         self.is_async = (
@@ -187,7 +186,6 @@ class CallModel(Generic[P, T]):
         self.sorted_dependencies = tuple(
             (i, len(i.sorted_dependencies)) for i in sorted_dep if i.use_cache
         )
-
         for name in chain(self.dependencies.keys(), self.custom_fields.keys()):
             params.pop(name, None)
         self.params = params
@@ -261,8 +259,10 @@ class CallModel(Generic[P, T]):
 
         else:
             keyword_args = self.keyword_args + self.positional_args
-
             for arg in keyword_args:
+                if not self.cast and arg in self.params:
+                    kw[arg] = self.params[arg][1]
+
                 if not args:
                     break
 

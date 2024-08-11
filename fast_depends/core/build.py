@@ -108,7 +108,7 @@ def build_call_model(
                     raise AssertionError("unreachable")
 
                 if regular_annotations:
-                    annotation = Annotated[type_annotation, *regular_annotations]
+                    annotation = param.annotation
                 else:
                     annotation = type_annotation
             else:

@@ -72,7 +72,7 @@ async def test_depends_error():
 
     @inject
     async def some_func(
-            b: int, c=Depends(dep_func), d=Depends(another_dep_func)
+        b: int, c=Depends(dep_func), d=Depends(another_dep_func)
     ) -> int:  # pragma: no cover
         assert c is None
         return b
@@ -108,17 +108,17 @@ async def test_async_depends_annotated_str():
 
     @inject
     async def some_func(
-            a: int,
-            b: int,
-            c: "Annotated[int, Depends(dep_func)]",
+        a: int,
+        b: int,
+        c: "Annotated[int, Depends(dep_func)]",
     ) -> float:
         assert isinstance(c, int)
         return a + b + c
 
     @inject
     async def another_func(
-            a: int,
-            c: "Annotated[int, Depends(dep_func)]",
+        a: int,
+        c: "Annotated[int, Depends(dep_func)]",
     ):
         return a + c
 
@@ -133,17 +133,17 @@ async def test_async_depends_annotated_str_partial():
 
     @inject
     async def some_func(
-            a: int,
-            b: int,
-            c: Annotated["float", Depends(adep_func)],
+        a: int,
+        b: int,
+        c: Annotated["float", Depends(adep_func)],
     ) -> float:
         assert isinstance(c, float)
         return a + b + c
 
     @inject
     async def another_func(
-            a: int,
-            c: Annotated["float", Depends(adep_func)],
+        a: int,
+        c: Annotated["float", Depends(adep_func)],
     ):
         return a + c
 
@@ -184,8 +184,8 @@ async def test_not_cache():
 
     @inject
     async def some_func(
-            a=Depends(dep_func, use_cache=False),
-            b=Depends(nested_dep_func, use_cache=False),
+        a=Depends(dep_func, use_cache=False),
+        b=Depends(nested_dep_func, use_cache=False),
     ):
         assert a is b
         return a + b
@@ -361,9 +361,9 @@ async def test_not_cast():
 
     @inject
     async def some_func(
-            b,
-            a: A = Depends(dep, cast=False),
-            logger: logging.Logger = Depends(get_logger, cast=False),
+        b,
+        a: A = Depends(dep, cast=False),
+        logger: logging.Logger = Depends(get_logger, cast=False),
     ):
         assert a.a == 1
         assert logger
@@ -386,9 +386,9 @@ async def test_not_cast_main():
 
     @inject(cast=False)
     async def some_func(
-            b: str,
-            a: A = Depends(dep),
-            logger: logging.Logger = Depends(get_logger),
+        b: str,
+        a: A = Depends(dep),
+        logger: logging.Logger = Depends(get_logger),
     ) -> str:
         assert a.a == 1
         assert logger

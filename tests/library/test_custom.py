@@ -5,10 +5,12 @@ from typing import Any, Dict
 import anyio
 import pydantic
 import pytest
+from annotated_types import Ge
 from typing_extensions import Annotated
 
 from fast_depends import Depends, inject
 from fast_depends.library import CustomField
+from tests.marks import pydanticV2
 
 
 class Header(CustomField):
@@ -126,6 +128,20 @@ def test_header_annotated():
         return key
 
     assert sync_catch(headers={"key": "1"}) == 1
+
+
+@pydanticV2
+def test_annotated_header_with_meta():
+    @inject
+    def sync_catch(key: Annotated[int, Header(), Ge(3)] = 3):  # noqa: B008
+        return key
+
+    with pytest.raises(pydantic.ValidationError):
+        sync_catch(headers={"key": "2"})
+
+    assert sync_catch(headers={"key": "4"}) == 4
+
+    assert sync_catch(headers={}) == 3
 
 
 def test_header_required():

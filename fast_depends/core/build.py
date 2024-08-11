@@ -85,9 +85,14 @@ def build_call_model(
         elif get_origin(param.annotation) is Annotated:
             annotated_args = get_args(param.annotation)
             type_annotation = annotated_args[0]
-            custom_annotations = [
-                arg for arg in annotated_args[1:] if isinstance(arg, CUSTOM_ANNOTATIONS)
-            ]
+
+            custom_annotations = []
+            regular_annotations = []
+            for arg in annotated_args[1:]:
+                if isinstance(arg, CUSTOM_ANNOTATIONS):
+                    custom_annotations.append(arg)
+                else:
+                    regular_annotations.append(arg)
 
             assert (
                 len(custom_annotations) <= 1
@@ -102,7 +107,10 @@ def build_call_model(
                 else:  # pragma: no cover
                     raise AssertionError("unreachable")
 
-                annotation = type_annotation
+                if regular_annotations:
+                    annotation = Annotated[type_annotation, *regular_annotations]
+                else:
+                    annotation = type_annotation
             else:
                 annotation = param.annotation
         else:
@@ -120,13 +128,13 @@ def build_call_model(
             assert (
                 not dep
             ), "You can not use `Depends` with `Annotated` and default both"
-            dep = default
+            dep, default = default, ...
 
         elif isinstance(default, CustomField):
             assert (
                 not custom
             ), "You can not use `CustomField` with `Annotated` and default both"
-            custom = default
+            custom, default = default, ...
 
         elif default is inspect.Parameter.empty:
             class_fields[param_name] = (annotation, ...)
@@ -163,7 +171,7 @@ def build_call_model(
                 annotation = Any
 
             if custom.required:
-                class_fields[param_name] = (annotation, ...)
+                class_fields[param_name] = (annotation, default)
 
             else:
                 class_fields[param_name] = class_fields.get(param_name, (Optional[annotation], None))

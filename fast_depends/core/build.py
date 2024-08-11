@@ -121,6 +121,8 @@ def build_call_model(
             default = ()
         elif param_name == "kwargs":
             default = {}
+        elif param.default is inspect.Parameter.empty:
+            default = Ellipsis
         else:
             default = param.default
 
@@ -128,16 +130,13 @@ def build_call_model(
             assert (
                 not dep
             ), "You can not use `Depends` with `Annotated` and default both"
-            dep, default = default, ...
+            dep, default = default, Ellipsis
 
         elif isinstance(default, CustomField):
             assert (
                 not custom
             ), "You can not use `CustomField` with `Annotated` and default both"
-            custom, default = default, ...
-
-        elif default is inspect.Parameter.empty:
-            class_fields[param_name] = (annotation, ...)
+            custom, default = default, Ellipsis
 
         else:
             class_fields[param_name] = (annotation, default)
@@ -155,7 +154,7 @@ def build_call_model(
             )
 
             if dep.cast is True:
-                class_fields[param_name] = (annotation, ...)
+                class_fields[param_name] = (annotation, Ellipsis)
 
             keyword_args.append(param_name)
 
@@ -192,10 +191,10 @@ def build_call_model(
 
     response_model: Optional[Type[ResponseModel[T]]] = None
     if cast and return_annotation and return_annotation is not inspect.Parameter.empty:
-        response_model = create_model(
+        response_model = create_model(  # type: ignore[call-overload]
             "ResponseModel",
-            __config__=get_config_base(pydantic_config),  # type: ignore[assignment]
-            response=(return_annotation, ...),
+            __config__=get_config_base(pydantic_config),
+            response=(return_annotation, Ellipsis),
         )
 
     return CallModel(

@@ -10,6 +10,7 @@ from typing_extensions import Annotated
 
 from fast_depends import Depends, inject
 from fast_depends.library import CustomField
+from tests.marks import pydanticV2
 
 
 class Header(CustomField):
@@ -129,13 +130,14 @@ def test_header_annotated():
     assert sync_catch(headers={"key": "1"}) == 1
 
 
+@pydanticV2
 def test_annotated_header_with_meta():
     @inject
     def sync_catch(key: Annotated[int, Header(), Ge(3)] = 3):  # noqa: B008
         return key
 
     with pytest.raises(pydantic.ValidationError):
-        assert sync_catch(headers={"key": "2"})
+        sync_catch(headers={"key": "2"})
 
     assert sync_catch(headers={"key": "4"}) == 4
 

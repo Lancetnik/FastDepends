@@ -55,7 +55,7 @@ def build_call_model(
 
     is_call_async = is_coroutine_callable(call)
     if is_sync is None:
-        is_sync = not is_call_async
+        is_sync = not is_call_async and not inspect.isasyncgenfunction(call)
     else:
         assert not (
             is_sync and is_call_async

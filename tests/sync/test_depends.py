@@ -356,7 +356,7 @@ def test_default_key_value():
 
 
 def test_contextmanager():
-    def dep(a: str = "a"):
+    def dep(a: str):
         return a
 
     @contextmanager

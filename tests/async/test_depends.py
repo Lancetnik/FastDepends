@@ -474,7 +474,7 @@ async def test_default_key_value():
 
 @pytest.mark.anyio
 async def test_asynccontextmanager():
-    async def dep(a: str = "a"):
+    async def dep(a: str):
         return a
 
     @asynccontextmanager

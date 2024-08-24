@@ -184,7 +184,7 @@ def _wrap_inject(
 
 
 class solve_async_gen:
-    _iter: Optional[AsyncIterator[Any]]
+    _iter: Optional[AsyncIterator[Any]] = None
 
     def __init__(
         self,
@@ -231,7 +231,7 @@ class solve_async_gen:
 
 
 class solve_gen:
-    _iter: Optional[Iterator[Any]]
+    _iter: Optional[Iterator[Any]] = None
 
     def __init__(
         self,

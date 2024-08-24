@@ -1,4 +1,5 @@
 import logging
+from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from functools import partial
 from unittest.mock import Mock
@@ -469,3 +470,17 @@ async def test_default_key_value():
         return a
 
     assert await func() == "a"
+
+
+@pytest.mark.anyio
+async def test_asynccontextmanager():
+    async def dep(a: str = "a"):
+        return a
+
+    @asynccontextmanager
+    @inject
+    async def func(a: str, b: str = Depends(dep)):
+        yield a == b
+
+    async with func("a") as is_equal:
+        assert is_equal

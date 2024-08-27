@@ -74,6 +74,8 @@ def build_call_model(
     custom_fields: Dict[str, CustomField] = {}
     positional_args: List[str] = []
     keyword_args: List[str] = []
+    var_positional_arg: Optional[str] = None
+    var_keyword_arg: Optional[str] = None
 
     for param_name, param in typed_params.parameters.items():
         dep: Optional[Depends] = None
@@ -117,10 +119,12 @@ def build_call_model(
             annotation = param.annotation
 
         default: Any
-        if param_name == "args":
+        if param.kind == inspect.Parameter.VAR_POSITIONAL:
             default = ()
-        elif param_name == "kwargs":
+            var_positional_arg = param_name
+        elif param.kind == inspect.Parameter.VAR_KEYWORD:
             default = {}
+            var_keyword_arg = param_name
         elif param.default is inspect.Parameter.empty:
             default = Ellipsis
         else:
@@ -180,7 +184,7 @@ def build_call_model(
         else:
             if param.kind is param.KEYWORD_ONLY:
                 keyword_args.append(param_name)
-            elif param_name not in ("args", "kwargs"):
+            elif param.kind not in (inspect.Parameter.VAR_POSITIONAL, inspect.Parameter.VAR_KEYWORD):
                 positional_args.append(param_name)
 
     func_model = create_model(  # type: ignore[call-overload]
@@ -210,6 +214,8 @@ def build_call_model(
         custom_fields=custom_fields,
         positional_args=positional_args,
         keyword_args=keyword_args,
+        var_positional_arg=var_positional_arg,
+        var_keyword_arg=var_keyword_arg,
         extra_dependencies=[
             build_call_model(
                 d.dependency,

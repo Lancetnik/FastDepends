@@ -67,6 +67,8 @@ class CallModel(Generic[P, T]):
     custom_fields: Dict[str, CustomField]
     keyword_args: Tuple[str, ...]
     positional_args: Tuple[str, ...]
+    var_positional_arg: Optional[str]
+    var_keyword_arg: Optional[str]
 
     # Dependencies and custom fields
     use_cache: bool
@@ -82,6 +84,8 @@ class CallModel(Generic[P, T]):
         "alias_arguments",
         "keyword_args",
         "positional_args",
+        "var_positional_arg",
+        "var_keyword_arg",
         "dependencies",
         "extra_dependencies",
         "sorted_dependencies",
@@ -152,6 +156,8 @@ class CallModel(Generic[P, T]):
         extra_dependencies: Optional[Iterable["CallModel[..., Any]"]] = None,
         keyword_args: Optional[List[str]] = None,
         positional_args: Optional[List[str]] = None,
+        var_positional_arg: Optional[str] = None,
+        var_keyword_arg: Optional[str] = None,
         custom_fields: Optional[Dict[str, CustomField]] = None,
     ):
         self.call = call
@@ -164,6 +170,8 @@ class CallModel(Generic[P, T]):
 
         self.keyword_args = tuple(keyword_args or ())
         self.positional_args = tuple(positional_args or ())
+        self.var_positional_arg = var_positional_arg
+        self.var_keyword_arg = var_keyword_arg
         self.response_model = response_model
         self.use_cache = use_cache
         self.cast = cast
@@ -241,8 +249,8 @@ class CallModel(Generic[P, T]):
             if (v := kwargs.pop(arg, Parameter.empty)) is not Parameter.empty:
                 kw[arg] = v
 
-        if "kwargs" in self.alias_arguments:
-            kw["kwargs"] = kwargs
+        if self.var_keyword_arg is not None:
+            kw[self.var_keyword_arg] = kwargs
         else:
             kw.update(kwargs)
 
@@ -253,8 +261,8 @@ class CallModel(Generic[P, T]):
                 break
 
         keyword_args: Iterable[str]
-        if has_args := "args" in self.alias_arguments:
-            kw["args"] = args
+        if self.var_positional_arg is not None:
+            kw[self.var_positional_arg] = args
             keyword_args = self.keyword_args
 
         else:
@@ -281,21 +289,22 @@ class CallModel(Generic[P, T]):
                 arg: getattr(casted_model, arg, solved_kw.get(arg))
                 for arg in keyword_args
             }
-            kwargs_.update(getattr(casted_model, "kwargs", {}))
+            if self.var_keyword_arg:
+                kwargs_.update(getattr(casted_model, self.var_keyword_arg, {}))
 
-            if has_args:
+            if self.var_positional_arg is not None:
                 args_ = [
                     getattr(casted_model, arg, solved_kw.get(arg))
                     for arg in self.positional_args
                 ]
-                args_.extend(getattr(casted_model, "args", ()))
+                args_.extend(getattr(casted_model, self.var_positional_arg, ()))
             else:
                 args_ = ()
 
         else:
             kwargs_ = {arg: solved_kw.get(arg) for arg in keyword_args}
 
-            if has_args:
+            if self.var_positional_arg is not None:
                 args_ = tuple(map(solved_kw.get, self.positional_args))
             else:
                 args_ = ()

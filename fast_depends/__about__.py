@@ -1,3 +1,3 @@
 """FastDepends - extracted and cleared from HTTP domain FastAPI Dependency Injection System"""
 
-__version__ = "2.5.0"
+__version__ = "3.0.0b0"

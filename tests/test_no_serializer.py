@@ -1,10 +1,8 @@
 from fast_depends import inject
-from tests.marks import no_pydantic
 
 
-@no_pydantic
 def test_generator():
-    @inject
+    @inject(serializer_cls=None)
     def simple_func(a: str) -> str:
         for _ in range(2):
             yield a

@@ -1,7 +1,12 @@
 import inspect
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from contextlib import contextmanager
+from itertools import chain
+from typing import Any, Callable, Dict, Iterator, List, Optional, Sequence, Tuple
 
-from fast_depends.library.serializer import OptionItem, Serializer
+from pydantic import ValidationError as PValidationError
+
+from fast_depends.exceptions import ValidationError
+from fast_depends.library.serializer import OptionItem, Serializer, SerializerProto
 from fast_depends.pydantic._compat import (
     PYDANTIC_V2,
     BaseModel,
@@ -15,7 +20,30 @@ from fast_depends.pydantic._compat import (
 )
 
 
-class PydanticSerializer(Serializer):
+class PydanticSerializer(SerializerProto):
+    __slots__ = ("pydantic_config",)
+
+    def __init__(self, pydantic_config: Optional[ConfigDict] = None) -> None:
+        self.config = pydantic_config
+
+    def __call__(
+        self,
+        *,
+        name: str,
+        options: List[OptionItem],
+        response_type: Any,
+    ) -> "_PydanticSerializer":
+        return _PydanticSerializer(
+            name=name,
+            options=options,
+            response_type=response_type,
+            pydantic_config=self.config,
+        )
+
+
+class _PydanticSerializer(Serializer):
+    __slots__ = ("model", "response_callback", "name", "options", "response_option",)
+
     def __init__(
         self,
         *,
@@ -24,8 +52,6 @@ class PydanticSerializer(Serializer):
         response_type: Any,
         pydantic_config: Optional[ConfigDict] = None,
     ):
-        self.name = name
-
         class_options: Dict[str, Any] = {
             i.field_name: (i.field_type, i.default_value)
             for i in options
@@ -41,8 +67,8 @@ class PydanticSerializer(Serializer):
 
         self.response_callback: Optional[Callable[[Any], Any]] = None
 
-        if response_type and response_type is not inspect.Parameter.empty:
-            if issubclass(response_type, BaseModel):
+        if response_type is not inspect.Parameter.empty:
+            if issubclass(response_type or object, BaseModel):
                 if PYDANTIC_V2:
                     self.response_callback = response_type.model_validate
                 else:
@@ -56,18 +82,21 @@ class PydanticSerializer(Serializer):
                 else:
                     self.response_callback = response_pydantic_type.validate_python
 
-            if self.response_callback is None:
+            if self.response_callback is None and not (response_type is None and not PYDANTIC_V2):
                 response_model = create_model(
                     "ResponseModel",
                     __config__=config,
-                    r=(response_type, ...),
+                    r=(response_type or Any, ...),
                 )
 
                 self.response_callback = lambda x: response_model(r=x).r  # type: ignore[attr-defined]
 
+        super().__init__(name=name, options=options, response_type=response_type)
 
-    def __call__(self, options: Dict[str, Any]) -> Dict[str, Any]:
-        casted_model = self.model(**options)
+    def __call__(self, call_kwargs: Dict[str, Any]) -> Dict[str, Any]:
+        with self._try_pydantic(call_kwargs, self.options):
+            casted_model = self.model(**call_kwargs)
+
         return {
             i: getattr(casted_model, i)
             for i in get_model_fields(casted_model).keys()
@@ -78,5 +107,18 @@ class PydanticSerializer(Serializer):
 
     def response(self, value: Any) -> Any:
         if self.response_callback is not None:
-            return self.response_callback(value)
+            with self._try_pydantic(value, self.response_option, ("return",)):
+                return self.response_callback(value)
         return value
+
+    @contextmanager
+    def _try_pydantic(self, call_kwargs: Any, options: Dict[str, OptionItem], locations: Sequence[str] = (),) -> Iterator[None]:
+        try:
+            yield
+        except PValidationError as er:
+            raise ValidationError(
+                incoming_options=call_kwargs,
+                expected=options,
+                locations=locations or tuple(chain(*(one_error["loc"] for one_error in er.errors()))),
+                original_error=er,
+            ) from er

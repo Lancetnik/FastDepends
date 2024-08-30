@@ -7,7 +7,8 @@ import pytest
 from typing_extensions import Annotated
 
 from fast_depends import Depends, inject
-from tests.marks import pydantic
+from fast_depends.exceptions import ValidationError
+from tests.marks import serializer
 
 
 def test_depends():
@@ -26,7 +27,7 @@ def test_empty_main_body():
         return a
 
     @inject
-    def some_func(c = Depends(dep_func)):
+    def some_func(c=Depends(dep_func)):
         return c
 
     assert some_func(1) == 1
@@ -38,7 +39,7 @@ def test_class_depends():
             self.a = a
 
     @inject
-    def some_func(a = Depends(MyDep)):
+    def some_func(a=Depends(MyDep)):
         assert isinstance(a, MyDep)
         assert a.a == 3
         return a
@@ -183,30 +184,6 @@ def test_callable_class_depends():
     some_func()
 
 
-def test_not_cast():
-    @dataclass
-    class A:
-        a: int
-
-    def dep() -> A:
-        return A(a=1)
-
-    def get_logger() -> logging.Logger:
-        return logging.getLogger(__file__)
-
-    @inject
-    def some_func(
-        b,
-        a: A = Depends(dep, cast=False),
-        logger: logging.Logger = Depends(get_logger, cast=False),
-    ):
-        assert a.a == 1
-        assert logger
-        return b
-
-    assert some_func(1) == 1
-
-
 def test_not_cast_main():
     @dataclass
     class A:
@@ -264,6 +241,7 @@ def test_async_depends():
         return a
 
     with pytest.raises(AssertionError):
+
         @inject
         def some_func(a: int, b: int, c=Depends(dep_func)) -> str:  # pragma: no cover
             return a + b + c
@@ -274,6 +252,7 @@ def test_async_extra_depends():
         return a
 
     with pytest.raises(AssertionError):
+
         @inject(extra_dependencies=(Depends(dep_func),))
         def some_func(a: int, b: int) -> str:  # pragma: no cover
             return a + b
@@ -311,11 +290,42 @@ def test_partial():
     assert func() == 10
 
 
-@pydantic
-class TestPydantic:
-    def test_depends_error(self):
-        from pydantic import ValidationError
+@serializer
+class TestSerializer:
+    def test_not_cast(self):
+        @dataclass
+        class A:
+            a: int
 
+        def dep1() -> A:
+            return {"a": 1}
+
+        def dep2() -> A:
+            return {"a": 1}
+
+        def dep3() -> A:
+            return 1
+
+        def get_logger() -> logging.Logger:
+            return logging.getLogger(__file__)
+
+        @inject
+        def some_func(
+            b,
+            a1: A = Depends(dep1, cast=False, cast_result=True),
+            a2: A = Depends(dep2, cast=True, cast_result=False),
+            a3: A = Depends(dep3, cast=False, cast_result=False),
+            logger: logging.Logger = Depends(get_logger),
+        ):
+            assert a1.a == 1
+            assert a2.a == 1
+            assert a3 == 1
+            assert logger
+            return b
+
+        assert some_func(1) == 1
+
+    def test_depends_error(self):
         def dep_func(b: dict, a: int = 3) -> float:  # pragma: no cover
             return a + b
 
@@ -332,7 +342,6 @@ class TestPydantic:
         with pytest.raises(ValidationError):
             assert some_func("2") == 7
 
-
     def test_depends_response_cast(self):
         def dep_func(a):
             return a
@@ -344,7 +353,6 @@ class TestPydantic:
             return a + b + c
 
         assert some_func("1", "2")
-
 
     def test_depends_annotated_str(self):
         def dep_func(a):

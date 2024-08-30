@@ -36,4 +36,7 @@ class CustomField(ABC):
         return kwargs
 
     def use_field(self, kwargs: Dict[str, Any]) -> None:
-        raise NotImplementedError("You should implement `use_field` method.")
+        raise NotImplementedError
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}(required={self.required}, cast={self.cast})"

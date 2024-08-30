@@ -7,7 +7,6 @@ from typing import (
     List,
     Optional,
     Sequence,
-    Type,
 )
 
 from typing_extensions import (
@@ -18,10 +17,9 @@ from typing_extensions import (
     get_origin,
 )
 
-from fast_depends.core.model import CallModel
-from fast_depends.dependencies import Dependant
+from fast_depends.dependencies.model import Dependant
 from fast_depends.library import CustomField
-from fast_depends.library.serializer import OptionItem, Serializer
+from fast_depends.library.serializer import OptionItem, Serializer, SerializerProto
 from fast_depends.utils import (
     get_typed_signature,
     is_async_gen_callable,
@@ -29,11 +27,13 @@ from fast_depends.utils import (
     is_gen_callable,
 )
 
+from .model import CallModel
+
 if TYPE_CHECKING:
     from fast_depends.dependencies.provider import Key, Provider
 
 
-CUSTOM_ANNOTATIONS = (Dependant, CustomField)
+CUSTOM_ANNOTATIONS = (Dependant, CustomField,)
 
 
 P = ParamSpec("P")
@@ -47,8 +47,8 @@ def build_call_model(
     use_cache: bool = True,
     is_sync: Optional[bool] = None,
     extra_dependencies: Sequence[Dependant] = (),
-    caster_cls: Optional[Type[Serializer]] = None,
-    **caster_kwargs: Any,
+    serializer_cls: Optional["SerializerProto"] = None,
+    serialize_result: bool = True,
 ) -> CallModel:
     name = getattr(inspect.unwrap(call), "__name__", type(call).__name__)
 
@@ -61,13 +61,18 @@ def build_call_model(
         ), f"You cannot use async dependency `{name}` at sync main"
 
     typed_params, return_annotation = get_typed_signature(call)
-    if (is_call_generator := is_gen_callable(call) or is_async_gen_callable(call)) and (
-        return_args := get_args(return_annotation)
+    if (
+        (is_call_generator := is_gen_callable(call) or
+        is_async_gen_callable(call)) and
+        (return_args := get_args(return_annotation))
     ):
         return_annotation = return_args[0]
 
+    if not serialize_result:
+        return_annotation = inspect.Parameter.empty
+
     class_fields: List[OptionItem] = []
-    dependencies: Dict[str, "Key"] = {}
+    dependencies: Dict[str, Key] = {}
     custom_fields: Dict[str, CustomField] = {}
     positional_args: List[str] = []
     keyword_args: List[str] = []
@@ -128,15 +133,11 @@ def build_call_model(
             custom = default
 
         else:
-            class_fields.append(
-                OptionItem(
-                    field_name=param_name,
-                    field_type=annotation,
-                    default_value=...
-                    if default is inspect.Parameter.empty
-                    else default,
-                )
-            )
+            class_fields.append(OptionItem(
+                field_name=param_name,
+                field_type=annotation,
+                default_value=... if default is inspect.Parameter.empty else default
+            ))
 
         if dep:
             dependency = build_call_model(
@@ -144,8 +145,8 @@ def build_call_model(
                 dependency_provider=dependency_provider,
                 use_cache=dep.use_cache,
                 is_sync=is_sync,
-                caster_cls=caster_cls,
-                **caster_kwargs,
+                serializer_cls=serializer_cls,
+                serialize_result=dep.cast_result,
             )
 
             key = dependency_provider.add_dependant(dependency)
@@ -158,13 +159,14 @@ def build_call_model(
 
             dependencies[param_name] = key
 
-            if caster_cls is not None:
-                class_fields.append(
-                    OptionItem(
-                        field_name=param_name,
-                        field_type=annotation,
-                    )
-                )
+            if not dep.cast:
+                annotation = Any
+
+            class_fields.append(OptionItem(
+                field_name=param_name,
+                field_type=annotation,
+                source=dep,
+            ))
 
             keyword_args.append(param_name)
 
@@ -180,21 +182,19 @@ def build_call_model(
                 annotation = Any
 
             if custom.required:
-                class_fields.append(
-                    OptionItem(
-                        field_name=param_name,
-                        field_type=annotation,
-                    )
-                )
+                class_fields.append(OptionItem(
+                    field_name=param_name,
+                    field_type=annotation,
+                    source=custom,
+                ))
 
             else:
-                class_fields.append(
-                    OptionItem(
-                        field_name=param_name,
-                        field_type=Optional[annotation],
-                        default_value=None,
-                    )
-                )
+                class_fields.append(OptionItem(
+                    field_name=param_name,
+                    field_type=Optional[annotation],
+                    default_value=None,
+                    source=custom,
+                ))
 
             keyword_args.append(param_name)
 
@@ -209,23 +209,21 @@ def build_call_model(
                 positional_args.append(param_name)
 
     serializer: Optional[Serializer] = None
-    if caster_cls is not None:
-        serializer = caster_cls(
+    if serializer_cls is not None:
+        serializer = serializer_cls(
             name=name,
             options=class_fields,
             response_type=return_annotation,
-            **caster_kwargs,
         )
 
-    solved_extra_dependencies: List["Key"] = []
+    solved_extra_dependencies: List[Key] = []
     for dep in extra_dependencies:
         dependency = build_call_model(
             dep.dependency,
             dependency_provider=dependency_provider,
             use_cache=dep.use_cache,
             is_sync=is_sync,
-            caster_cls=caster_cls,
-            **caster_kwargs,
+            serializer_cls=serializer_cls,
         )
 
         key = dependency_provider.add_dependant(dependency)
@@ -242,9 +240,10 @@ def build_call_model(
         call=call,
         serializer=serializer,
         params=tuple(
-            i
-            for i in class_fields
-            if (i.field_name not in dependencies and i.field_name not in custom_fields)
+            i for i in class_fields if (
+                i.field_name not in dependencies and
+                i.field_name not in custom_fields
+            )
         ),
         use_cache=use_cache,
         is_async=is_call_async,

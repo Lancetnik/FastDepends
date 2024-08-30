@@ -1,15 +1,13 @@
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Any, Callable, Dict, Iterator
+from typing import TYPE_CHECKING, Any, Callable, Dict, Hashable, Iterator, TypeAlias
 
-from typing_extensions import NewType
-
-from fast_depends.core.build import build_call_model
+from fast_depends.core import build_call_model
 
 if TYPE_CHECKING:
-    from fast_depends.core.model import CallModel
+    from fast_depends.core import CallModel
 
 
-Key = NewType("Key", int)
+Key: TypeAlias = Hashable
 
 
 class Provider:
@@ -28,7 +26,7 @@ class Provider:
         self,
         dependant: "CallModel",
     ) -> Key:
-        key = Key(hash(dependant.call))
+        key = self.__get_original_key(dependant.call)
         self.dependencies[key] = dependant
         return key
 
@@ -40,7 +38,7 @@ class Provider:
         original: Callable[..., Any],
         override: Callable[..., Any],
     ) -> None:
-        key = Key(hash(original))
+        key = self.__get_original_key(original)
 
         override_model = build_call_model(
             override,
@@ -66,4 +64,7 @@ class Provider:
     ) -> Iterator[None]:
         self.override(original, override)
         yield
-        self.overrides.pop(Key(hash(original)), None)
+        self.overrides.pop(self.__get_original_key(original), None)
+
+    def __get_original_key(self, original: Callable[..., Any]) -> Key:
+        return original

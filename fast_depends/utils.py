@@ -51,7 +51,7 @@ async def run_async(
 
 
 async def run_in_threadpool(
-    func: Callable[P, T], *args: P.args, **kwargs: P.kwargs
+    func: Callable[P, T], *args: P.args, **kwargs: P.kwargs,
 ) -> T:
     if kwargs:
         func = functools.partial(func, **kwargs)
@@ -59,7 +59,7 @@ async def run_in_threadpool(
 
 
 async def solve_generator_async(
-    *sub_args: Any, call: Callable[..., Any], stack: AsyncExitStack, **sub_values: Any
+    *sub_args: Any, call: Callable[..., Any], stack: AsyncExitStack, **sub_values: Any,
 ) -> Any:
     if is_gen_callable(call):
         cm = contextmanager_in_threadpool(contextmanager(call)(**sub_values))
@@ -69,7 +69,7 @@ async def solve_generator_async(
 
 
 def solve_generator_sync(
-    *sub_args: Any, call: Callable[..., Any], stack: ExitStack, **sub_values: Any
+    *sub_args: Any, call: Callable[..., Any], stack: ExitStack, **sub_values: Any,
 ) -> Any:
     cm = contextmanager(call)(*sub_args, **sub_values)
     return stack.enter_context(cm)
@@ -105,7 +105,7 @@ def get_typed_signature(call: Callable[..., Any]) -> Tuple[inspect.Signature, An
 def collect_outer_stack_locals() -> Dict[str, Any]:
     frame = inspect.currentframe()
 
-    frames: List["FrameType"] = []
+    frames: List[FrameType] = []
     while frame is not None:
         if "fast_depends" not in frame.f_code.co_filename:
             frames.append(frame)

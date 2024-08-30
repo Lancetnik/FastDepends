@@ -7,12 +7,13 @@ import pytest
 from typing_extensions import Annotated
 
 from fast_depends import Depends, inject
-from tests.marks import pydantic
+from fast_depends.exceptions import ValidationError
+from tests.marks import serializer
 
 
 @pytest.mark.anyio
 async def test_depends():
-    async def dep_func(b, a = 3):
+    async def dep_func(b, a=3):
         return a + b
 
     @inject
@@ -324,31 +325,6 @@ async def test_async_callable_class_depends():
 
 
 @pytest.mark.anyio
-async def test_not_cast():
-    @dataclass
-    class A:
-        a: int
-
-    async def dep() -> A:
-        return A(a=1)
-
-    async def get_logger() -> logging.Logger:
-        return logging.getLogger(__file__)
-
-    @inject
-    async def some_func(
-        b,
-        a: A = Depends(dep, cast=False),
-        logger: logging.Logger = Depends(get_logger, cast=False),
-    ):
-        assert a.a == 1
-        assert logger
-        return b
-
-    assert (await some_func(1)) == 1
-
-
-@pytest.mark.anyio
 async def test_not_cast_main():
     @dataclass
     class A:
@@ -426,12 +402,45 @@ async def test_partial():
 
     assert await func() == 10
 
-@pydantic
-class TestPydantic:
-    @pytest.mark.anyio
-    async def test_depends_error(self):
-        from pydantic import ValidationError
 
+@serializer
+@pytest.mark.anyio
+class TestSerializer:
+    @pytest.mark.anyio
+    async def test_not_cast(self):
+        @dataclass
+        class A:
+            a: int
+
+        async def dep1() -> A:
+            return {"a": 1}
+
+        async def dep2() -> A:
+            return {"a": 1}
+
+        async def dep3() -> A:
+            return 1
+
+        async def get_logger() -> logging.Logger:
+            return logging.getLogger(__file__)
+
+        @inject
+        async def some_func(
+            b,
+            a1: A = Depends(dep1, cast=False, cast_result=True),
+            a2: A = Depends(dep2, cast=True, cast_result=False),
+            a3: A = Depends(dep3, cast=False, cast_result=False),
+            logger: logging.Logger = Depends(get_logger),
+        ):
+            assert a1.a == 1
+            assert a2.a == 1
+            assert a3 == 1
+            assert logger
+            return b
+
+        assert (await some_func(1)) == 1
+
+    async def test_depends_error(self):
         async def dep_func(b: dict, a: int = 3) -> float:  # pragma: no cover
             return a + b
 
@@ -448,8 +457,6 @@ class TestPydantic:
         with pytest.raises(ValidationError):
             assert await some_func("2")
 
-
-    @pytest.mark.anyio
     async def test_depends_response_cast(self):
         async def dep_func(a):
             return a
@@ -461,8 +468,6 @@ class TestPydantic:
 
         assert await some_func("1", "2")
 
-
-    @pytest.mark.anyio
     async def test_async_depends_annotated_str(self):
         async def dep_func(a):
             return a

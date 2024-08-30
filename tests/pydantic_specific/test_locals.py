@@ -1,19 +1,14 @@
 from __future__ import annotations
 
-from fast_depends import inject
-from tests.marks import pydantic
+from pydantic import BaseModel
 
-try:
-    from pydantic import BaseModel
-except ImportError:
-    pass
+from fast_depends import inject
 
 
 def wrap(func):
     return inject(func)
 
 
-@pydantic
 def test_localns():
     class M(BaseModel):
         a: str

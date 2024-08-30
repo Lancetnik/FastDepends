@@ -78,6 +78,7 @@ def test_sync_by_async_override(provider):
     provider.override(base_dep, override_dep)
 
     with pytest.raises(AssertionError):
+
         @inject(dependency_provider=provider)
         def func(d=Depends(base_dep)):
             pass
@@ -93,6 +94,7 @@ def test_sync_by_async_override_in_extra(provider):
     provider.override(base_dep, override_dep)
 
     with pytest.raises(AssertionError):
+
         @inject(
             dependency_provider=provider,
             extra_dependencies=(Depends(base_dep),),
@@ -147,7 +149,6 @@ async def test_async_by_sync_override(provider):
 
     mock.override.assert_called_once()
     assert not mock.original.called
-
 
 
 def test_deep_overrides(provider):

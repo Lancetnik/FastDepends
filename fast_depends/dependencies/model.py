@@ -12,10 +12,12 @@ class Dependant:
         *,
         use_cache: bool,
         cast: bool,
+        cast_result: bool,
     ) -> None:
         self.dependency = dependency
         self.use_cache = use_cache
         self.cast = cast
+        self.cast_result = cast_result
 
     def __repr__(self) -> str:
         call = unwrap(self.dependency)

@@ -9,7 +9,6 @@ from typing import (
     Optional,
     Protocol,
     Sequence,
-    Type,
     Union,
     cast,
     overload,
@@ -17,21 +16,32 @@ from typing import (
 
 from typing_extensions import Literal, ParamSpec, TypeVar
 
-from fast_depends.core.build import build_call_model
+from fast_depends.core import CallModel, build_call_model
 from fast_depends.dependencies import Dependant, Provider
+from fast_depends.library.serializer import SerializerProto
 
-try:
-    from fast_depends.pydantic.serializer import PydanticSerializer as SerializerCls
-except ImportError:
-    SerializerCls = None  # type: ignore[misc,assignment]
+SerializerCls: Optional["SerializerProto"] = None
+
+if SerializerCls is None:
+    try:
+        from fast_depends.pydantic import PydanticSerializer
+        SerializerCls = PydanticSerializer()
+    except ImportError:
+        pass
+
+if SerializerCls is None:
+    try:
+        from fast_depends.msgspec import MsgSpecSerializer
+        SerializerCls = MsgSpecSerializer
+    except ImportError:
+        pass
 
 
 P = ParamSpec("P")
 T = TypeVar("T")
 
-if TYPE_CHECKING:  # pragma: no cover
-    from fast_depends.core import CallModel
-    from fast_depends.library.serializer import Serializer
+if TYPE_CHECKING:
+    from fast_depends.library.serializer import SerializerProto
 
     class InjectWrapper(Protocol):
         def __call__(
@@ -47,11 +57,13 @@ def Depends(
     *,
     use_cache: bool = True,
     cast: bool = True,
+    cast_result: bool = False,
 ) -> Any:
     return Dependant(
         dependency=dependency,
         use_cache=use_cache,
         cast=cast,
+        cast_result=cast_result,
     )
 
 
@@ -60,11 +72,12 @@ def inject(
     func: Callable[..., T],
     *,
     cast: bool = True,
+    cast_result: bool = True,
     extra_dependencies: Sequence[Dependant] = (),
     dependency_provider: Optional["Provider"] = None,
     wrap_model: Callable[["CallModel"], "CallModel"] = lambda x: x,
-    caster_cls: Optional[Type["Serializer"]] = SerializerCls,
-    **caster_options: Any,
+    serializer_cls: Optional["SerializerProto"] = SerializerCls,
+    **serializer_options: Any,
 ) -> Callable[..., T]:
     ...
 
@@ -73,11 +86,11 @@ def inject(
     func: Literal[None] = None,
     *,
     cast: bool = True,
+    cast_result: bool = True,
     extra_dependencies: Sequence[Dependant] = (),
     dependency_provider: Optional["Provider"] = None,
     wrap_model: Callable[["CallModel"], "CallModel"] = lambda x: x,
-    caster_cls: Optional[Type["Serializer"]] = SerializerCls,
-    **caster_options: Any,
+    serializer_cls: Optional["SerializerProto"] = SerializerCls,
 ) -> "InjectWrapper":
     ...
 
@@ -85,11 +98,11 @@ def inject(
     func: Optional[Callable[..., T]] = None,
     *,
     cast: bool = True,
+    cast_result: bool = True,
     extra_dependencies: Sequence[Dependant] = (),
     dependency_provider: Optional["Provider"] = None,
     wrap_model: Callable[["CallModel"], "CallModel"] = lambda x: x,
-    caster_cls: Optional[Type["Serializer"]] = SerializerCls,
-    **caster_options: Any,
+    serializer_cls: Optional["SerializerProto"] = SerializerCls,
 ) -> Union[
     Callable[..., T],
     Callable[
@@ -101,14 +114,14 @@ def inject(
         dependency_provider = Provider()
 
     if not cast:
-        caster_cls = None
+        serializer_cls = None
 
     decorator = _wrap_inject(
         dependency_provider=dependency_provider,
         wrap_model=wrap_model,
         extra_dependencies=extra_dependencies,
-        caster_cls=caster_cls,
-        **caster_options,
+        serializer_cls=serializer_cls,
+        cast_result=cast_result,
     )
 
     if func is None:
@@ -123,8 +136,8 @@ def _wrap_inject(
     dependency_provider: "Provider",
     wrap_model: Callable[["CallModel"], "CallModel"],
     extra_dependencies: Sequence[Dependant],
-    caster_cls: Optional[Type["Serializer"]],
-    **caster_options: Any,
+    serializer_cls: Optional["SerializerProto"],
+    cast_result: bool,
 ) -> Callable[
     [Callable[P, T]],
     Callable[..., T]
@@ -139,8 +152,8 @@ def _wrap_inject(
                     call=func,
                     extra_dependencies=extra_dependencies,
                     dependency_provider=dependency_provider,
-                    caster_cls=caster_cls,
-                    **caster_options,
+                    serializer_cls=serializer_cls,
+                    serialize_result=cast_result,
                 )
             )
         else:
@@ -232,9 +245,9 @@ class solve_async_gen:
 
         try:
             r = await self._iter.__anext__()
-        except StopAsyncIteration as e:
+        except StopAsyncIteration:
             await self.stack.__aexit__(None, None, None)
-            raise e
+            raise
         else:
             return r
 
@@ -276,8 +289,8 @@ class solve_gen:
 
         try:
             r = next(self._iter)
-        except StopIteration as e:
+        except StopIteration:
             self.stack.__exit__(None, None, None)
-            raise e
+            raise
         else:
             return r

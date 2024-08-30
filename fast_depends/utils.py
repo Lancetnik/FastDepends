@@ -80,6 +80,9 @@ def get_typed_signature(call: Callable[..., Any]) -> Tuple[inspect.Signature, An
 
     locals = collect_outer_stack_locals()
 
+    # We unwrap call to get the original unwrapped function
+    call = inspect.unwrap(call)
+
     globalns = getattr(call, "__globals__", {})
     typed_params = [
         inspect.Parameter(

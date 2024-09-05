@@ -490,3 +490,15 @@ class TestSerializer:
 
         assert await some_func("1", "2")
         assert await another_func("3") == 6.0
+
+
+@pytest.mark.anyio
+async def test_default_key_value():
+    async def dep(a: str = "a"):
+        return a
+
+    @inject(cast=False)
+    async def func(a=Depends(dep)):
+        return a
+
+    assert await func() == "a"

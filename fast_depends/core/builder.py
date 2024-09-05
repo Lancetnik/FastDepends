@@ -125,15 +125,15 @@ def build_call_model(
             assert (
                 not dep
             ), "You can not use `Depends` with `Annotated` and default both"
-            dep = default
+            dep, default = default, Ellipsis
 
         elif isinstance(default, CustomField):
             assert (
                 not custom
             ), "You can not use `CustomField` with `Annotated` and default both"
-            custom = default
+            custom, default = default, Ellipsis
 
-        else:
+        elif not dep and not custom:
             class_fields.append(OptionItem(
                 field_name=param_name,
                 field_type=annotation,
@@ -193,7 +193,7 @@ def build_call_model(
                 class_fields.append(OptionItem(
                     field_name=param_name,
                     field_type=Optional[annotation],
-                    default_value=None,
+                    default_value=None if default is Ellipsis else default,
                     source=custom,
                 ))
 

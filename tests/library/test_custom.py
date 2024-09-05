@@ -154,6 +154,13 @@ class TestSerializer:
 
         sync_catch()
 
+    def test_header_not_required_with_default(self):
+        @inject
+        def sync_catch(key2: Annotated[str, Header(required=False)] = "1"):  # noqa: B008
+            return key2 == "1"
+
+        assert sync_catch()
+
     def test_depends(self):
         def dep(key: Annotated[int, Header()]):
             return key

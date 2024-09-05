@@ -261,13 +261,16 @@ def test_async_extra_depends():
 def test_generator():
     mock = Mock()
 
+    def simple_func():
+        mock.simple()
+
     def func():
         mock.start()
         yield
         mock.end()
 
     @inject
-    def simple_func(a: str, d=Depends(func)):
+    def simple_func(a: str, d2=Depends(simple_func), d=Depends(func)):
         for _ in range(2):
             yield a
 
@@ -276,6 +279,7 @@ def test_generator():
         assert not mock.end.called
         assert i == "1"
 
+    mock.simple.assert_called_once()
     mock.end.assert_called_once()
 
 

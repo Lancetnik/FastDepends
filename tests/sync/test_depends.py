@@ -1,4 +1,5 @@
 import logging
+from contextlib import contextmanager
 from dataclasses import dataclass
 from functools import partial
 from unittest.mock import Mock
@@ -391,3 +392,16 @@ def test_default_key_value():
         return a
 
     assert func() == "a"
+
+
+def test_contextmanager():
+    def dep(a: str):
+        return a
+
+    @contextmanager
+    @inject
+    def func(a: str, b: str = Depends(dep)):
+        yield a == b
+
+    with func("a") as is_equal:
+        assert is_equal

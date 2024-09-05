@@ -160,13 +160,13 @@ class CallModel:
             keyword_args = self.keyword_args
 
         else:
-            keyword_args = set(self.keyword_args + self.positional_args)
-            for arg in keyword_args - set(self.dependencies.keys()):
-                if arg not in kw:
-                    if args:
-                        kw[arg], args = args[0], args[1:]
-                    else:
-                        break
+            keyword_args = self.keyword_args + self.positional_args
+            for arg in keyword_args:
+                if not args:
+                    break
+
+                if arg not in self.dependencies and arg not in kw:
+                    kw[arg], args = args[0], args[1:]
 
         solved_kw: Dict[str, Any]
         solved_kw = yield args, kw

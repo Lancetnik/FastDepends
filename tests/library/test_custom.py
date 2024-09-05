@@ -63,6 +63,21 @@ def test_custom_with_class():
     assert T(headers={"key": 1}).key == 1
 
 
+def test_reusable_annotated() -> None:
+    HeaderKey = Annotated[float, Header(cast=False)]
+
+    @inject
+    def sync_catch(key: HeaderKey) -> float:
+        return key
+
+    @inject
+    def sync_catch2(key2: HeaderKey) -> float:
+        return key2
+
+    assert sync_catch(headers={"key": 1}) == 1
+    assert sync_catch2(headers={"key2": 1}) == 1
+
+
 @serializer
 class TestSerializer:
     @pytest.mark.anyio

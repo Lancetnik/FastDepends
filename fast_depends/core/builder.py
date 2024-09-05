@@ -90,9 +90,14 @@ def build_call_model(
         elif get_origin(param.annotation) is Annotated:
             annotated_args = get_args(param.annotation)
             type_annotation = annotated_args[0]
-            custom_annotations = [
-                arg for arg in annotated_args[1:] if isinstance(arg, CUSTOM_ANNOTATIONS)
-            ]
+
+            custom_annotations = []
+            regular_annotations = []
+            for arg in annotated_args[1:]:
+                if isinstance(arg, CUSTOM_ANNOTATIONS):
+                    custom_annotations.append(arg)
+                else:
+                    regular_annotations.append(arg)
 
             assert (
                 len(custom_annotations) <= 1
@@ -107,7 +112,10 @@ def build_call_model(
                 else:  # pragma: no cover
                     raise AssertionError("unreachable")
 
-                annotation = type_annotation
+                if regular_annotations:
+                    annotation = param.annotation
+                else:
+                    annotation = type_annotation
             else:
                 annotation = param.annotation
         else:
@@ -118,6 +126,8 @@ def build_call_model(
             default = ()
         elif param_name == "kwargs":
             default = {}
+        elif param.default is inspect.Parameter.empty:
+            default = Ellipsis
         else:
             default = param.default
 
@@ -186,6 +196,7 @@ def build_call_model(
                 class_fields.append(OptionItem(
                     field_name=param_name,
                     field_type=annotation,
+                    default_value=default,
                     source=custom,
                 ))
 

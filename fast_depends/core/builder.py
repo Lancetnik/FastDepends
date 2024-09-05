@@ -122,12 +122,10 @@ def build_call_model(
             annotation = param.annotation
 
         default: Any
-        if param_name == "args":
+        if param.kind is inspect.Parameter.VAR_POSITIONAL:
             default = ()
-        elif param_name == "kwargs":
+        elif param.kind is inspect.Parameter.VAR_KEYWORD:
             default = {}
-        elif param.default is inspect.Parameter.empty:
-            default = Ellipsis
         else:
             default = param.default
 

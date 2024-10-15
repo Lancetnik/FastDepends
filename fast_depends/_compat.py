@@ -1,6 +1,6 @@
 import sys
 from importlib.metadata import version as get_version
-from typing import Any, Dict, Optional, Tuple, Type
+from typing import Any, Optional
 
 from pydantic import BaseModel, create_model
 from pydantic.version import VERSION as PYDANTIC_VERSION
@@ -24,17 +24,17 @@ evaluate_forwardref: Any
 # isort: off
 if PYDANTIC_V2:
     from pydantic import ConfigDict
-    from pydantic._internal._typing_extra import (  # type: ignore[no-redef]
+    from pydantic._internal._typing_extra import (
         eval_type_lenient as evaluate_forwardref,
     )
 
-    def model_schema(model: Type[BaseModel]) -> Dict[str, Any]:
+    def model_schema(model: type[BaseModel]) -> dict[str, Any]:
         return model.model_json_schema()
 
     def get_config_base(config_data: Optional[ConfigDict] = None) -> ConfigDict:
         return config_data or ConfigDict(**default_pydantic_config)  # type: ignore[typeddict-item]
 
-    def get_aliases(model: Type[BaseModel]) -> Tuple[str, ...]:
+    def get_aliases(model: type[BaseModel]) -> tuple[str, ...]:
         return tuple(f.alias or name for name, f in model.model_fields.items())
 
     class CreateBaseModel(BaseModel):
@@ -46,13 +46,13 @@ else:
     from pydantic.typing import evaluate_forwardref as evaluate_forwardref  # type: ignore[no-redef]
     from pydantic.config import get_config, ConfigDict, BaseConfig
 
-    def get_config_base(config_data: Optional[ConfigDict] = None) -> Type[BaseConfig]:  # type: ignore[misc]
+    def get_config_base(config_data: Optional[ConfigDict] = None) -> type[BaseConfig]:  # type: ignore[misc]
         return get_config(config_data or ConfigDict(**default_pydantic_config))  # type: ignore[typeddict-item]
 
-    def model_schema(model: Type[BaseModel]) -> Dict[str, Any]:
+    def model_schema(model: type[BaseModel]) -> dict[str, Any]:
         return model.schema()
 
-    def get_aliases(model: Type[BaseModel]) -> Tuple[str, ...]:
+    def get_aliases(model: type[BaseModel]) -> tuple[str, ...]:
         return tuple(f.alias or name for name, f in model.__fields__.items())
 
     class CreateBaseModel(BaseModel):  # type: ignore[no-redef]

@@ -5,7 +5,7 @@ echo "Running ruff linter (isort, flake, pyupgrade, etc. replacement)..."
 ruff check fast_depends tests --fix
 
 echo "Running ruff formatter (black replacement)..."
-ruff format tests
+ruff format fast_depends tests
 
 echo "Running codespell to find typos..."
 codespell

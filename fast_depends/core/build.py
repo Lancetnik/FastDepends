@@ -1,21 +1,16 @@
 import inspect
+from collections.abc import Awaitable, Sequence
 from copy import deepcopy
 from typing import (
+    Annotated,
     Any,
-    Awaitable,
     Callable,
-    Dict,
-    List,
     Optional,
-    Sequence,
-    Tuple,
-    Type,
     TypeVar,
     Union,
 )
 
 from typing_extensions import (
-    Annotated,
     ParamSpec,
     get_args,
     get_origin,
@@ -62,18 +57,16 @@ def build_call_model(
         ), f"You cannot use async dependency `{name}` at sync main"
 
     typed_params, return_annotation = get_typed_signature(call)
-    if (
-        (is_call_generator := is_gen_callable(call) or
-        is_async_gen_callable(call)) and
-        (return_args := get_args(return_annotation))
+    if (is_call_generator := is_gen_callable(call) or is_async_gen_callable(call)) and (
+        return_args := get_args(return_annotation)
     ):
         return_annotation = return_args[0]
 
-    class_fields: Dict[str, Tuple[Any, Any]] = {}
-    dependencies: Dict[str, CallModel[..., Any]] = {}
-    custom_fields: Dict[str, CustomField] = {}
-    positional_args: List[str] = []
-    keyword_args: List[str] = []
+    class_fields: dict[str, tuple[Any, Any]] = {}
+    dependencies: dict[str, CallModel[..., Any]] = {}
+    custom_fields: dict[str, CustomField] = {}
+    positional_args: list[str] = []
+    keyword_args: list[str] = []
     var_positional_arg: Optional[str] = None
     var_keyword_arg: Optional[str] = None
 
@@ -177,14 +170,19 @@ def build_call_model(
                 class_fields[param_name] = (annotation, default)
 
             else:
-                class_fields[param_name] = class_fields.get(param_name, (Optional[annotation], None))
+                class_fields[param_name] = class_fields.get(
+                    param_name, (Optional[annotation], None)
+                )
 
             keyword_args.append(param_name)
 
         else:
             if param.kind is param.KEYWORD_ONLY:
                 keyword_args.append(param_name)
-            elif param.kind not in (inspect.Parameter.VAR_POSITIONAL, inspect.Parameter.VAR_KEYWORD):
+            elif param.kind not in (
+                inspect.Parameter.VAR_POSITIONAL,
+                inspect.Parameter.VAR_KEYWORD,
+            ):
                 positional_args.append(param_name)
 
     func_model = create_model(  # type: ignore[call-overload]
@@ -193,9 +191,9 @@ def build_call_model(
         **class_fields,
     )
 
-    response_model: Optional[Type[ResponseModel[T]]] = None
+    response_model: Optional[type[ResponseModel[T]]] = None
     if cast and return_annotation and return_annotation is not inspect.Parameter.empty:
-        response_model = create_model(  # type: ignore[call-overload]
+        response_model = create_model(
             "ResponseModel",
             __config__=get_config_base(pydantic_config),
             response=(return_annotation, Ellipsis),

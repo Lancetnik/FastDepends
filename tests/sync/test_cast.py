@@ -1,9 +1,9 @@
-from typing import Dict, Iterator, Tuple
+from collections.abc import Iterator
+from typing import Annotated
 
 import pytest
 from annotated_types import Ge
 from pydantic import BaseModel, Field, ValidationError
-from typing_extensions import Annotated
 
 from fast_depends import inject
 from tests.marks import pydanticV2
@@ -141,9 +141,9 @@ def test_args_kwargs_1():
     @inject
     def simple_func(
         a: int,
-        *args: Tuple[float, ...],
+        *args: tuple[float, ...],
         b: int,
-        **kwargs: Dict[str, int],
+        **kwargs: dict[str, int],
     ):
         return a, args, b, kwargs
 
@@ -154,7 +154,7 @@ def test_args_kwargs_2():
     @inject
     def simple_func(
         a: int,
-        *args: Tuple[float, ...],
+        *args: tuple[float, ...],
         b: int,
     ):
         return a, args, b

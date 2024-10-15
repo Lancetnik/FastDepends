@@ -1,12 +1,11 @@
 import logging
 from time import monotonic_ns
-from typing import Any, Dict
+from typing import Annotated, Any
 
 import anyio
 import pydantic
 import pytest
 from annotated_types import Ge
-from typing_extensions import Annotated
 
 from fast_depends import Depends, inject
 from fast_depends.library import CustomField
@@ -14,7 +13,7 @@ from tests.marks import pydanticV2
 
 
 class Header(CustomField):
-    def use(self, /, **kwargs: Any) -> Dict[str, Any]:
+    def use(self, /, **kwargs: Any) -> dict[str, Any]:
         kwargs = super().use(**kwargs)
         if v := kwargs.get("headers", {}).get(self.param_name):
             kwargs[self.param_name] = v
@@ -32,7 +31,7 @@ class FieldHeader(Header):
 
 
 class AsyncHeader(Header):
-    async def use(self, /, **kwargs: Any) -> Dict[str, Any]:
+    async def use(self, /, **kwargs: Any) -> dict[str, Any]:
         return super().use(**kwargs)
 
 

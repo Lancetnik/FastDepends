@@ -1,13 +1,11 @@
+from collections.abc import AsyncIterator, Iterator, Sequence
 from contextlib import AsyncExitStack, ExitStack
 from functools import partial, wraps
 from typing import (
     Any,
-    AsyncIterator,
     Callable,
-    Iterator,
     Optional,
     Protocol,
-    Sequence,
     TypeVar,
     Union,
     cast,
@@ -42,8 +40,7 @@ class _InjectWrapper(Protocol[P, T]):
         self,
         func: Callable[P, T],
         model: Optional[CallModel[P, T]] = None,
-    ) -> Callable[P, T]:
-        ...
+    ) -> Callable[P, T]: ...
 
 
 @overload
@@ -55,8 +52,7 @@ def inject(  # pragma: no cover
     pydantic_config: Optional[ConfigDict] = None,
     dependency_overrides_provider: Optional[Any] = dependency_provider,
     wrap_model: Callable[[CallModel[P, T]], CallModel[P, T]] = lambda x: x,
-) -> _InjectWrapper[P, T]:
-    ...
+) -> _InjectWrapper[P, T]: ...
 
 
 @overload
@@ -68,8 +64,7 @@ def inject(  # pragma: no cover
     pydantic_config: Optional[ConfigDict] = None,
     dependency_overrides_provider: Optional[Any] = dependency_provider,
     wrap_model: Callable[[CallModel[P, T]], CallModel[P, T]] = lambda x: x,
-) -> Callable[P, T]:
-    ...
+) -> Callable[P, T]: ...
 
 
 def inject(

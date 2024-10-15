@@ -1,9 +1,10 @@
+from collections.abc import Iterator
 from contextlib import contextmanager
-from typing import Any, Callable, Dict, Iterator
+from typing import Any, Callable
 
 
 class Provider:
-    dependency_overrides: Dict[Callable[..., Any], Callable[..., Any]]
+    dependency_overrides: dict[Callable[..., Any], Callable[..., Any]]
 
     def __init__(self) -> None:
         self.dependency_overrides = {}

@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from fast_depends._compat import PYDANTIC_V2, create_model, model_schema
 from fast_depends.core import CallModel
@@ -8,14 +8,13 @@ def get_schema(
     call: CallModel[Any, Any],
     embed: bool = False,
     resolve_refs: bool = False,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     assert call.model, "Call should has a model"
     params_model = create_model(  # type: ignore[call-overload]
-        call.model.__name__,
-        **call.flat_params
+        call.model.__name__, **call.flat_params
     )
 
-    body: Dict[str, Any] = model_schema(params_model)
+    body: dict[str, Any] = model_schema(params_model)
 
     if not call.flat_params:
         body = {"title": body["title"], "type": "null"}
@@ -32,11 +31,9 @@ def get_schema(
 
 
 def _move_pydantic_refs(
-    original: Any,
-    key: str,
-    refs: Optional[Dict[str, Any]] = None
+    original: Any, key: str, refs: Optional[dict[str, Any]] = None
 ) -> Any:
-    if not isinstance(original, Dict):
+    if not isinstance(original, dict):
         return original
 
     data = original.copy()
@@ -53,7 +50,7 @@ def _move_pydantic_refs(
         elif isinstance(data[k], dict):
             data[k] = _move_pydantic_refs(data[k], key, refs)
 
-        elif isinstance(data[k], List):
+        elif isinstance(data[k], list):
             for i in range(len(data[k])):
                 data[k][i] = _move_pydantic_refs(data[k][i], key, refs)
 

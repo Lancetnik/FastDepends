@@ -2,11 +2,11 @@ import logging
 from contextlib import contextmanager
 from dataclasses import dataclass
 from functools import partial
+from typing import Annotated
 from unittest.mock import Mock
 
 import pytest
 from pydantic import ValidationError
-from typing_extensions import Annotated
 
 from fast_depends import Depends, inject
 

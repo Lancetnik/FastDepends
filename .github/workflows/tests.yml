@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12"]
+        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13"]
         pydantic-version: ["pydantic-v1", "pydantic-v2"]
       fail-fast: false
 
@@ -48,6 +48,7 @@ jobs:
           name: .coverage.${{ runner.os }}-py${{ matrix.python-version }}-${{ matrix.pydantic-version }}
           path: coverage
           if-no-files-found: error
+          include-hidden-files: true
 
   coverage-combine:
     needs: [test]
@@ -79,6 +80,7 @@ jobs:
         with:
           name: coverage-html
           path: htmlcov
+          include-hidden-files: true
 
   # https://github.com/marketplace/actions/alls-green#why
   check:  # This job does nothing and is only used for the branch protection

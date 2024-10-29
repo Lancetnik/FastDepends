@@ -68,7 +68,12 @@ class _PydanticSerializer(Serializer):
         self.response_callback: Optional[Callable[[Any], Any]] = None
 
         if response_type is not inspect.Parameter.empty:
-            if issubclass(response_type or object, BaseModel):
+            try:
+                is_model = issubclass(response_type or object, BaseModel)
+            except Exception:
+                is_model = False
+
+            if is_model:
                 if PYDANTIC_V2:
                     self.response_callback = response_type.model_validate
                 else:

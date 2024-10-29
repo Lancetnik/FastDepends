@@ -77,7 +77,7 @@ def inject(
     dependency_provider: Optional["Provider"] = None,
     wrap_model: Callable[["CallModel"], "CallModel"] = lambda x: x,
     serializer_cls: Optional["SerializerProto"] = SerializerCls,
-    **serializer_options: Any,
+    **call_extra: Any,
 ) -> Callable[..., T]:
     ...
 
@@ -91,6 +91,7 @@ def inject(
     dependency_provider: Optional["Provider"] = None,
     wrap_model: Callable[["CallModel"], "CallModel"] = lambda x: x,
     serializer_cls: Optional["SerializerProto"] = SerializerCls,
+    **call_extra: Any,
 ) -> "InjectWrapper":
     ...
 
@@ -103,6 +104,7 @@ def inject(
     dependency_provider: Optional["Provider"] = None,
     wrap_model: Callable[["CallModel"], "CallModel"] = lambda x: x,
     serializer_cls: Optional["SerializerProto"] = SerializerCls,
+    **call_extra: Any,
 ) -> Union[
     Callable[..., T],
     Callable[
@@ -122,6 +124,7 @@ def inject(
         extra_dependencies=extra_dependencies,
         serializer_cls=serializer_cls,
         cast_result=cast_result,
+        **call_extra,
     )
 
     if func is None:
@@ -138,6 +141,7 @@ def _wrap_inject(
     extra_dependencies: Sequence[Dependant],
     serializer_cls: Optional["SerializerProto"],
     cast_result: bool,
+    **call_extra: Any,
 ) -> Callable[
     [Callable[P, T]],
     Callable[..., T]
@@ -177,7 +181,7 @@ def _wrap_inject(
                             stack=stack,
                             cache_dependencies={},
                             nested=False,
-                            **kwargs,
+                            **(call_extra | kwargs),
                         )
 
                     raise AssertionError("unreachable")
@@ -198,7 +202,7 @@ def _wrap_inject(
                             stack=stack,
                             cache_dependencies={},
                             nested=False,
-                            **kwargs,
+                                **(call_extra | kwargs),
                         )
 
                     raise AssertionError("unreachable")

@@ -1,11 +1,13 @@
 name: Test
 
 on:
-  push:
-    branches:
-      - main
+  schedule:
+    - cron: "0 0 * * *"
   pull_request:
-    types: [opened, synchronize]
+    types:
+      - opened
+      - synchronize
+      - ready_for_review
 
 jobs:
   test:

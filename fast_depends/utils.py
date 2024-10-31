@@ -1,26 +1,21 @@
 import asyncio
 import functools
 import inspect
+from collections.abc import AsyncGenerator, AsyncIterable, Awaitable
 from contextlib import AsyncExitStack, ExitStack, asynccontextmanager, contextmanager
 from typing import (
     TYPE_CHECKING,
+    Annotated,
     Any,
-    AsyncGenerator,
-    AsyncIterable,
-    Awaitable,
     Callable,
     ContextManager,
-    Dict,
     ForwardRef,
-    List,
-    Tuple,
     Union,
     cast,
 )
 
 import anyio
 from typing_extensions import (
-    Annotated,
     ParamSpec,
     TypeVar,
     get_args,
@@ -75,7 +70,7 @@ def solve_generator_sync(
     return stack.enter_context(cm)
 
 
-def get_typed_signature(call: Callable[..., Any]) -> Tuple[inspect.Signature, Any]:
+def get_typed_signature(call: Callable[..., Any]) -> tuple[inspect.Signature, Any]:
     signature = inspect.signature(call)
 
     locals = collect_outer_stack_locals()
@@ -105,10 +100,10 @@ def get_typed_signature(call: Callable[..., Any]) -> Tuple[inspect.Signature, An
     )
 
 
-def collect_outer_stack_locals() -> Dict[str, Any]:
+def collect_outer_stack_locals() -> dict[str, Any]:
     frame = inspect.currentframe()
 
-    frames: List[FrameType] = []
+    frames: list[FrameType] = []
     while frame is not None:
         if "fast_depends" not in frame.f_code.co_filename:
             frames.append(frame)
@@ -123,8 +118,8 @@ def collect_outer_stack_locals() -> Dict[str, Any]:
 
 def get_typed_annotation(
     annotation: Any,
-    globalns: Dict[str, Any],
-    locals: Dict[str, Any],
+    globalns: dict[str, Any],
+    locals: dict[str, Any],
 ) -> Any:
     if isinstance(annotation, str):
         annotation = ForwardRef(annotation)

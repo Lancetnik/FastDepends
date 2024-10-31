@@ -1,4 +1,5 @@
-from typing import Any, Dict, Sequence, Tuple
+from collections.abc import Sequence
+from typing import Any
 
 from fast_depends.library.serializer import OptionItem
 
@@ -13,13 +14,13 @@ class ValidationError(ValueError, FastDependsError):
         *,
         incoming_options: Any,
         locations: Sequence[Any],
-        expected: Dict[str, OptionItem],
+        expected: dict[str, OptionItem],
         original_error: Exception,
     ) -> None:
         self.original_error = original_error
         self.incoming_options = incoming_options
 
-        self.error_fields: Tuple[OptionItem, ...] = tuple(
+        self.error_fields: tuple[OptionItem, ...] = tuple(
             expected[x] for x in locations if x in expected
         )
         if not self.error_fields:

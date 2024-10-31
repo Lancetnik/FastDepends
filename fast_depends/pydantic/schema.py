@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from fast_depends.core import CallModel
 from fast_depends.pydantic._compat import PYDANTIC_V2, create_model, model_schema
@@ -8,8 +8,8 @@ def get_schema(
     call: CallModel,
     embed: bool = False,
     resolve_refs: bool = False,
-) -> Dict[str, Any]:
-    class_options: Dict[str, Any] = {
+) -> dict[str, Any]:
+    class_options: dict[str, Any] = {
         i.field_name: (i.field_type, i.default_value)
         for i in call.flat_params
     }
@@ -40,9 +40,9 @@ def get_schema(
 def _move_pydantic_refs(
     original: Any,
     key: str,
-    refs: Optional[Dict[str, Any]] = None
+    refs: Optional[dict[str, Any]] = None
 ) -> Any:
-    if not isinstance(original, Dict):
+    if not isinstance(original, dict):
         return original
 
     data = original.copy()
@@ -59,7 +59,7 @@ def _move_pydantic_refs(
         elif isinstance(data[k], dict):
             data[k] = _move_pydantic_refs(data[k], key, refs)
 
-        elif isinstance(data[k], List):
+        elif isinstance(data[k], list):
             for i in range(len(data[k])):
                 data[k][i] = _move_pydantic_refs(data[k][i], key, refs)
 

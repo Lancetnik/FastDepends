@@ -1,4 +1,4 @@
-from typing import Dict, Iterator, Tuple
+from collections.abc import Iterator
 
 import pytest
 
@@ -51,9 +51,9 @@ def test_args_kwargs_1():
     @inject
     def simple_func(
         a: int,
-        *args: Tuple[float, ...],
+        *args: tuple[float, ...],
         b: int,
-        **kwargs: Dict[str, int],
+        **kwargs: dict[str, int],
     ):
         return a, args, b, kwargs
 
@@ -64,7 +64,7 @@ def test_args_kwargs_2():
     @inject
     def simple_func(
         a: int,
-        *args: Tuple[float, ...],
+        *args: tuple[float, ...],
         b: int,
     ):
         return a, args, b
@@ -91,8 +91,8 @@ def test_args_kwargs_3():
 def test_args_kwargs_4():
     @inject
     def simple_func(
-        *args: Tuple[float, ...],
-        **kwargs: Dict[str, int],
+        *args: tuple[float, ...],
+        **kwargs: dict[str, int],
     ):
         return args, kwargs
 
@@ -108,8 +108,8 @@ def test_args_kwargs_4():
 def test_args_kwargs_5():
     @inject
     def simple_func(
-        *a: Tuple[float, ...],
-        **kw: Dict[str, int],
+        *a: tuple[float, ...],
+        **kw: dict[str, int],
     ):
         return a, kw
 

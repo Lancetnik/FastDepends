@@ -1,8 +1,7 @@
-from typing import Any, Dict
+from typing import Annotated, Any
 
 import pytest
 from annotated_types import Ge
-from typing_extensions import Annotated
 
 from fast_depends import inject
 from fast_depends.exceptions import ValidationError
@@ -11,7 +10,7 @@ from tests.marks import pydanticV2
 
 
 class Header(CustomField):
-    def use(self, /, **kwargs: Any) -> Dict[str, Any]:
+    def use(self, /, **kwargs: Any) -> dict[str, Any]:
         kwargs = super().use(**kwargs)
         if v := kwargs.get("headers", {}).get(self.param_name):
             kwargs[self.param_name] = v

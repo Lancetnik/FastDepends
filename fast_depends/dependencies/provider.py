@@ -1,5 +1,8 @@
+from collections.abc import Hashable, Iterator
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Any, Callable, Dict, Hashable, Iterator, TypeAlias
+from typing import TYPE_CHECKING, Any, Callable
+
+from typing_extensions import TypeAlias
 
 from fast_depends.core import build_call_model
 
@@ -11,8 +14,8 @@ Key: TypeAlias = Hashable
 
 
 class Provider:
-    dependencies: Dict[Key, "CallModel"]
-    overrides: Dict[Key, "CallModel"]
+    dependencies: dict[Key, "CallModel"]
+    overrides: dict[Key, "CallModel"]
 
     def __init__(self) -> None:
         self.dependencies = {}

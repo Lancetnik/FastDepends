@@ -1,5 +1,6 @@
 import pytest
-from fast_depends import dependency_provider, inject, Depends
+
+from fast_depends import Depends, dependency_provider, inject
 
 # Base code
 

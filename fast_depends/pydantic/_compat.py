@@ -1,4 +1,4 @@
-from typing import Any, Dict, Optional, Tuple, Type
+from typing import Any, Optional
 
 from pydantic import BaseModel, create_model
 from pydantic.version import VERSION as PYDANTIC_VERSION
@@ -24,16 +24,16 @@ if PYDANTIC_V2:
     from pydantic.fields import FieldInfo
     from pydantic.errors import PydanticUserError
 
-    def model_schema(model: Type[BaseModel]) -> Dict[str, Any]:
+    def model_schema(model: type[BaseModel]) -> dict[str, Any]:
         return model.model_json_schema()
 
     def get_config_base(config_data: Optional[ConfigDict] = None) -> ConfigDict:
         return config_data or ConfigDict(**default_pydantic_config)  # type: ignore[typeddict-item]
 
-    def get_aliases(model: Type[BaseModel]) -> Tuple[str, ...]:
+    def get_aliases(model: type[BaseModel]) -> tuple[str, ...]:
         return tuple(f.alias or name for name, f in model.model_fields.items())
 
-    def get_model_fields(model: Type[BaseModel]) -> Dict[str, FieldInfo]:
+    def get_model_fields(model: type[BaseModel]) -> dict[str, FieldInfo]:
         return model.model_fields
 
 else:
@@ -43,14 +43,14 @@ else:
     TypeAdapter = None
     PydanticUserError = Exception
 
-    def get_config_base(config_data: Optional[ConfigDict] = None) -> Type[BaseConfig]:  # type: ignore[misc]
+    def get_config_base(config_data: Optional[ConfigDict] = None) -> type[BaseConfig]:  # type: ignore[misc]
         return get_config(config_data or ConfigDict(**default_pydantic_config))  # type: ignore[typeddict-item]
 
-    def model_schema(model: Type[BaseModel]) -> Dict[str, Any]:
+    def model_schema(model: type[BaseModel]) -> dict[str, Any]:
         return model.schema()
 
-    def get_aliases(model: Type[BaseModel]) -> Tuple[str, ...]:
+    def get_aliases(model: type[BaseModel]) -> tuple[str, ...]:
         return tuple(f.alias or name for name, f in model.__fields__.items())
 
-    def get_model_fields(model: Type[BaseModel]) -> Dict[str, ModelField]:
+    def get_model_fields(model: type[BaseModel]) -> dict[str, ModelField]:
         return model.__fields__

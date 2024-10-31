@@ -21,8 +21,8 @@ else:
 
 def evaluate_forwardref(
     value: typing.Any,
-    globalns: typing.Optional[typing.Dict[str, typing.Any]] = None,
-    localns: typing.Optional[typing.Dict[str, typing.Any]] = None,
+    globalns: typing.Optional[dict[str, typing.Any]] = None,
+    localns: typing.Optional[dict[str, typing.Any]] = None,
 ) -> typing.Any:
     """Behaves like typing._eval_type, except it won't raise an error if a forward reference can't be resolved."""
     if value is None:
@@ -39,8 +39,8 @@ def evaluate_forwardref(
 
 def eval_type_backport(
     value: typing.Any,
-    globalns: typing.Optional[typing.Dict[str, typing.Any]] = None,
-    localns: typing.Optional[typing.Dict[str, typing.Any]] = None,
+    globalns: typing.Optional[dict[str, typing.Any]] = None,
+    localns: typing.Optional[dict[str, typing.Any]] = None,
 ) -> typing.Any:
     """Like `typing._eval_type`, but falls back to the `eval_type_backport` package if it's
     installed to let older Python versions use newer typing features.

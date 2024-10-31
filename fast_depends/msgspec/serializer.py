@@ -1,7 +1,8 @@
 import inspect
 import re
+from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
-from typing import Any, Dict, Iterator, List, Sequence, Tuple
+from typing import Any
 
 import msgspec
 
@@ -16,7 +17,7 @@ class MsgSpecSerializer(Serializer):
         self,
         *,
         name: str,
-        options: List[OptionItem],
+        options: list[OptionItem],
         response_type: Any,
     ):
         model_options = []
@@ -54,7 +55,7 @@ class MsgSpecSerializer(Serializer):
 
         super().__init__(name=name, options=options, response_type=response_type)
 
-    def __call__(self, call_kwargs: Dict[str, Any]) -> Dict[str, Any]:
+    def __call__(self, call_kwargs: dict[str, Any]) -> dict[str, Any]:
         with self._try_msgspec(call_kwargs, self.options):
             casted_model = msgspec.convert(
                 call_kwargs,
@@ -68,7 +69,7 @@ class MsgSpecSerializer(Serializer):
             for out_field in self.aliases.keys()
         }
 
-    def get_aliases(self) -> Tuple[str, ...]:
+    def get_aliases(self) -> tuple[str, ...]:
         return tuple(self.aliases.values())
 
     def response(self, value: Any) -> Any:
@@ -78,11 +79,11 @@ class MsgSpecSerializer(Serializer):
         return value
 
     @property
-    def json_schema(self) -> Dict[str, Any]:
+    def json_schema(self) -> dict[str, Any]:
         return msgspec.json.schema(self.model)
 
     @contextmanager
-    def _try_msgspec(self, call_kwargs: Any, options: Dict[str, OptionItem], locations: Sequence[str] = (),) -> Iterator[None]:
+    def _try_msgspec(self, call_kwargs: Any, options: dict[str, OptionItem], locations: Sequence[str] = (),) -> Iterator[None]:
         try:
             yield
         except msgspec.ValidationError as er:

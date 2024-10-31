@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Protocol, Tuple
+from typing import Any, Protocol
 
 
 class OptionItem:
@@ -37,7 +37,7 @@ class Serializer(ABC):
         self,
         *,
         name: str,
-        options: List[OptionItem],
+        options: list[OptionItem],
         response_type: Any,
     ):
         self.name = name
@@ -50,10 +50,10 @@ class Serializer(ABC):
 
 
     @abstractmethod
-    def __call__(self, call_kwargs: Dict[str, Any]) -> Dict[str, Any]:
+    def __call__(self, call_kwargs: dict[str, Any]) -> dict[str, Any]:
         raise NotImplementedError
 
-    def get_aliases(self) -> Tuple[str, ...]:
+    def get_aliases(self) -> tuple[str, ...]:
         return ()
 
     def response(self, value: Any) -> Any:
@@ -65,7 +65,7 @@ class SerializerProto(Protocol):
         self,
         *,
         name: str,
-        options: List[OptionItem],
+        options: list[OptionItem],
         response_type: Any,
     ) -> Serializer:
         ...

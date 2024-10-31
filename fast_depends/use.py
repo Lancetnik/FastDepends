@@ -1,14 +1,12 @@
+from collections.abc import AsyncIterator, Iterator, Sequence
 from contextlib import AsyncExitStack, ExitStack
 from functools import partial, wraps
 from typing import (
     TYPE_CHECKING,
     Any,
-    AsyncIterator,
     Callable,
-    Iterator,
     Optional,
     Protocol,
-    Sequence,
     Union,
     cast,
     overload,

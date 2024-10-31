@@ -1,5 +1,7 @@
 from pydantic import BaseModel
+
 from fast_depends import Depends
+
 
 def simple_dependency(a: int, **kwargs):
     return a

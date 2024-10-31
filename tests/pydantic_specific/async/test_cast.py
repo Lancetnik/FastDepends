@@ -1,7 +1,8 @@
+from typing import Annotated
+
 import pytest
 from annotated_types import Ge
 from pydantic import BaseModel, Field
-from typing_extensions import Annotated
 
 from fast_depends import inject
 from fast_depends.exceptions import ValidationError

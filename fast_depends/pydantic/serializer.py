@@ -1,7 +1,8 @@
 import inspect
+from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
 from itertools import chain
-from typing import Any, Callable, Dict, Iterator, List, Optional, Sequence, Tuple
+from typing import Any, Callable, Optional
 
 from pydantic import ValidationError as PValidationError
 
@@ -30,7 +31,7 @@ class PydanticSerializer(SerializerProto):
         self,
         *,
         name: str,
-        options: List[OptionItem],
+        options: list[OptionItem],
         response_type: Any,
     ) -> "_PydanticSerializer":
         return _PydanticSerializer(
@@ -48,11 +49,11 @@ class _PydanticSerializer(Serializer):
         self,
         *,
         name: str,
-        options: List[OptionItem],
+        options: list[OptionItem],
         response_type: Any,
         pydantic_config: Optional[ConfigDict] = None,
     ):
-        class_options: Dict[str, Any] = {
+        class_options: dict[str, Any] = {
             i.field_name: (i.field_type, i.default_value)
             for i in options
         }
@@ -98,7 +99,7 @@ class _PydanticSerializer(Serializer):
 
         super().__init__(name=name, options=options, response_type=response_type)
 
-    def __call__(self, call_kwargs: Dict[str, Any]) -> Dict[str, Any]:
+    def __call__(self, call_kwargs: dict[str, Any]) -> dict[str, Any]:
         with self._try_pydantic(call_kwargs, self.options):
             casted_model = self.model(**call_kwargs)
 
@@ -107,7 +108,7 @@ class _PydanticSerializer(Serializer):
             for i in get_model_fields(casted_model).keys()
         }
 
-    def get_aliases(self) -> Tuple[str, ...]:
+    def get_aliases(self) -> tuple[str, ...]:
         return get_aliases(self.model)
 
     def response(self, value: Any) -> Any:
@@ -117,7 +118,7 @@ class _PydanticSerializer(Serializer):
         return value
 
     @contextmanager
-    def _try_pydantic(self, call_kwargs: Any, options: Dict[str, OptionItem], locations: Sequence[str] = (),) -> Iterator[None]:
+    def _try_pydantic(self, call_kwargs: Any, options: dict[str, OptionItem], locations: Sequence[str] = (),) -> Iterator[None]:
         try:
             yield
         except PValidationError as er:

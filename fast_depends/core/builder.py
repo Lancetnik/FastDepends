@@ -1,17 +1,15 @@
 import inspect
+from collections.abc import Sequence
 from copy import deepcopy
 from typing import (
     TYPE_CHECKING,
+    Annotated,
     Any,
     Callable,
-    Dict,
-    List,
     Optional,
-    Sequence,
 )
 
 from typing_extensions import (
-    Annotated,
     ParamSpec,
     TypeVar,
     get_args,
@@ -72,11 +70,11 @@ def build_call_model(
     if not serialize_result:
         return_annotation = inspect.Parameter.empty
 
-    class_fields: List[OptionItem] = []
-    dependencies: Dict[str, Key] = {}
-    custom_fields: Dict[str, CustomField] = {}
-    positional_args: List[str] = []
-    keyword_args: List[str] = []
+    class_fields: list[OptionItem] = []
+    dependencies: dict[str, Key] = {}
+    custom_fields: dict[str, CustomField] = {}
+    positional_args: list[str] = []
+    keyword_args: list[str] = []
     args_name: Optional[str] = None
     kwargs_name: Optional[str] = None
 
@@ -226,7 +224,7 @@ def build_call_model(
             response_type=return_annotation,
         )
 
-    solved_extra_dependencies: List[Key] = []
+    solved_extra_dependencies: list[Key] = []
     for dep in extra_dependencies:
         dependency = build_call_model(
             dep.dependency,

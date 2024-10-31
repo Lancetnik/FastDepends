@@ -1,16 +1,11 @@
+from collections.abc import Generator, Iterable, Sequence
 from contextlib import AsyncExitStack, ExitStack
 from inspect import Parameter, unwrap
 from typing import (
     TYPE_CHECKING,
     Any,
     Callable,
-    Dict,
-    Generator,
-    Iterable,
-    List,
     Optional,
-    Sequence,
-    Tuple,
 )
 
 import anyio
@@ -51,7 +46,7 @@ class CallModel:
         "dependency_provider",
     )
 
-    alias_arguments: Tuple[str, ...]
+    alias_arguments: tuple[str, ...]
 
     @property
     def call_name(self) -> str:
@@ -59,7 +54,7 @@ class CallModel:
         return getattr(call, "__name__", type(call).__name__)
 
     @property
-    def flat_params(self) -> List[OptionItem]:
+    def flat_params(self) -> list[OptionItem]:
         params = list(self.params)
         for d in map(
             self.dependency_provider.get_dependant,
@@ -75,17 +70,17 @@ class CallModel:
         *,
         call: Callable[..., Any],
         serializer: Optional[Serializer],
-        params: Tuple[OptionItem, ...],
+        params: tuple[OptionItem, ...],
         use_cache: bool,
         is_async: bool,
         is_generator: bool,
         args_name: Optional[str],
         kwargs_name: Optional[str],
-        dependencies: Dict[str, "Key"],
+        dependencies: dict[str, "Key"],
         extra_dependencies: Iterable["Key"],
-        keyword_args: List[str],
-        positional_args: List[str],
-        custom_fields: Dict[str, CustomField],
+        keyword_args: list[str],
+        positional_args: list[str],
+        custom_fields: dict[str, CustomField],
         dependency_provider: "Provider",
     ):
         self.call = call
@@ -123,13 +118,13 @@ class CallModel:
     def _solve(
         self,
         /,
-        *args: Tuple[Any, ...],
-        cache_dependencies: Dict[Callable[..., Any], Any],
-        **kwargs: Dict[str, Any],
+        *args: tuple[Any, ...],
+        cache_dependencies: dict[Callable[..., Any], Any],
+        **kwargs: dict[str, Any],
     ) -> Generator[
-        Tuple[
+        tuple[
             Sequence[Any],
-            Dict[str, Any],
+            dict[str, Any],
         ],
         Any,
         Any,
@@ -137,7 +132,7 @@ class CallModel:
         if self.use_cache and self.call in cache_dependencies:
             return cache_dependencies[self.call]
 
-        kw: Dict[str, Any] = {}
+        kw: dict[str, Any] = {}
         for arg in self.keyword_args:
             if (v := kwargs.pop(arg, Parameter.empty)) is not Parameter.empty:
                 kw[arg] = v
@@ -168,7 +163,7 @@ class CallModel:
                 if arg not in self.dependencies and arg not in kw:
                     kw[arg], args = args[0], args[1:]
 
-        solved_kw: Dict[str, Any]
+        solved_kw: dict[str, Any]
         solved_kw = yield args, kw
 
         args_: Sequence[Any]
@@ -210,11 +205,11 @@ class CallModel:
     def solve(
         self,
         /,
-        *args: Tuple[Any, ...],
+        *args: tuple[Any, ...],
         stack: ExitStack,
-        cache_dependencies: Dict[Callable[..., Any], Any],
+        cache_dependencies: dict[Callable[..., Any], Any],
         nested: bool = False,
-        **kwargs: Dict[str, Any],
+        **kwargs: dict[str, Any],
     ) -> Any:
         cast_gen = self._solve(
             *args,
@@ -281,11 +276,11 @@ class CallModel:
     async def asolve(
         self,
         /,
-        *args: Tuple[Any, ...],
+        *args: tuple[Any, ...],
         stack: AsyncExitStack,
-        cache_dependencies: Dict[Callable[..., Any], Any],
+        cache_dependencies: dict[Callable[..., Any], Any],
         nested: bool = False,
-        **kwargs: Dict[str, Any],
+        **kwargs: dict[str, Any],
     ) -> Any:
         cast_gen = self._solve(
             *args,
@@ -318,7 +313,7 @@ class CallModel:
                     **kwargs,
                 )
 
-        custom_to_solve: List[CustomField] = []
+        custom_to_solve: list[CustomField] = []
 
         try:
             async with anyio.create_task_group() as tg:

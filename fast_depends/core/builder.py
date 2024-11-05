@@ -7,11 +7,11 @@ from typing import (
     Any,
     Callable,
     Optional,
+    TypeVar,
 )
 
 from typing_extensions import (
     ParamSpec,
-    TypeVar,
     get_args,
     get_origin,
 )

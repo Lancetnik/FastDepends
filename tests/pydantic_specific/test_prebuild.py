@@ -38,4 +38,4 @@ def test_prebuild_with_wrapper():
         model.model_rebuild()
     else:
         # pydantic v1
-        modelmodel.update_forward_refs()
+        model.update_forward_refs()

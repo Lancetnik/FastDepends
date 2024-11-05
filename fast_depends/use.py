@@ -7,12 +7,13 @@ from typing import (
     Callable,
     Optional,
     Protocol,
+    TypeVar,
     Union,
     cast,
     overload,
 )
 
-from typing_extensions import Literal, ParamSpec, TypeVar
+from typing_extensions import Literal, ParamSpec
 
 from fast_depends.core import CallModel, build_call_model
 from fast_depends.dependencies import Dependant, Provider

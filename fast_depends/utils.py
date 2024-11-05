@@ -2,14 +2,20 @@ import asyncio
 import functools
 import inspect
 from collections.abc import AsyncGenerator, AsyncIterable, Awaitable
-from contextlib import AsyncExitStack, ExitStack, asynccontextmanager, contextmanager
+from contextlib import (
+    AbstractContextManager,
+    AsyncExitStack,
+    ExitStack,
+    asynccontextmanager,
+    contextmanager,
+)
 from typing import (
     TYPE_CHECKING,
     Annotated,
     Any,
     Callable,
-    ContextManager,
     ForwardRef,
+    TypeVar,
     Union,
     cast,
 )
@@ -17,7 +23,6 @@ from typing import (
 import anyio
 from typing_extensions import (
     ParamSpec,
-    TypeVar,
     get_args,
     get_origin,
 )
@@ -139,7 +144,7 @@ def get_typed_annotation(
 
 @asynccontextmanager
 async def contextmanager_in_threadpool(
-    cm: ContextManager[T],
+    cm: AbstractContextManager[T],
 ) -> AsyncGenerator[T, None]:
     exit_limiter = anyio.CapacityLimiter(1)
     try:

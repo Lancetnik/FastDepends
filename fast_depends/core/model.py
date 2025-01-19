@@ -413,7 +413,20 @@ class CallModel(Generic[P, T]):
             )
 
         else:
-            response = call(*final_args, **final_kwargs)
+            
+            #TODO (mr-mapache): Check for bugs when solving async dependencies.
+            def resolve_final_kwargs_sync(**final_kwargs):
+                resolved_kwargs = {}
+                for key, value in final_kwargs.items():
+                    if hasattr(value, '__next__'):
+                        resolved_kwargs[key] = next(value)
+                    else:
+                        resolved_kwargs[key] = value
+                return resolved_kwargs
+            
+            resolved_kwargs = resolve_final_kwargs_sync(**final_kwargs)
+            response = call(*final_args, **resolved_kwargs)
+
 
         try:
             cast_gen.send(response)
@@ -539,7 +552,20 @@ class CallModel(Generic[P, T]):
                 **final_kwargs,
             )
         else:
-            response = await run_async(call, *final_args, **final_kwargs)
+            
+            #TODO (mr-mapache): Check for bugs when solving sync dependencies.
+            async def resolve_final_kwargs(**final_kwargs):
+                resolved_kwargs = {}
+                for key, value in final_kwargs.items():
+                    if hasattr(value, '__aiter__'):  
+                        resolved_kwargs[key] = await anext(value)
+                    else:
+                        resolved_kwargs[key] = value
+                return resolved_kwargs
+
+            resolved_kwargs = await resolve_final_kwargs(**final_kwargs)
+            response = await run_async(call, *final_args, **resolved_kwargs)
+
 
         try:
             cast_gen.send(response)

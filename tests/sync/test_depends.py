@@ -2,6 +2,7 @@ import logging
 from contextlib import contextmanager
 from dataclasses import dataclass
 from functools import partial
+from typing import Generator
 from unittest.mock import Mock
 
 import pytest
@@ -366,3 +367,19 @@ def test_contextmanager():
 
     with func("a") as is_equal:
         assert is_equal
+
+
+def test_generator_iter():
+    # ref: https://github.com/Lancetnik/FastDepends/issues/165
+
+    def simple_dependency(a: int, b: int = 3):
+        return a + b
+
+    @inject
+    def method(a: int, d: int = Depends(simple_dependency)) -> Generator[int, None, None]:
+        yield from range(a + d)
+
+    iterator = method(5)
+
+    assert len(list(iterator)) == 13
+    assert len(list(iterator)) == 0

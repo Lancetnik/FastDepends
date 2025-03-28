@@ -199,7 +199,6 @@ class solve_async_gen:
         self.overrides = overrides
 
     def __aiter__(self) -> "solve_async_gen":
-        self._iter = None
         self.stack = AsyncExitStack()
         return self
 
@@ -246,7 +245,6 @@ class solve_gen:
         self.overrides = overrides
 
     def __iter__(self) -> "solve_gen":
-        self._iter = None
         self.stack = ExitStack()
         return self
 

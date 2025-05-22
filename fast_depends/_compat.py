@@ -1,6 +1,6 @@
 import sys
 from importlib.metadata import version as get_version
-from typing import Any, Dict, Optional, Tuple, Type
+from typing import Any, Dict, Generic, Optional, Tuple, Type, TypeVar
 
 from pydantic import BaseModel, create_model
 from pydantic.version import VERSION as PYDANTIC_VERSION
@@ -71,3 +71,14 @@ else:
         from exceptiongroup import ExceptionGroup as ExceptionGroup
     else:
         ExceptionGroup = ExceptionGroup
+
+
+if sys.version_info >= (3, 9):
+    from functools import partial
+else:
+    from functools import partial as _partial_base
+
+    T = TypeVar("T")
+
+    class partial(_partial_base, Generic[T]):
+        pass

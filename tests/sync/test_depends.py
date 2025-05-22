@@ -383,3 +383,18 @@ def test_generator_iter():
 
     assert len(list(iterator)) == 13
     assert len(list(iterator)) == 0
+
+
+def test_solve_wrapper():
+    @inject
+    def dep1(a: int):
+        yield a + 1
+
+    def dep2(a: int):
+        yield a + 2
+
+    @inject
+    def func(a: int, b: int = Depends(dep1), c: int = Depends(dep2)):
+        return a, b, c
+
+    assert func(1) == (1, 2, 3)

@@ -1,5 +1,5 @@
 from contextlib import AsyncExitStack, ExitStack
-from functools import partial, wraps
+from functools import wraps
 from typing import (
     Any,
     AsyncIterator,
@@ -19,6 +19,7 @@ from typing_extensions import ParamSpec
 from fast_depends._compat import ConfigDict
 from fast_depends.core import CallModel, build_call_model
 from fast_depends.dependencies import dependency_provider, model
+from fast_depends.utils import solve_wrapper
 
 P = ParamSpec("P")
 T = TypeVar("T")
@@ -138,7 +139,7 @@ def _wrap_inject(
             injected_wrapper: Callable[P, T]
 
             if real_model.is_generator:
-                injected_wrapper = partial(solve_async_gen, real_model, overrides)  # type: ignore[assignment]
+                injected_wrapper = solve_wrapper(solve_async_gen, real_model, overrides)  # type: ignore[assignment]
 
             else:
 
@@ -159,7 +160,7 @@ def _wrap_inject(
 
         else:
             if real_model.is_generator:
-                injected_wrapper = partial(solve_gen, real_model, overrides)  # type: ignore[assignment]
+                injected_wrapper = solve_wrapper(solve_gen, real_model, overrides)  # type: ignore[assignment]
 
             else:
 

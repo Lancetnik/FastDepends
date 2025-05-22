@@ -30,6 +30,7 @@ from fast_depends.utils import (
     is_async_gen_callable,
     is_coroutine_callable,
     is_gen_callable,
+    solve_wrapper,
 )
 
 CUSTOM_ANNOTATIONS = (Depends, CustomField)
@@ -148,6 +149,9 @@ def build_call_model(
         if dep:
             if not cast:
                 dep.cast = False
+
+            if isinstance(dep.dependency, solve_wrapper):
+                dep.dependency = dep.dependency.call
 
             dependencies[param_name] = build_call_model(
                 dep.dependency,

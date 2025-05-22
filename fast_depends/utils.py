@@ -27,7 +27,7 @@ from typing_extensions import (
     get_origin,
 )
 
-from fast_depends._compat import evaluate_forwardref
+from fast_depends._compat import evaluate_forwardref, partial
 
 if TYPE_CHECKING:
     from types import FrameType
@@ -192,3 +192,16 @@ async def async_map(
 ) -> AsyncIterable[T]:
     async for i in async_iterable:
         yield func(i)
+
+
+class solve_wrapper(partial[T]):
+    call: Callable[..., T]
+
+    def __new__(
+        cls, func: Callable[..., T], *args: Any, **kwargs: Any,
+    ) -> "solve_wrapper[T]":
+        assert len(args) > 0, "Model should be passed as first argument"
+        model = args[0]
+        self = super().__new__(cls, func, *args, **kwargs)
+        self.call = model.call
+        return self

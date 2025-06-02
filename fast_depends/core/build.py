@@ -132,15 +132,17 @@ def build_call_model(
             default = param.default
 
         if isinstance(default, Depends):
-            assert (
-                not dep
-            ), "You can not use `Depends` with `Annotated` and default both"
+            if dep:
+                raise AssertionError(
+                    "You can not use both `Depends` with `Annotated` and a default",
+                )
             dep, default = default, Ellipsis
 
         elif isinstance(default, CustomField):
-            assert (
-                not custom
-            ), "You can not use `CustomField` with `Annotated` and default both"
+            if custom:
+                raise AssertionError(
+                    "You can not use both `CustomField` with `Annotated` and a default",
+                )
             custom, default = default, Ellipsis
 
         else:

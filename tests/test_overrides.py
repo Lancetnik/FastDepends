@@ -67,6 +67,38 @@ def test_override_context(provider):
     assert func() == 1
 
 
+def test_override_context_with_generator(provider):
+    def base_dep():
+        yield 1
+
+    def override_dep():
+        yield 2
+
+    @inject
+    def func(d=Depends(base_dep)):
+        return d
+
+    with provider.scope(base_dep, override_dep):
+        assert func() == 2
+
+
+
+def test_override_context_with_undefined_generator(provider):
+    def base_dep():
+        raise NotImplementedError
+
+    def override_dep():
+        yield 2
+
+    @inject
+    def func(d=Depends(base_dep)):
+        return d
+
+    with provider.scope(base_dep, override_dep):
+        assert func() == 2
+
+
+
 def test_sync_by_async_override(provider):
     def base_dep():  # pragma: no cover
         return 1
@@ -119,6 +151,58 @@ async def test_async_by_sync_override(provider):
     def override_dep():
         mock.override()
         return 2
+
+    provider.override(base_dep, override_dep)
+
+    @inject
+    async def func(d=Depends(base_dep)):
+        assert d == 2
+
+    await func()
+
+    mock.override.assert_called_once()
+    assert not mock.original.called
+
+
+    
+
+@pytest.mark.anyio
+async def test_async_override_with_async_generator(provider):
+    mock = Mock()
+
+    async def base_dep():  # pragma: no cover
+        mock.original()
+        raise NotImplementedError
+
+    async def override_dep():
+        mock.override()
+        yield 2
+
+    provider.override(base_dep, override_dep)
+
+    @inject
+    async def func(d=Depends(base_dep)):
+        assert d == 2
+
+    await func()
+
+    mock.override.assert_called_once()
+    assert not mock.original.called
+
+
+
+
+@pytest.mark.anyio
+async def test_async_override_with_sync_generator(provider):
+    mock = Mock()
+
+    def base_dep():  # pragma: no cover
+        mock.original()
+        raise NotImplementedError
+
+    async def override_dep():
+        mock.override()
+        yield 2
 
     provider.override(base_dep, override_dep)
 

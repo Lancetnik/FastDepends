@@ -313,22 +313,23 @@ class CallModel:
                     **kwargs,
                 )
 
-        custom_to_solve: list[CustomField] = []
+        if self.custom_fields:
+            custom_to_solve: list[CustomField] = []
 
-        try:
-            async with anyio.create_task_group() as tg:
-                for custom in self.custom_fields.values():
-                    if custom.field:
-                        tg.start_soon(run_async, custom.use_field, kwargs)
-                    else:
-                        custom_to_solve.append(custom)
+            try:
+                async with anyio.create_task_group() as tg:
+                    for custom in self.custom_fields.values():
+                        if custom.field:
+                            tg.start_soon(run_async, custom.use_field, kwargs)
+                        else:
+                            custom_to_solve.append(custom)
 
-        except ExceptionGroup as exgr:
-            for ex in exgr.exceptions:
-                raise ex from None
+            except ExceptionGroup as exgr:
+                for ex in exgr.exceptions:
+                    raise ex from None
 
-        for j in custom_to_solve:
-            kwargs = await run_async(j.use, **kwargs)
+            for j in custom_to_solve:
+                kwargs = await run_async(j.use, **kwargs)
 
         final_args, final_kwargs = cast_gen.send(kwargs)
 

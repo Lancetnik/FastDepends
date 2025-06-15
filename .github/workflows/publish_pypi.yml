@@ -40,6 +40,8 @@ jobs:
 
       - name: Publish
         uses: pypa/gh-action-pypi-publish@release/v1
+        permissions:
+          id-token: write 
         with:
           skip-existing: true
 

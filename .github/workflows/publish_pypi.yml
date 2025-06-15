@@ -9,6 +9,8 @@ on:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    permissions:
+        id-token: write
 
     steps:
       - name: Dump GitHub context
@@ -40,8 +42,6 @@ jobs:
 
       - name: Publish
         uses: pypa/gh-action-pypi-publish@release/v1
-        permissions:
-          id-token: write 
         with:
           skip-existing: true
 

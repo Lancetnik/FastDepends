@@ -15,6 +15,7 @@ from typing import (
     Any,
     Callable,
     ForwardRef,
+    Optional,
     TypeVar,
     Union,
     cast,
@@ -51,7 +52,9 @@ async def run_async(
 
 
 async def run_in_threadpool(
-    func: Callable[P, T], *args: P.args, **kwargs: P.kwargs,
+    func: Callable[P, T],
+    *args: P.args,
+    **kwargs: P.kwargs,
 ) -> T:
     if kwargs:
         func = functools.partial(func, **kwargs)
@@ -59,7 +62,10 @@ async def run_in_threadpool(
 
 
 async def solve_generator_async(
-    *sub_args: Any, call: Callable[..., Any], stack: AsyncExitStack, **sub_values: Any,
+    *sub_args: Any,
+    call: Callable[..., Any],
+    stack: AsyncExitStack,
+    **sub_values: Any,
 ) -> Any:
     if is_gen_callable(call):
         cm = contextmanager_in_threadpool(contextmanager(call)(**sub_values))
@@ -69,7 +75,10 @@ async def solve_generator_async(
 
 
 def solve_generator_sync(
-    *sub_args: Any, call: Callable[..., Any], stack: ExitStack, **sub_values: Any,
+    *sub_args: Any,
+    call: Callable[..., Any],
+    stack: ExitStack,
+    **sub_values: Any,
 ) -> Any:
     cm = contextmanager(call)(*sub_args, **sub_values)
     return stack.enter_context(cm)
@@ -83,6 +92,8 @@ def get_typed_signature(call: Callable[..., Any]) -> tuple[inspect.Signature, An
     # We unwrap call to get the original unwrapped function
     call = inspect.unwrap(call)
 
+    type_params = getattr(call, "__type_params__", ()) or None
+
     globalns = getattr(call, "__globals__", {})
     typed_params = [
         inspect.Parameter(
@@ -93,6 +104,7 @@ def get_typed_signature(call: Callable[..., Any]) -> tuple[inspect.Signature, An
                 param.annotation,
                 globalns,
                 locals,
+                type_params=type_params,
             ),
         )
         for param in signature.parameters.values()
@@ -102,6 +114,7 @@ def get_typed_signature(call: Callable[..., Any]) -> tuple[inspect.Signature, An
         signature.return_annotation,
         globalns,
         locals,
+        type_params=type_params,
     )
 
 
@@ -125,19 +138,26 @@ def get_typed_annotation(
     annotation: Any,
     globalns: dict[str, Any],
     locals: dict[str, Any],
+    type_params: Optional[tuple[Any, ...]] = None,
 ) -> Any:
     if isinstance(annotation, str):
         annotation = ForwardRef(annotation)
 
     if isinstance(annotation, ForwardRef):
-        annotation = evaluate_forwardref(annotation, globalns, locals)
+        annotation = evaluate_forwardref(
+            annotation, globalns, locals, type_params=type_params
+        )
 
-    if (
-        get_origin(annotation) is Annotated
-        and (args := get_args(annotation))
-    ):
-        solved_args = [get_typed_annotation(x, globalns, locals) for x in args]
-        annotation.__origin__, annotation.__metadata__ = solved_args[0], tuple(solved_args[1:])
+    if get_origin(annotation) is Annotated and (args := get_args(annotation)):
+        solved_args = [
+            get_typed_annotation(x, globalns, locals, type_params=type_params)
+            for x in args
+        ]
+
+        annotation.__origin__, annotation.__metadata__ = (
+            solved_args[0],
+            tuple(solved_args[1:]),
+        )
 
     return annotation
 

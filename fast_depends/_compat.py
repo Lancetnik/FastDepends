@@ -23,15 +23,17 @@ def evaluate_forwardref(
     value: typing.Any,
     globalns: typing.Optional[dict[str, typing.Any]] = None,
     localns: typing.Optional[dict[str, typing.Any]] = None,
+    type_params: typing.Optional[tuple[typing.Any, ...]] = None,
 ) -> typing.Any:
     """Behaves like typing._eval_type, except it won't raise an error if a forward reference can't be resolved."""
     if value is None:
         value = NoneType
+
     elif isinstance(value, str):
         value = _make_forward_ref(value, is_argument=False, is_class=True)
 
     try:
-        return eval_type_backport(value, globalns, localns)
+        return eval_type_backport(value, globalns, localns, type_params=type_params)
     except NameError:
         # the point of this function is to be tolerant to this case
         return value
@@ -41,6 +43,7 @@ def eval_type_backport(
     value: typing.Any,
     globalns: typing.Optional[dict[str, typing.Any]] = None,
     localns: typing.Optional[dict[str, typing.Any]] = None,
+    type_params: typing.Optional[tuple[typing.Any, ...]] = None,
 ) -> typing.Any:
     """Like `typing._eval_type`, but falls back to the `eval_type_backport` package if it's
     installed to let older Python versions use newer typing features.
@@ -49,14 +52,23 @@ def eval_type_backport(
     if the original syntax is not supported in the current Python version.
     """
     try:
-        return typing._eval_type(  # type: ignore
-            value, globalns, localns
-        )
+        if sys.version_info >= (3, 13):
+            return typing._eval_type(  # type: ignore
+                value, globalns, localns, type_params=type_params
+            )
+
+        else:
+            return typing._eval_type(  # type: ignore
+                value, globalns, localns
+            )
+
     except TypeError as e:
         if not (isinstance(value, typing.ForwardRef) and is_backport_fixable_error(e)):
             raise
+
         try:
-            from eval_type_backport import eval_type_backport
+            from eval_type_backport import eval_type_backport as _eval_type_backport
+
         except ImportError:
             raise TypeError(
                 f"You have a type annotation {value.__forward_arg__!r} "
@@ -65,7 +77,8 @@ def eval_type_backport(
                 f"or install the `eval_type_backport` package."
             ) from e
 
-        return eval_type_backport(value, globalns, localns, try_default=False)
+        else:
+            return _eval_type_backport(value, globalns, localns, try_default=False)
 
 
 def is_backport_fixable_error(e: TypeError) -> bool:

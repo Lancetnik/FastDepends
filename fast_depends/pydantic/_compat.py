@@ -31,10 +31,10 @@ if PYDANTIC_V2:
         return config_data or ConfigDict(**default_pydantic_config)  # type: ignore[typeddict-item]
 
     def get_aliases(model: type[BaseModel]) -> tuple[str, ...]:
-        return tuple(f.alias or name for name, f in model.model_fields.items())
+        return tuple(f.alias or name for name, f in model.__pydantic_fields__.items())
 
     def get_model_fields(model: type[BaseModel]) -> dict[str, FieldInfo]:
-        return model.model_fields
+        return model.__pydantic_fields__
 
 else:
     from pydantic.config import get_config, ConfigDict, BaseConfig

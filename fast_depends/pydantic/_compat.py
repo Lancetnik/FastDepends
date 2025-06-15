@@ -31,10 +31,19 @@ if PYDANTIC_V2:
         return config_data or ConfigDict(**default_pydantic_config)  # type: ignore[typeddict-item]
 
     def get_aliases(model: type[BaseModel]) -> tuple[str, ...]:
-        return tuple(f.alias or name for name, f in model.__pydantic_fields__.items())
+        return tuple(f.alias or name for name, f in get_model_fields(model).items())
 
     def get_model_fields(model: type[BaseModel]) -> dict[str, FieldInfo]:
-        return model.__pydantic_fields__
+        fields: Optional[dict[str, FieldInfo]] = getattr(
+            model, "__pydantic_fields__", None
+        )
+
+        if fields is not None:
+            return fields
+
+        # Deprecated in Pydantic V2.11 to be removed in V3.0.
+        return model.model_fields
+
 
 else:
     from pydantic.config import get_config, ConfigDict, BaseConfig

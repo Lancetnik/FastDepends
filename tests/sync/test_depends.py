@@ -398,3 +398,12 @@ def test_solve_wrapper():
         return a, b, c
 
     assert func(1) == (1, 2, 3)
+
+
+def test_not_mix_args_and_inner_params():
+    # stack params is used in (a)solve methods
+    @inject
+    def func(stack: list[int]):
+        return stack
+
+    func(stack=[])

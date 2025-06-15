@@ -38,7 +38,7 @@ classifiers = [
     "Framework :: Pydantic :: 2",
 ]
 
-dynamic = ["version"]
+version = "3.0.0a4"
 
 dependencies = [
     "anyio>=3.0.0,<5.0.0",
@@ -63,9 +63,6 @@ Source = "https://github.com/Lancetnik/FastDepends"
 [tool.hatch.metadata]
 allow-direct-references = true
 allow-ambiguous-features = true
-
-[tool.hatch.version]
-path = "fast_depends/__about__.py"
 
 [tool.hatch.build]
 skip-excluded-dirs = true

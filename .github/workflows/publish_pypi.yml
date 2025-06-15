@@ -39,7 +39,9 @@ jobs:
         run: python -m build
 
       - name: Publish
-        uses: pypa/gh-action-pypi-publish@v1.8.11
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          skip-existing: true
 
       - name: Dump GitHub context
         env:

@@ -147,12 +147,12 @@ def _wrap_inject(
                 async def injected_wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
                     async with AsyncExitStack() as stack:
                         r = await real_model.asolve(
-                            *args,
+                            args=args,
+                            kwargs=kwargs,
                             stack=stack,
                             dependency_overrides=overrides,
                             cache_dependencies={},
                             nested=False,
-                            **kwargs,
                         )
                         return r
 
@@ -168,12 +168,12 @@ def _wrap_inject(
                 def injected_wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
                     with ExitStack() as stack:
                         r = real_model.solve(
-                            *args,
+                            args,
+                            kwargs=kwargs,
                             stack=stack,
                             dependency_overrides=overrides,
                             cache_dependencies={},
                             nested=False,
-                            **kwargs,
                         )
                         return r
 
@@ -211,12 +211,12 @@ class solve_async_gen:
                 AsyncIterator[Any],
                 (
                     await self.call.asolve(
-                        *self.args,
+                        args=self.args,
+                        kwargs=self.kwargs,
                         stack=stack,
                         dependency_overrides=self.overrides,
                         cache_dependencies={},
                         nested=False,
-                        **self.kwargs,
                     )
                 ).__aiter__(),
             )
@@ -257,12 +257,12 @@ class solve_gen:
                 Iterator[Any],
                 iter(
                     self.call.solve(
-                        *self.args,
+                        args=self.args,
+                        kwargs=self.kwargs,
                         stack=stack,
                         dependency_overrides=self.overrides,
                         cache_dependencies={},
                         nested=False,
-                        **self.kwargs,
                     )
                 ),
             )

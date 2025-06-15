@@ -201,7 +201,8 @@ class CallModel(Generic[P, T]):
     def _solve(
         self,
         /,
-        *args: Tuple[Any, ...],
+        args: Tuple[Any, ...],
+        kwargs: Dict[str, Any],
         cache_dependencies: Dict[
             Union[
                 Callable[P, T],
@@ -221,7 +222,6 @@ class CallModel(Generic[P, T]):
                 ],
             ]
         ] = None,
-        **kwargs: Dict[str, Any],
     ) -> Generator[
         Tuple[
             Sequence[Any],
@@ -329,7 +329,8 @@ class CallModel(Generic[P, T]):
     def solve(
         self,
         /,
-        *args: Tuple[Any, ...],
+        args: Tuple[Any, ...],
+        kwargs: Dict[str, Any],
         stack: ExitStack,
         cache_dependencies: Dict[
             Union[
@@ -351,13 +352,12 @@ class CallModel(Generic[P, T]):
             ]
         ] = None,
         nested: bool = False,
-        **kwargs: Dict[str, Any],
     ) -> T:
         cast_gen = self._solve(
-            *args,
+            args,
+            kwargs,
             cache_dependencies=cache_dependencies,
             dependency_overrides=dependency_overrides,
-            **kwargs,
         )
         try:
             args, kwargs, _ = next(cast_gen)
@@ -368,32 +368,33 @@ class CallModel(Generic[P, T]):
         # Heat cache and solve extra dependencies
         for dep, _ in self.sorted_dependencies:
             dep.solve(
-                *args,
+                args,
+                kwargs,
                 stack=stack,
                 cache_dependencies=cache_dependencies,
                 dependency_overrides=dependency_overrides,
                 nested=True,
-                **kwargs,
             )
 
         # Always get from cache
         for dep in self.extra_dependencies:
             dep.solve(
-                *args,
+                args,
+                kwargs,
                 stack=stack,
                 cache_dependencies=cache_dependencies,
                 dependency_overrides=dependency_overrides,
                 nested=True,
-                **kwargs,
             )
 
         for dep_arg, dep in self.dependencies.items():
             kwargs[dep_arg] = dep.solve(
+                args=(),
+                kwargs=kwargs,
                 stack=stack,
                 cache_dependencies=cache_dependencies,
                 dependency_overrides=dependency_overrides,
                 nested=True,
-                **kwargs,
             )
 
         for custom in self.custom_fields.values():
@@ -431,7 +432,8 @@ class CallModel(Generic[P, T]):
     async def asolve(
         self,
         /,
-        *args: Tuple[Any, ...],
+        args: Tuple[Any, ...],
+        kwargs: Dict[str, Any],
         stack: AsyncExitStack,
         cache_dependencies: Dict[
             Union[
@@ -453,13 +455,12 @@ class CallModel(Generic[P, T]):
             ]
         ] = None,
         nested: bool = False,
-        **kwargs: Dict[str, Any],
     ) -> T:
         cast_gen = self._solve(
-            *args,
+            args,
+            kwargs,
             cache_dependencies=cache_dependencies,
             dependency_overrides=dependency_overrides,
-            **kwargs,
         )
         try:
             args, kwargs, _ = next(cast_gen)
@@ -474,12 +475,12 @@ class CallModel(Generic[P, T]):
                 for dep, subdep in self.sorted_dependencies:
                     solve = partial(
                         dep.asolve,
-                        *args,
+                        args=args,
+                        kwargs=kwargs,
                         stack=stack,
                         cache_dependencies=cache_dependencies,
                         dependency_overrides=dependency_overrides,
                         nested=True,
-                        **kwargs,
                     )
                     if not subdep:
                         tg.start_soon(solve)
@@ -495,21 +496,22 @@ class CallModel(Generic[P, T]):
         # Always get from cache
         for dep in self.extra_dependencies:
             await dep.asolve(
-                *args,
+                args,
+                kwargs,
                 stack=stack,
                 cache_dependencies=cache_dependencies,
                 dependency_overrides=dependency_overrides,
                 nested=True,
-                **kwargs,
             )
 
         for dep_arg, dep in self.dependencies.items():
             kwargs[dep_arg] = await dep.asolve(
+                args=(),
+                kwargs=kwargs,
                 stack=stack,
                 cache_dependencies=cache_dependencies,
                 dependency_overrides=dependency_overrides,
                 nested=True,
-                **kwargs,
             )
 
         custom_to_solve: List[CustomField] = []

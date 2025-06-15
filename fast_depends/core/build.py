@@ -52,7 +52,7 @@ def build_call_model(
     extra_dependencies: Sequence[Depends] = (),
     pydantic_config: Optional[ConfigDict] = None,
 ) -> CallModel[P, T]:
-    name = getattr(call, "__name__", type(call).__name__)
+    name = getattr(call, "__name__", None) or type(call).__name__
 
     is_call_async = is_coroutine_callable(call) or is_async_gen_callable(call)
     if is_sync is None:

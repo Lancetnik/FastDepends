@@ -402,8 +402,11 @@ def test_solve_wrapper():
 
 def test_not_mix_args_and_inner_params():
     # stack params is used in (a)solve methods
-    @inject
-    def func(stack: list[int]):
-        return stack
+    def dep(stack: list[int]):
+        yield stack
 
-    func(stack=[])
+    @inject
+    def func(stack: list[int], other_stack: list[int]=Depends(dep)):
+        assert stack == other_stack
+
+    func(stack=[1])

@@ -407,10 +407,10 @@ class CallModel(Generic[P, T]):
 
         if self.is_generator and nested:
             response = solve_generator_sync(
-                *final_args,
+                final_args,
+                final_kwargs,
                 call=call,
                 stack=stack,
-                **final_kwargs,
             )
 
         else:
@@ -536,10 +536,10 @@ class CallModel(Generic[P, T]):
 
         if self.is_generator and nested:
             response = await solve_generator_async(
-                *final_args,
+                final_args,
+                final_kwargs,
                 call=call,
                 stack=stack,
-                **final_kwargs,
             )
         else:
             response = await run_async(call, *final_args, **final_kwargs)

@@ -13,6 +13,7 @@ from typing import (
     Dict,
     ForwardRef,
     List,
+    Sequence,
     Tuple,
     TypeVar,
     Union,
@@ -59,19 +60,19 @@ async def run_in_threadpool(
 
 
 async def solve_generator_async(
-    *sub_args: Any, call: Callable[..., Any], stack: AsyncExitStack, **sub_values: Any
+    sub_args: Sequence[Any], sub_kwargs: Dict[str, Any], call: Callable[..., Any], stack: AsyncExitStack,
 ) -> Any:
     if is_gen_callable(call):
-        cm = contextmanager_in_threadpool(contextmanager(call)(**sub_values))
+        cm = contextmanager_in_threadpool(contextmanager(call)(**sub_kwargs))
     elif is_async_gen_callable(call):  # pragma: no branch
-        cm = asynccontextmanager(call)(*sub_args, **sub_values)
+        cm = asynccontextmanager(call)(*sub_args, **sub_kwargs)
     return await stack.enter_async_context(cm)
 
 
 def solve_generator_sync(
-    *sub_args: Any, call: Callable[..., Any], stack: ExitStack, **sub_values: Any
+    sub_args: Sequence[Any], sub_kwargs: Dict[str, Any], call: Callable[..., Any], stack: ExitStack,
 ) -> Any:
-    cm = contextmanager(call)(*sub_args, **sub_values)
+    cm = contextmanager(call)(*sub_args, **sub_kwargs)
     return stack.enter_context(cm)
 
 

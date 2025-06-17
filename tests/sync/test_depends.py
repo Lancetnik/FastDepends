@@ -409,7 +409,11 @@ def test_not_mix_args_and_inner_params():
         yield stack
 
     @inject
-    def func(stack: list[int], other_stack: list[int] = Depends(simple_dep), gened_stack: list[int] = Depends(gen_dep)):
+    def func(
+        stack: list[int],
+        other_stack: list[int] = Depends(simple_dep),
+        gened_stack: list[int] = Depends(gen_dep),
+    ):
         assert stack == other_stack == gened_stack
 
     func(stack=[1])

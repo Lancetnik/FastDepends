@@ -245,6 +245,7 @@ class CallModel(Generic[P, T]):
 
         kw: Dict[str, Any] = {}
 
+        kwargs = kwargs.copy()
         for arg in self.keyword_args:
             if (v := kwargs.pop(arg, Parameter.empty)) is not Parameter.empty:
                 kw[arg] = v

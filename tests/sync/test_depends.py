@@ -402,10 +402,10 @@ def test_solve_wrapper():
 
 def test_not_mix_args_and_inner_params():
     # stack params is used in (a)solve methods
-    def simple_dep(stack: list[int]):
+    def simple_dep(*, stack: list[int]):
         return stack
 
-    def gen_dep(stack: list[int]):
+    def gen_dep(*, stack: list[int]):
         yield stack
 
     @inject

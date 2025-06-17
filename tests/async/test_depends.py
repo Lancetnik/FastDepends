@@ -524,11 +524,14 @@ async def test_solve_wrapper():
 @pytest.mark.anyio
 async def test_not_mix_args_and_inner_params():
     # stack params is used in (a)solve methods
-    async def dep(stack: list[int]):
+    async def simple_dep(stack: list[int]):
+        yield stack
+
+    def gen_dep(stack: list[int]):
         yield stack
 
     @inject
-    async def func(stack: list[int], other_stack: list[int]=Depends(dep)):
+    async def func(stack: list[int], other_stack: list[int] = Depends(simple_dep), gened_stack: list[int] = Depends(gen_dep)):
         assert stack == other_stack
 
     await func(stack=[1])

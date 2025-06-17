@@ -402,11 +402,14 @@ def test_solve_wrapper():
 
 def test_not_mix_args_and_inner_params():
     # stack params is used in (a)solve methods
-    def dep(stack: list[int]):
+    def simple_dep(stack: list[int]):
+        return stack
+
+    def gen_dep(stack: list[int]):
         yield stack
 
     @inject
-    def func(stack: list[int], other_stack: list[int]=Depends(dep)):
-        assert stack == other_stack
+    def func(stack: list[int], other_stack: list[int] = Depends(simple_dep), gened_stack: list[int] = Depends(gen_dep)):
+        assert stack == other_stack == gened_stack
 
     func(stack=[1])

@@ -15,6 +15,7 @@ from fast_depends.pydantic._compat import (
     PydanticUserError,
     TypeAdapter,
     create_model,
+    dump_json,
     get_aliases,
     get_config_base,
     get_model_fields,
@@ -40,6 +41,10 @@ class PydanticSerializer(SerializerProto):
             response_type=response_type,
             pydantic_config=self.config,
         )
+
+    @staticmethod
+    def encode(message: Any) -> bytes:
+        return dump_json(message)
 
 
 class _PydanticSerializer(Serializer):

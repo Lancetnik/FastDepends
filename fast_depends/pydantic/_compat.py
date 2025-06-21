@@ -1,4 +1,5 @@
-from typing import Any, Optional
+import json
+from typing import Any, Callable, Optional
 
 from pydantic import BaseModel, create_model
 from pydantic.version import VERSION as PYDANTIC_VERSION
@@ -14,6 +15,36 @@ __all__ = (
 )
 
 
+json_dumps: Callable[..., bytes]
+orjson: Any
+ujson: Any
+
+try:
+    import orjson
+except ImportError:
+    orjson = None
+
+try:
+    import ujson
+except ImportError:
+    ujson = None
+
+if orjson:
+    json_loads = orjson.loads
+    json_dumps = orjson.dumps
+
+elif ujson:
+    json_loads = ujson.loads
+
+    def json_dumps(*a: Any, **kw: Any) -> bytes:
+        return ujson.dumps(*a, **kw).encode()  # type: ignore[no-any-return]
+
+else:
+    json_loads = json.loads
+
+    def json_dumps(*a: Any, **kw: Any) -> bytes:
+        return json.dumps(*a, **kw).encode()
+
 PYDANTIC_V2 = PYDANTIC_VERSION.startswith("2.")
 
 default_pydantic_config = {"arbitrary_types_allowed": True}
@@ -23,6 +54,7 @@ if PYDANTIC_V2:
     from pydantic import ConfigDict, TypeAdapter
     from pydantic.fields import FieldInfo
     from pydantic.errors import PydanticUserError
+    from pydantic_core import to_jsonable_python
 
     def model_schema(model: type[BaseModel]) -> dict[str, Any]:
         return model.model_json_schema()
@@ -44,10 +76,20 @@ if PYDANTIC_V2:
         # Deprecated in Pydantic V2.11 to be removed in V3.0.
         return model.model_fields
 
+    def model_to_jsonable(
+        model: BaseModel,
+        **kwargs: Any,
+    ) -> Any:
+        return to_jsonable_python(model, **kwargs)
+
+    def dump_json(data: Any) -> bytes:
+        return json_dumps(model_to_jsonable(data))
+
 
 else:
     from pydantic.config import get_config, ConfigDict, BaseConfig
     from pydantic.fields import ModelField
+    from pydantic.json import pydantic_encoder
 
     TypeAdapter = None
     PydanticUserError = Exception
@@ -63,3 +105,6 @@ else:
 
     def get_model_fields(model: type[BaseModel]) -> dict[str, ModelField]:
         return model.__fields__
+
+    def dump_json(data: Any) -> bytes:
+        return json_dumps(data, default=pydantic_encoder)

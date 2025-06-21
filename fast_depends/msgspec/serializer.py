@@ -93,3 +93,7 @@ class MsgSpecSerializer(Serializer):
                 locations=locations or re.findall(r"at `\$\.(.)`", str(er.args)),
                 original_error=er,
             ) from er
+
+    @staticmethod
+    def encode(message: Any) -> bytes:
+        return msgspec.json.encode(message)

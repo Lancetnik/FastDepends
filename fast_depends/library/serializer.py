@@ -59,6 +59,10 @@ class Serializer(ABC):
     def response(self, value: Any) -> Any:
         return value
 
+    @staticmethod
+    def encode(message: Any) -> bytes:
+        raise NotImplementedError
+
 
 class SerializerProto(Protocol):
     def __call__(

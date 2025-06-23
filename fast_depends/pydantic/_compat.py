@@ -54,7 +54,7 @@ if PYDANTIC_V2:
     from pydantic import ConfigDict, TypeAdapter
     from pydantic.fields import FieldInfo
     from pydantic.errors import PydanticUserError
-    from pydantic_core import to_jsonable_python
+    from pydantic_core import to_json
 
     def model_schema(model: type[BaseModel]) -> dict[str, Any]:
         return model.model_json_schema()
@@ -76,14 +76,8 @@ if PYDANTIC_V2:
         # Deprecated in Pydantic V2.11 to be removed in V3.0.
         return model.model_fields
 
-    def model_to_jsonable(
-        model: BaseModel,
-        **kwargs: Any,
-    ) -> Any:
-        return to_jsonable_python(model, **kwargs)
-
     def dump_json(data: Any) -> bytes:
-        return json_dumps(model_to_jsonable(data))
+        return to_json(data)
 
 
 else:

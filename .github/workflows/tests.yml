@@ -50,6 +50,7 @@ jobs:
           name: .coverage.${{ runner.os }}-py${{ matrix.python-version }}-${{ matrix.pydantic-version }}
           path: coverage
           if-no-files-found: error
+          include-hidden-files: true
 
   test-msgspec:
     runs-on: ubuntu-latest
@@ -84,6 +85,7 @@ jobs:
           name: .coverage.${{ runner.os }}-py${{ matrix.python-version }}-msgspec
           path: coverage
           if-no-files-found: error
+          include-hidden-files: true
 
   test-no-serializer:
     runs-on: ubuntu-latest
@@ -105,14 +107,15 @@ jobs:
       - name: Test
         run: bash scripts/test.sh
         env:
-          COVERAGE_FILE: coverage/.coverage.no-pydantic
-          CONTEXT: no-pydantic
+          COVERAGE_FILE: coverage/.coverage.no-serializer
+          CONTEXT: no-serializer
       - name: Store coverage files
         uses: actions/upload-artifact@v4
         with:
-          name: .coverage.no-pydantic
+          name: .coverage.no-serializer
           path: coverage
           if-no-files-found: error
+          include-hidden-files: true
 
   coverage-combine:
     needs: [test-pydantic,test-msgspec,test-no-serializer]

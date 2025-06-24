@@ -1,3 +1,4 @@
+from collections.abc import Generator
 from unittest.mock import Mock
 
 import pytest
@@ -6,13 +7,13 @@ from fast_depends import Depends, Provider, inject
 
 
 @pytest.fixture
-def provider() -> Provider:
+def provider() -> Generator[Provider, None, None]:
     provider = Provider()
     yield provider
     provider.clear()
 
 
-def test_not_override(provider):
+def test_not_override(provider: Provider) -> None:
     mock = Mock()
 
     def base_dep():  # pragma: no cover
@@ -28,7 +29,7 @@ def test_not_override(provider):
     mock.original.assert_called_once()
 
 
-def test_sync_override(provider):
+def test_sync_override(provider: Provider) -> None:
     mock = Mock()
 
     def base_dep():  # pragma: no cover
@@ -51,7 +52,7 @@ def test_sync_override(provider):
     assert not mock.original.called
 
 
-def test_override_context(provider):
+def test_override_context(provider: Provider) -> None:
     def base_dep():
         return 1
 
@@ -68,7 +69,7 @@ def test_override_context(provider):
     assert func() == 1
 
 
-def test_sync_by_async_override(provider):
+def test_sync_by_async_override(provider: Provider) -> None:
     def base_dep():  # pragma: no cover
         return 1
 
@@ -84,7 +85,7 @@ def test_sync_by_async_override(provider):
             pass
 
 
-def test_sync_by_async_override_in_extra(provider):
+def test_sync_by_async_override_in_extra(provider: Provider) -> None:
     def base_dep():  # pragma: no cover
         return 1
 
@@ -104,7 +105,7 @@ def test_sync_by_async_override_in_extra(provider):
 
 
 @pytest.mark.anyio
-async def test_async_override(provider):
+async def test_async_override(provider: Provider) -> None:
     mock = Mock()
 
     async def base_dep():  # pragma: no cover
@@ -128,7 +129,7 @@ async def test_async_override(provider):
 
 
 @pytest.mark.anyio
-async def test_async_by_sync_override(provider):
+async def test_async_by_sync_override(provider: Provider) -> None:
     mock = Mock()
 
     async def base_dep():  # pragma: no cover
@@ -151,7 +152,7 @@ async def test_async_by_sync_override(provider):
     assert not mock.original.called
 
 
-def test_deep_overrides(provider):
+def test_deep_overrides(provider: Provider) -> None:
     mock = Mock()
 
     def dep1(c=Depends(mock.dep2)):

@@ -13,7 +13,7 @@ from tests.marks import serializer
 
 
 @pytest.mark.anyio
-async def test_depends():
+async def test_depends() -> None:
     async def dep_func(b, a=3):
         return a + b
 
@@ -25,7 +25,7 @@ async def test_depends():
 
 
 @pytest.mark.anyio
-async def test_ignore_depends_if_setted_manual():
+async def test_ignore_depends_if_setted_manual() -> None:
     mock = Mock()
 
     async def dep_func(a, b) -> int:
@@ -44,7 +44,7 @@ async def test_ignore_depends_if_setted_manual():
 
 
 @pytest.mark.anyio
-async def test_empty_main_body():
+async def test_empty_main_body() -> None:
     async def dep_func(a):
         return a
 
@@ -56,7 +56,7 @@ async def test_empty_main_body():
 
 
 @pytest.mark.anyio
-async def test_empty_main_body_multiple_args():
+async def test_empty_main_body_multiple_args() -> None:
     def dep2(b):
         return b
 
@@ -74,7 +74,7 @@ async def test_empty_main_body_multiple_args():
 
 
 @pytest.mark.anyio
-async def test_sync_depends():
+async def test_sync_depends() -> None:
     def sync_dep_func(a):
         return a
 
@@ -86,7 +86,7 @@ async def test_sync_depends():
 
 
 @pytest.mark.anyio
-async def test_depends_annotated():
+async def test_depends_annotated() -> None:
     async def dep_func(a):
         return a
 
@@ -106,7 +106,7 @@ async def test_depends_annotated():
 
 
 @pytest.mark.anyio
-async def test_async_depends_annotated_str_partial():
+async def test_async_depends_annotated_str_partial() -> None:
     async def adep_func(a):
         return a
 
@@ -130,7 +130,7 @@ async def test_async_depends_annotated_str_partial():
 
 
 @pytest.mark.anyio
-async def test_cache():
+async def test_cache() -> None:
     mock = Mock()
 
     async def nested_dep_func():
@@ -150,7 +150,7 @@ async def test_cache():
 
 
 @pytest.mark.anyio
-async def test_not_cache():
+async def test_not_cache() -> None:
     mock = Mock()
 
     async def nested_dep_func():
@@ -173,7 +173,7 @@ async def test_not_cache():
 
 
 @pytest.mark.anyio
-async def test_yield():
+async def test_yield() -> None:
     mock = Mock()
 
     async def dep_func():
@@ -193,7 +193,7 @@ async def test_yield():
 
 
 @pytest.mark.anyio
-async def test_sync_yield():
+async def test_sync_yield() -> None:
     mock = Mock()
 
     def sync_dep_func():
@@ -213,7 +213,7 @@ async def test_sync_yield():
 
 
 @pytest.mark.anyio
-async def test_sync_yield_exception():
+async def test_sync_yield_exception() -> None:
     mock = Mock()
 
     def sync_dep_func():
@@ -235,7 +235,7 @@ async def test_sync_yield_exception():
 
 
 @pytest.mark.anyio
-async def test_sync_yield_exception_start():
+async def test_sync_yield_exception_start() -> None:
     mock = Mock()
 
     def sync_dep_func():
@@ -253,7 +253,7 @@ async def test_sync_yield_exception_start():
 
 
 @pytest.mark.anyio
-async def test_sync_yield_exception_main():
+async def test_sync_yield_exception_main() -> None:
     mock = Mock()
 
     def sync_dep_func():
@@ -277,7 +277,23 @@ async def test_sync_yield_exception_main():
 
 
 @pytest.mark.anyio
-async def test_class_depends():
+async def test_nested_yield_with_inject() -> None:
+    async def dep_c():
+        yield ["foo"]
+
+    @inject
+    async def dep_b(c=Depends(dep_c)):
+        yield c
+
+    @inject
+    async def a(b=Depends(dep_b)):
+        return b[0]
+
+    assert await a() == "foo"
+
+
+@pytest.mark.anyio
+async def test_class_depends() -> None:
     class MyDep:
         def __init__(self, a: int):
             self.a = a
@@ -292,7 +308,7 @@ async def test_class_depends():
 
 
 @pytest.mark.anyio
-async def test_callable_class_depends():
+async def test_callable_class_depends() -> None:
     class MyDep:
         def __init__(self, a: int):
             self.a = a
@@ -309,7 +325,7 @@ async def test_callable_class_depends():
 
 
 @pytest.mark.anyio
-async def test_async_callable_class_depends():
+async def test_async_callable_class_depends() -> None:
     class MyDep:
         def __init__(self, a: int):
             self.a = a
@@ -326,7 +342,7 @@ async def test_async_callable_class_depends():
 
 
 @pytest.mark.anyio
-async def test_not_cast_main():
+async def test_not_cast_main() -> None:
     @dataclass
     class A:
         a: int
@@ -351,7 +367,7 @@ async def test_not_cast_main():
 
 
 @pytest.mark.anyio
-async def test_extra():
+async def test_extra() -> None:
     mock = Mock()
 
     async def dep():
@@ -371,7 +387,7 @@ async def test_extra():
 
 
 @pytest.mark.anyio
-async def test_generator():
+async def test_generator() -> None:
     mock = Mock()
 
     def sync_simple_func():
@@ -406,7 +422,7 @@ async def test_generator():
 
 
 @pytest.mark.anyio
-async def test_partial():
+async def test_partial() -> None:
     async def dep(a):
         return a
 
@@ -421,7 +437,7 @@ async def test_partial():
 @pytest.mark.anyio
 class TestSerializer:
     @pytest.mark.anyio
-    async def test_not_cast(self):
+    async def test_not_cast(self) -> None:
         @dataclass
         class A:
             a: int
@@ -454,7 +470,7 @@ class TestSerializer:
 
         assert (await some_func(1)) == 1
 
-    async def test_depends_error(self):
+    async def test_depends_error(self) -> None:
         async def dep_func(b: dict, a: int = 3) -> float:  # pragma: no cover
             return a + b
 
@@ -471,7 +487,7 @@ class TestSerializer:
         with pytest.raises(ValidationError):
             assert await some_func("2")
 
-    async def test_depends_response_cast(self):
+    async def test_depends_response_cast(self) -> None:
         async def dep_func(a):
             return a
 
@@ -482,7 +498,7 @@ class TestSerializer:
 
         assert await some_func("1", "2")
 
-    async def test_async_depends_annotated_str(self):
+    async def test_async_depends_annotated_str(self) -> None:
         async def dep_func(a):
             return a
 
@@ -507,7 +523,7 @@ class TestSerializer:
 
 
 @pytest.mark.anyio
-async def test_default_key_value():
+async def test_default_key_value() -> None:
     async def dep(a: str = "a"):
         return a
 
@@ -519,7 +535,7 @@ async def test_default_key_value():
 
 
 @pytest.mark.anyio
-async def test_asynccontextmanager():
+async def test_asynccontextmanager() -> None:
     async def dep(a: str):
         return a
 

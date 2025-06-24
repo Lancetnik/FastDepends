@@ -49,6 +49,9 @@ def build_call_model(
     serializer_cls: Optional["SerializerProto"] = None,
     serialize_result: bool = True,
 ) -> CallModel:
+    if hasattr(call, "_fastdepends_call_") and not hasattr(call, "_mock_name"):
+        call = call._fastdepends_call_
+
     name = getattr(inspect.unwrap(call), "__name__", type(call).__name__)
 
     is_call_async = is_coroutine_callable(call) or is_async_gen_callable(call)

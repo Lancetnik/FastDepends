@@ -209,6 +209,7 @@ def _wrap_inject(
 
                     raise AssertionError("unreachable")
 
+        injected_wrapper._fastdepends_call_ = real_model.call  # type: ignore[attr-defined]
         return wraps(func)(injected_wrapper)
 
     return func_wrapper

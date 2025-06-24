@@ -12,7 +12,7 @@ from fast_depends.exceptions import ValidationError
 from tests.marks import serializer
 
 
-def test_depends():
+def test_depends() -> None:
     def dep_func(b: int, a: int = 3):
         return a + b
 
@@ -23,7 +23,7 @@ def test_depends():
     assert some_func(2) == 7
 
 
-def test_empty_main_body():
+def test_empty_main_body() -> None:
     def dep_func(a):
         return a
 
@@ -34,7 +34,7 @@ def test_empty_main_body():
     assert some_func(1) == 1
 
 
-def test_class_depends():
+def test_class_depends() -> None:
     class MyDep:
         def __init__(self, a):
             self.a = a
@@ -48,7 +48,7 @@ def test_class_depends():
     some_func(3)
 
 
-def test_empty_main_body_multiple_args():
+def test_empty_main_body_multiple_args() -> None:
     def dep2(b):
         return b
 
@@ -65,7 +65,7 @@ def test_empty_main_body_multiple_args():
     assert handler(1, 2) == (1, 1)  # all dependencies takes the first arg
 
 
-def test_ignore_depends_if_setted_manual():
+def test_ignore_depends_if_setted_manual() -> None:
     mock = Mock()
 
     def dep_func(a, b) -> int:
@@ -83,7 +83,7 @@ def test_ignore_depends_if_setted_manual():
     mock.assert_called_once_with(1, 2)
 
 
-def test_depends_annotated_type_str():
+def test_depends_annotated_type_str() -> None:
     def dep_func(a):
         return a
 
@@ -106,7 +106,7 @@ def test_depends_annotated_type_str():
     assert another_func(3) == 6
 
 
-def test_cache():
+def test_cache() -> None:
     mock = Mock()
 
     def nested_dep_func():
@@ -128,7 +128,7 @@ def test_cache():
     mock.assert_called_once()
 
 
-def test_not_cache():
+def test_not_cache() -> None:
     mock = Mock()
 
     def nested_dep_func():
@@ -150,7 +150,7 @@ def test_not_cache():
     assert mock.call_count == 2
 
 
-def test_yield():
+def test_yield() -> None:
     mock = Mock()
 
     def dep_func():
@@ -169,7 +169,22 @@ def test_yield():
     mock.exit.assert_called_once()
 
 
-def test_callable_class_depends():
+def test_nested_yield_with_inject() -> None:
+    def dep_c():
+        yield ["foo"]
+
+    @inject
+    def dep_b(c=Depends(dep_c)):
+        yield c
+
+    @inject
+    def a(b=Depends(dep_b)):
+        return b[0]
+
+    assert a() == "foo"
+
+
+def test_callable_class_depends() -> None:
     class MyDep:
         def __init__(self, a: int):
             self.a = a
@@ -185,7 +200,7 @@ def test_callable_class_depends():
     some_func()
 
 
-def test_not_cast_main():
+def test_not_cast_main() -> None:
     @dataclass
     class A:
         a: int
@@ -209,7 +224,7 @@ def test_not_cast_main():
     assert some_func(1) == 1
 
 
-def test_extra():
+def test_extra() -> None:
     mock = Mock()
 
     def dep():
@@ -224,7 +239,7 @@ def test_extra():
     mock.sync_call.assert_called_once()
 
 
-def test_async_extra():
+def test_async_extra() -> None:
     mock = Mock()
 
     async def dep():  # pragma: no cover
@@ -237,7 +252,7 @@ def test_async_extra():
             mock()
 
 
-def test_async_depends():
+def test_async_depends() -> None:
     async def dep_func(a: int) -> float:  # pragma: no cover
         return a
 
@@ -248,7 +263,7 @@ def test_async_depends():
             return a + b + c
 
 
-def test_async_extra_depends():
+def test_async_extra_depends() -> None:
     async def dep_func(a: int) -> float:  # pragma: no cover
         return a
 
@@ -259,7 +274,7 @@ def test_async_extra_depends():
             return a + b
 
 
-def test_generator():
+def test_generator() -> None:
     mock = Mock()
 
     def simple_func():
@@ -284,7 +299,7 @@ def test_generator():
     mock.end.assert_called_once()
 
 
-def test_partial():
+def test_partial() -> None:
     def dep(a):
         return a
 
@@ -297,7 +312,7 @@ def test_partial():
 
 @serializer
 class TestSerializer:
-    def test_not_cast(self):
+    def test_not_cast(self) -> None:
         @dataclass
         class A:
             a: int
@@ -330,7 +345,7 @@ class TestSerializer:
 
         assert some_func(1) == 1
 
-    def test_depends_error(self):
+    def test_depends_error(self) -> None:
         def dep_func(b: dict, a: int = 3) -> float:  # pragma: no cover
             return a + b
 
@@ -347,7 +362,7 @@ class TestSerializer:
         with pytest.raises(ValidationError):
             assert some_func("2") == 7
 
-    def test_depends_response_cast(self):
+    def test_depends_response_cast(self) -> None:
         def dep_func(a):
             return a
 
@@ -359,7 +374,7 @@ class TestSerializer:
 
         assert some_func("1", "2")
 
-    def test_depends_annotated_str(self):
+    def test_depends_annotated_str(self) -> None:
         def dep_func(a):
             return a
 
@@ -383,7 +398,7 @@ class TestSerializer:
         assert another_func("3") == 6.0
 
 
-def test_default_key_value():
+def test_default_key_value() -> None:
     def dep(a: str = "a"):
         return a
 
@@ -394,7 +409,7 @@ def test_default_key_value():
     assert func() == "a"
 
 
-def test_contextmanager():
+def test_contextmanager() -> None:
     def dep(a: str):
         return a
 

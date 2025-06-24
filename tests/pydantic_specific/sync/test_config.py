@@ -1,6 +1,6 @@
 import pytest
 
-from fast_depends import Depends, inject
+from fast_depends import Depends, Provider, inject
 from fast_depends.exceptions import ValidationError
 from fast_depends.pydantic import PydanticSerializer
 from tests.marks import PYDANTIC_V2
@@ -13,13 +13,13 @@ def dep(a: str):
 @inject(
     serializer_cls=PydanticSerializer(
         {"str_max_length" if PYDANTIC_V2 else "max_anystr_length": 1}
-    )
+    ),
+    dependency_provider=Provider(),
 )
-def limited_str(a=Depends(dep)):
-    ...
+def limited_str(a=Depends(dep)): ...
 
 
-@inject()
+@inject(dependency_provider=Provider())
 def regular(a=Depends(dep)):
     return a
 

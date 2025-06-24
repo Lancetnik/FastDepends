@@ -51,6 +51,9 @@ if TYPE_CHECKING:
             ...
 
 
+global_provider = Provider()
+
+
 def Depends(
     dependency: Callable[..., Any],
     *,
@@ -112,7 +115,7 @@ def inject(
     ],
 ]:
     if dependency_provider is None:
-        dependency_provider = Provider()
+        dependency_provider = global_provider
 
     if not cast:
         serializer_cls = None

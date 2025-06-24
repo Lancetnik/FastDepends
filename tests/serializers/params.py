@@ -32,6 +32,9 @@ parametrized = (
         b"false",
         id="bool",
     ),
+)
+
+comptex_params = [
     pytest.param(
         {"m": 1},
         b'{"m":1}',
@@ -47,4 +50,4 @@ parametrized = (
         b'{"r":"hello!"}',
         id="dataclass",
     ),
-)
+]

@@ -4,7 +4,7 @@ import pytest
 from msgspec import Struct
 
 from fast_depends.msgspec.serializer import MsgSpecSerializer
-from tests.serializers.params import parametrized
+from tests.serializers.params import comptex_params, parametrized
 
 
 class SimpleStruct(Struct):
@@ -15,6 +15,7 @@ class SimpleStruct(Struct):
     ("message", "expected_message"),
     (
         *parametrized,
+        *comptex_params,
         pytest.param(
             b"hello",
             b'"aGVsbG8="',

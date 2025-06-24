@@ -54,6 +54,34 @@ msgspec = [
     "msgspec",
 ]
 
+[dependency-groups]
+docs = [
+    "mkdocs-material>=9.4.0,<10.0.0",
+    "mkdocs-minify-plugin>=0.7.0,<1.0.0",
+    "mdx-include>=1.4.1,<2.0.0",
+    "mkdocs-markdownextradata-plugin>=0.1.7,<0.3.0",
+]
+
+test = [
+    "coverage[toml]>=7.2.0,<8.0.0",
+    "pytest>=8.0.0,<9",
+    "dirty-equals>=0.7.0,<0.9",
+    "annotated_types",
+]
+
+lint = [
+    "mypy>=1.8.0",
+    "ruff==0.2.2",
+    "codespell==2.2.6",
+]
+
+dev = [
+    "fast-depends[pydantic,msgspec]",
+    {include-group = "docs"},
+    {include-group = "test"},
+    {include-group = "lint"},
+]
+
 [project.urls]
 Homepage = "https://lancetnik.github.io/FastDepends/"
 Documentation = "https://lancetnik.github.io/FastDepends/"

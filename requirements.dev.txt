@@ -1,8 +1,0 @@
--e .[pydantic]
-
--r requirements.docs.txt
--r requirements.test.txt
-
-mypy >=1.8.0
-ruff ==0.2.2
-codespell ==2.2.6

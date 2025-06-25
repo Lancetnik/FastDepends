@@ -44,6 +44,8 @@ class PydanticSerializer(SerializerProto):
 
     @staticmethod
     def encode(message: Any) -> bytes:
+        if isinstance(message, bytes):
+            return message
         return dump_json(message)
 
 

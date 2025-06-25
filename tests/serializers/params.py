@@ -18,6 +18,11 @@ parametrized = (
         id="str",
     ),
     pytest.param(
+        b"hello",
+        b"hello",
+        id="bytes",
+    ),
+    pytest.param(
         1.0,
         b"1.0",
         id="float",

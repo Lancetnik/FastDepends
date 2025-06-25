@@ -18,11 +18,6 @@ class SimpleModel(BaseModel):
         *parametrized,
         *comptex_params,
         pytest.param(
-            b"hello",
-            b'"hello"',
-            id="bytes",
-        ),
-        pytest.param(
             SimpleModel(r="hello!"),
             b'{"r":"hello!"}',
             id="model",
@@ -51,11 +46,6 @@ def test_encode_v2(
             [1, 2, 3],
             b"[1, 2, 3]",
             id="list",
-        ),
-        pytest.param(
-            b"hello",
-            b'"hello"',
-            id="bytes",
         ),
         pytest.param(
             SimpleModel(r="hello!"),

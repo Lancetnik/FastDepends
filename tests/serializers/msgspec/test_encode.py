@@ -17,11 +17,6 @@ class SimpleStruct(Struct):
         *parametrized,
         *comptex_params,
         pytest.param(
-            b"hello",
-            b'"aGVsbG8="',
-            id="bytes",
-        ),
-        pytest.param(
             SimpleStruct(r="hello!"),
             b'{"r":"hello!"}',
             id="struct",

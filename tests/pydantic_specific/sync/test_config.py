@@ -16,7 +16,8 @@ def dep(a: str):
     ),
     dependency_provider=Provider(),
 )
-def limited_str(a=Depends(dep)): ...
+def limited_str(a=Depends(dep)):
+    ...
 
 
 @inject(dependency_provider=Provider())

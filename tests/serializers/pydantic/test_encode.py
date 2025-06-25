@@ -4,7 +4,7 @@ import pytest
 from pydantic import BaseModel
 
 from fast_depends.pydantic.serializer import PydanticSerializer
-from tests.marks import pydanticV2, pydanticV1
+from tests.marks import pydanticV1, pydanticV2
 from tests.serializers.params import comptex_params, parametrized
 
 

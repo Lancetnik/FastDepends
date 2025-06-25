@@ -1,3 +1,4 @@
+import json
 from abc import ABC, abstractmethod
 from typing import Any, Protocol
 
@@ -61,7 +62,7 @@ class Serializer(ABC):
 
     @staticmethod
     def encode(message: Any) -> bytes:
-        raise NotImplementedError
+        return json.dumps(message).encode("utf-8")
 
 
 class SerializerProto(Protocol):

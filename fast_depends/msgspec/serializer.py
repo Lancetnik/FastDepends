@@ -96,4 +96,6 @@ class MsgSpecSerializer(Serializer):
 
     @staticmethod
     def encode(message: Any) -> bytes:
+        if isinstance(message, bytes):
+            return message
         return msgspec.json.encode(message)

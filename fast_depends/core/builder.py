@@ -146,7 +146,8 @@ def build_call_model(
             class_fields.append(OptionItem(
                 field_name=param_name,
                 field_type=annotation,
-                default_value=... if default is inspect.Parameter.empty else default
+                default_value=... if default is inspect.Parameter.empty else default,
+                kind=param.kind,
             ))
 
         if dep:
@@ -176,6 +177,7 @@ def build_call_model(
                 field_name=param_name,
                 field_type=annotation,
                 source=dep,
+                kind=param.kind,
             ))
 
             keyword_args.append(param_name)
@@ -197,6 +199,7 @@ def build_call_model(
                     field_type=annotation,
                     default_value=default,
                     source=custom,
+                    kind=param.kind,
                 ))
 
             else:
@@ -205,6 +208,7 @@ def build_call_model(
                     field_type=Optional[annotation],
                     default_value=None if default is Ellipsis else default,
                     source=custom,
+                    kind=param.kind,
                 ))
 
             keyword_args.append(param_name)

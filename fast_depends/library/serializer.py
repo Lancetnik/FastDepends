@@ -1,3 +1,4 @@
+import inspect
 import json
 from abc import ABC, abstractmethod
 from typing import Any, Protocol
@@ -8,6 +9,7 @@ class OptionItem:
         "field_name",
         "field_type",
         "default_value",
+        "kind",
         "source",
     )
 
@@ -17,11 +19,13 @@ class OptionItem:
         field_type: Any,
         source: Any = None,
         default_value: Any = ...,
+        kind: inspect._ParameterKind = inspect.Parameter.POSITIONAL_OR_KEYWORD,
     ) -> None:
         self.field_name = field_name
         self.field_type = field_type
         self.default_value = default_value
         self.source = source
+        self.kind = kind
 
     def __repr__(self) -> str:
         type_name = getattr(self.field_type, "__name__", str(self.field_type))
@@ -42,13 +46,10 @@ class Serializer(ABC):
         response_type: Any,
     ):
         self.name = name
-        self.options = {
-            i.field_name: i for i in options
-        }
+        self.options = {i.field_name: i for i in options}
         self.response_option = {
             "return": OptionItem(field_name="return", field_type=response_type),
         }
-
 
     @abstractmethod
     def __call__(self, call_kwargs: dict[str, Any]) -> dict[str, Any]:

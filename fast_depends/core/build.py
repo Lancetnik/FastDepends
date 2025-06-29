@@ -63,10 +63,8 @@ def build_call_model(
         ), f"You cannot use async dependency `{name}` at sync main"
 
     typed_params, return_annotation = get_typed_signature(call)
-    if (
-        (is_call_generator := is_gen_callable(call) or
-        is_async_gen_callable(call)) and
-        (return_args := get_args(return_annotation))
+    if (is_call_generator := is_gen_callable(call) or is_async_gen_callable(call)) and (
+        return_args := get_args(return_annotation)
     ):
         return_annotation = return_args[0]
 
@@ -167,6 +165,7 @@ def build_call_model(
                 class_fields[param_name] = (annotation, Ellipsis)
 
             keyword_args.append(param_name)
+            positional_args.append(param_name)
 
         elif custom:
             assert not (

@@ -42,12 +42,12 @@ T = TypeVar("T")
 if TYPE_CHECKING:
     from fast_depends.library.serializer import SerializerProto
 
-    class InjectWrapper(Protocol):
+    class InjectWrapper(Protocol[P, T]):
         def __call__(
             self,
-            func: Callable[..., T],
+            func: Callable[P, T],
             model: Optional[CallModel] = None,
-        ) -> Callable[..., T]:
+        ) -> Callable[P, T]:
             ...
 
 
@@ -71,7 +71,7 @@ def Depends(
 
 @overload
 def inject(
-    func: Callable[..., T],
+    func: Callable[P, T],
     *,
     cast: bool = True,
     cast_result: bool = True,
@@ -80,7 +80,7 @@ def inject(
     wrap_model: Callable[["CallModel"], "CallModel"] = lambda x: x,
     serializer_cls: Optional["SerializerProto"] = SerializerCls,
     **call_extra: Any,
-) -> Callable[..., T]:
+) -> Callable[P, T]:
     ...
 
 @overload
@@ -94,11 +94,11 @@ def inject(
     wrap_model: Callable[["CallModel"], "CallModel"] = lambda x: x,
     serializer_cls: Optional["SerializerProto"] = SerializerCls,
     **call_extra: Any,
-) -> "InjectWrapper":
+) -> "InjectWrapper[P, T]":
     ...
 
 def inject(
-    func: Optional[Callable[..., T]] = None,
+    func: Optional[Callable[P, T]] = None,
     *,
     cast: bool = True,
     cast_result: bool = True,
@@ -108,11 +108,8 @@ def inject(
     serializer_cls: Optional["SerializerProto"] = SerializerCls,
     **call_extra: Any,
 ) -> Union[
-    Callable[..., T],
-    Callable[
-        [Callable[..., T]],
-        Callable[..., T]
-    ],
+    Callable[P, T],
+    "InjectWrapper[P, T]",
 ]:
     if dependency_provider is None:
         dependency_provider = global_provider
@@ -144,14 +141,11 @@ def _wrap_inject(
     serializer_cls: Optional["SerializerProto"],
     cast_result: bool,
     **call_extra: Any,
-) -> Callable[
-    [Callable[P, T]],
-    Callable[..., T]
-]:
+) -> "InjectWrapper[P, T]":
     def func_wrapper(
         func: Callable[P, T],
         model: Optional["CallModel"] = None,
-    ) -> Callable[..., T]:
+    ) -> Callable[P, T]:
         if model is None:
             real_model = wrap_model(
                 build_call_model(
@@ -166,7 +160,7 @@ def _wrap_inject(
             real_model = model
 
         if real_model.is_async:
-            injected_wrapper: Callable[..., T]
+            injected_wrapper: Callable[P, T]
 
             if real_model.is_generator:
                 injected_wrapper = partial(  # type: ignore[assignment]
@@ -210,7 +204,7 @@ def _wrap_inject(
                     raise AssertionError("unreachable")
 
         injected_wrapper._fastdepends_call_ = real_model.call  # type: ignore[attr-defined]
-        return wraps(func)(injected_wrapper)
+        return wraps(func)(injected_wrapper)  # type: ignore[arg-type]
 
     return func_wrapper
 

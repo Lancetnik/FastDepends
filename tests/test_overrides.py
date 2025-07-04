@@ -181,3 +181,32 @@ def test_deep_overrides(provider: Provider) -> None:
         assert not mock.dep2.called
         mock.dep3.assert_called_once()
         mock.dep4.assert_called_once()
+
+
+def test_deep_overrides_with_different_signatures(provider: Provider) -> None:
+    mock = Mock()
+
+    def dep1(c=Depends(mock.dep2)):
+        mock.dep1()
+
+    def dep3():
+        mock.dep3()
+
+    @inject(
+        dependency_provider=provider,
+        extra_dependencies=(Depends(dep1),),
+    )
+    def func():
+        return
+
+    func()
+    mock.dep1.assert_called_once()
+    mock.dep2.assert_called_once()
+    assert not mock.dep3.called
+    mock.reset_mock()
+
+    with provider.scope(dep1, dep3):
+        func()
+        assert not mock.dep1.called
+        assert not mock.dep2.called
+        mock.dep3.assert_called_once()

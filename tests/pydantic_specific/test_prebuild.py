@@ -27,7 +27,7 @@ def test_prebuild_with_wrapper():
     call_model = build_call_model(
         func,
         dependency_provider=Provider(),
-        serializer_cls=PydanticSerializer(),
+        serializer_cls=PydanticSerializer(use_fastdepends_errors=True),
     )
 
     model = call_model.serializer.model

@@ -13,7 +13,7 @@ from typing import (
     overload,
 )
 
-from typing_extensions import Literal, ParamSpec
+from typing_extensions import ParamSpec
 
 from fast_depends.core import CallModel, build_call_model
 from fast_depends.dependencies import Dependant, Provider
@@ -24,6 +24,7 @@ SerializerCls: Optional["SerializerProto"] = None
 if SerializerCls is None:
     try:
         from fast_depends.pydantic import PydanticSerializer
+
         SerializerCls = PydanticSerializer()
     except ImportError:
         pass
@@ -31,7 +32,8 @@ if SerializerCls is None:
 if SerializerCls is None:
     try:
         from fast_depends.msgspec import MsgSpecSerializer
-        SerializerCls = MsgSpecSerializer
+
+        SerializerCls = MsgSpecSerializer()
     except ImportError:
         pass
 
@@ -75,7 +77,7 @@ def inject(
     *,
     cast: bool = True,
     cast_result: bool = True,
-    extra_dependencies: Sequence[Dependant] = (),
+    extra_dependencies: Sequence["Dependant"] = (),
     dependency_provider: Optional["Provider"] = None,
     wrap_model: Callable[["CallModel"], "CallModel"] = lambda x: x,
     serializer_cls: Optional["SerializerProto"] = SerializerCls,
@@ -83,19 +85,21 @@ def inject(
 ) -> Callable[P, T]:
     ...
 
+
 @overload
 def inject(
-    func: Literal[None] = None,
+    func: None = None,
     *,
     cast: bool = True,
     cast_result: bool = True,
-    extra_dependencies: Sequence[Dependant] = (),
+    extra_dependencies: Sequence["Dependant"] = (),
     dependency_provider: Optional["Provider"] = None,
     wrap_model: Callable[["CallModel"], "CallModel"] = lambda x: x,
     serializer_cls: Optional["SerializerProto"] = SerializerCls,
     **call_extra: Any,
 ) -> "InjectWrapper[P, T]":
     ...
+
 
 def inject(
     func: Optional[Callable[P, T]] = None,
@@ -107,10 +111,7 @@ def inject(
     wrap_model: Callable[["CallModel"], "CallModel"] = lambda x: x,
     serializer_cls: Optional["SerializerProto"] = SerializerCls,
     **call_extra: Any,
-) -> Union[
-    Callable[P, T],
-    "InjectWrapper[P, T]",
-]:
+) -> Union[Callable[P, T], "InjectWrapper[P, T]"]:
     if dependency_provider is None:
         dependency_provider = global_provider
 
@@ -198,7 +199,7 @@ def _wrap_inject(
                             stack=stack,
                             cache_dependencies={},
                             nested=False,
-                                **(call_extra | kwargs),
+                            **(call_extra | kwargs),
                         )
 
                     raise AssertionError("unreachable")

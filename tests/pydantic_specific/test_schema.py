@@ -17,27 +17,29 @@ except ImportError:
     REF_KEY = ""
 
 
-def test_base():
+def test_base() -> None:
     def handler():
         pass
 
     schema = get_schema(
         build_call_model(
-            handler, serializer_cls=PydanticSerializer(), dependency_provider=Provider()
+            handler,
+            serializer_cls=PydanticSerializer(use_fastdepends_errors=True),
+            dependency_provider=Provider(),
         )
     )
     assert schema == {"title": "handler", "type": "null"}, schema
 
 
 class TestNoType:
-    def test_no_type(self):
+    def test_no_type(self) -> None:
         def handler(a):
             pass
 
         schema = get_schema(
             build_call_model(
                 handler,
-                serializer_cls=PydanticSerializer(),
+                serializer_cls=PydanticSerializer(use_fastdepends_errors=True),
                 dependency_provider=Provider(),
             )
         )
@@ -48,28 +50,28 @@ class TestNoType:
             "type": "object",
         }, schema
 
-    def test_no_type_embeded(self):
+    def test_no_type_embeded(self) -> None:
         def handler(a):
             pass
 
         schema = get_schema(
             build_call_model(
                 handler,
-                serializer_cls=PydanticSerializer(),
+                serializer_cls=PydanticSerializer(use_fastdepends_errors=True),
                 dependency_provider=Provider(),
             ),
             embed=True,
         )
         assert schema == {"title": "A"}, schema
 
-    def test_no_type_with_default(self):
+    def test_no_type_with_default(self) -> None:
         def handler(a=None):
             pass
 
         schema = get_schema(
             build_call_model(
                 handler,
-                serializer_cls=PydanticSerializer(),
+                serializer_cls=PydanticSerializer(use_fastdepends_errors=True),
                 dependency_provider=Provider(),
             )
         )
@@ -79,14 +81,14 @@ class TestNoType:
             "type": "object",
         }, schema
 
-    def test_no_type_with_default_and_embed(self):
+    def test_no_type_with_default_and_embed(self) -> None:
         def handler(a=None):
             pass
 
         schema = get_schema(
             build_call_model(
                 handler,
-                serializer_cls=PydanticSerializer(),
+                serializer_cls=PydanticSerializer(use_fastdepends_errors=True),
                 dependency_provider=Provider(),
             ),
             embed=True,
@@ -95,14 +97,14 @@ class TestNoType:
 
 
 class TestOneArg:
-    def test_one_arg(self):
+    def test_one_arg(self) -> None:
         def handler(a: int):
             pass
 
         schema = get_schema(
             build_call_model(
                 handler,
-                serializer_cls=PydanticSerializer(),
+                serializer_cls=PydanticSerializer(use_fastdepends_errors=True),
                 dependency_provider=Provider(),
             )
         )
@@ -113,28 +115,28 @@ class TestOneArg:
             "type": "object",
         }, schema
 
-    def test_one_arg_with_embed(self):
+    def test_one_arg_with_embed(self) -> None:
         def handler(a: int):
             pass
 
         schema = get_schema(
             build_call_model(
                 handler,
-                serializer_cls=PydanticSerializer(),
+                serializer_cls=PydanticSerializer(use_fastdepends_errors=True),
                 dependency_provider=Provider(),
             ),
             embed=True,
         )
         assert schema == {"title": "A", "type": "integer"}, schema
 
-    def test_one_arg_with_optional(self):
+    def test_one_arg_with_optional(self) -> None:
         def handler(a: Optional[int]):
             pass
 
         schema = get_schema(
             build_call_model(
                 handler,
-                serializer_cls=PydanticSerializer(),
+                serializer_cls=PydanticSerializer(use_fastdepends_errors=True),
                 dependency_provider=Provider(),
             )
         )
@@ -150,14 +152,14 @@ class TestOneArg:
             "type": "object",
         }, schema
 
-    def test_one_arg_with_default(self):
+    def test_one_arg_with_default(self) -> None:
         def handler(a: int = 0):
             pass
 
         schema = get_schema(
             build_call_model(
                 handler,
-                serializer_cls=PydanticSerializer(),
+                serializer_cls=PydanticSerializer(use_fastdepends_errors=True),
                 dependency_provider=Provider(),
             )
         )
@@ -167,14 +169,14 @@ class TestOneArg:
             "type": "object",
         }, schema
 
-    def test_one_arg_with_default_and_embed(self):
+    def test_one_arg_with_default_and_embed(self) -> None:
         def handler(a: int = 0):
             pass
 
         schema = get_schema(
             build_call_model(
                 handler,
-                serializer_cls=PydanticSerializer(),
+                serializer_cls=PydanticSerializer(use_fastdepends_errors=True),
                 dependency_provider=Provider(),
             ),
             embed=True,
@@ -183,7 +185,7 @@ class TestOneArg:
 
 
 class TestOneArgWithModel:
-    def test_base(self):
+    def test_base(self) -> None:
         class Model(BaseModel):
             a: int
 
@@ -193,7 +195,7 @@ class TestOneArgWithModel:
         schema = get_schema(
             build_call_model(
                 handler,
-                serializer_cls=PydanticSerializer(),
+                serializer_cls=PydanticSerializer(use_fastdepends_errors=True),
                 dependency_provider=Provider(),
             )
         )
@@ -212,7 +214,7 @@ class TestOneArgWithModel:
             "type": "object",
         }, schema
 
-    def test_resolved_model(self):
+    def test_resolved_model(self) -> None:
         class Model(BaseModel):
             a: int
 
@@ -222,7 +224,7 @@ class TestOneArgWithModel:
         schema = get_schema(
             build_call_model(
                 handler,
-                serializer_cls=PydanticSerializer(),
+                serializer_cls=PydanticSerializer(use_fastdepends_errors=True),
                 dependency_provider=Provider(),
             ),
             resolve_refs=True,
@@ -241,7 +243,7 @@ class TestOneArgWithModel:
             "type": "object",
         }, schema
 
-    def test_optional_model(self):
+    def test_optional_model(self) -> None:
         class Model(BaseModel):
             a: int
 
@@ -251,7 +253,7 @@ class TestOneArgWithModel:
         schema = get_schema(
             build_call_model(
                 handler,
-                serializer_cls=PydanticSerializer(),
+                serializer_cls=PydanticSerializer(use_fastdepends_errors=True),
                 dependency_provider=Provider(),
             ),
             resolve_refs=True,
@@ -285,7 +287,7 @@ class TestOneArgWithModel:
             "type": "object",
         }, schema
 
-    def test_optional_embeded_model(self):
+    def test_optional_embeded_model(self) -> None:
         class Model(BaseModel):
             a: int
 
@@ -295,7 +297,7 @@ class TestOneArgWithModel:
         schema = get_schema(
             build_call_model(
                 handler,
-                serializer_cls=PydanticSerializer(),
+                serializer_cls=PydanticSerializer(use_fastdepends_errors=True),
                 dependency_provider=Provider(),
             ),
             resolve_refs=True,
@@ -322,7 +324,7 @@ class TestOneArgWithModel:
             }
         ), schema
 
-    def test_nested_resolved_model(self):
+    def test_nested_resolved_model(self) -> None:
         class Model2(BaseModel):
             a: int
 
@@ -335,7 +337,7 @@ class TestOneArgWithModel:
         schema = get_schema(
             build_call_model(
                 handler,
-                serializer_cls=PydanticSerializer(),
+                serializer_cls=PydanticSerializer(use_fastdepends_errors=True),
                 dependency_provider=Provider(),
             ),
             resolve_refs=True,
@@ -361,7 +363,7 @@ class TestOneArgWithModel:
             "type": "object",
         }, schema
 
-    def test_embeded_model(self):
+    def test_embeded_model(self) -> None:
         class Model(BaseModel):
             a: int
 
@@ -371,7 +373,7 @@ class TestOneArgWithModel:
         schema = get_schema(
             build_call_model(
                 handler,
-                serializer_cls=PydanticSerializer(),
+                serializer_cls=PydanticSerializer(use_fastdepends_errors=True),
                 dependency_provider=Provider(),
             ),
             resolve_refs=True,
@@ -384,7 +386,7 @@ class TestOneArgWithModel:
             "type": "object",
         }, schema
 
-    def test_embeded_resolved_model(self):
+    def test_embeded_resolved_model(self) -> None:
         class Model2(BaseModel):
             a: int
 
@@ -397,7 +399,7 @@ class TestOneArgWithModel:
         schema = get_schema(
             build_call_model(
                 handler,
-                serializer_cls=PydanticSerializer(),
+                serializer_cls=PydanticSerializer(use_fastdepends_errors=True),
                 dependency_provider=Provider(),
             ),
             resolve_refs=True,
@@ -419,14 +421,14 @@ class TestOneArgWithModel:
 
 
 class TestMultiArgs:
-    def test_base(self):
+    def test_base(self) -> None:
         def handler(a, b):
             pass
 
         schema = get_schema(
             build_call_model(
                 handler,
-                serializer_cls=PydanticSerializer(),
+                serializer_cls=PydanticSerializer(use_fastdepends_errors=True),
                 dependency_provider=Provider(),
             )
         )
@@ -437,14 +439,14 @@ class TestMultiArgs:
             "type": "object",
         }, schema
 
-    def test_types_and_default(self):
+    def test_types_and_default(self) -> None:
         def handler(a: str, b: int = 0):
             pass
 
         schema = get_schema(
             build_call_model(
                 handler,
-                serializer_cls=PydanticSerializer(),
+                serializer_cls=PydanticSerializer(use_fastdepends_errors=True),
                 dependency_provider=Provider(),
             )
         )
@@ -458,14 +460,14 @@ class TestMultiArgs:
             "type": "object",
         }, schema
 
-    def test_ignores_embed(self):
+    def test_ignores_embed(self) -> None:
         def handler(a: str, b: int = 0):
             pass
 
         schema = get_schema(
             build_call_model(
                 handler,
-                serializer_cls=PydanticSerializer(),
+                serializer_cls=PydanticSerializer(use_fastdepends_errors=True),
                 dependency_provider=Provider(),
             ),
             embed=True,
@@ -480,7 +482,7 @@ class TestMultiArgs:
             "type": "object",
         }, schema
 
-    def test_model(self):
+    def test_model(self) -> None:
         class Model(BaseModel):
             a: int = Field(0, description="description")
 
@@ -490,7 +492,7 @@ class TestMultiArgs:
         schema = get_schema(
             build_call_model(
                 handler,
-                serializer_cls=PydanticSerializer(),
+                serializer_cls=PydanticSerializer(use_fastdepends_errors=True),
                 dependency_provider=Provider(),
             )
         )
@@ -518,7 +520,7 @@ class TestMultiArgs:
             "type": "object",
         }, schema
 
-    def test_resolved_model(self):
+    def test_resolved_model(self) -> None:
         class Model(BaseModel):
             a: int = Field(0, description="description")
 
@@ -528,7 +530,7 @@ class TestMultiArgs:
         schema = get_schema(
             build_call_model(
                 handler,
-                serializer_cls=PydanticSerializer(),
+                serializer_cls=PydanticSerializer(use_fastdepends_errors=True),
                 dependency_provider=Provider(),
             ),
             resolve_refs=True,
@@ -555,7 +557,7 @@ class TestMultiArgs:
         }, schema
 
 
-def test_depends():
+def test_depends() -> None:
     class Model(BaseModel):
         a: int = Field(0, description="description")
 
@@ -581,7 +583,7 @@ def test_depends():
         build_call_model(
             handler,
             extra_dependencies=(Depends(dep4),),
-            serializer_cls=PydanticSerializer(),
+            serializer_cls=PydanticSerializer(use_fastdepends_errors=True),
             dependency_provider=Provider(),
         ),
         resolve_refs=True,

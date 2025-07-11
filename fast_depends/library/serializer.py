@@ -51,19 +51,15 @@ class Serializer(ABC):
             "return": OptionItem(field_name="return", field_type=response_type),
         }
 
+    def get_aliases(self) -> tuple[str, ...]:
+        return ()
+
     @abstractmethod
     def __call__(self, call_kwargs: dict[str, Any]) -> dict[str, Any]:
         raise NotImplementedError
 
-    def get_aliases(self) -> tuple[str, ...]:
-        return ()
-
     def response(self, value: Any) -> Any:
         return value
-
-    @staticmethod
-    def encode(message: Any) -> bytes:
-        return json.dumps(message).encode("utf-8")
 
 
 class SerializerProto(Protocol):
@@ -75,3 +71,7 @@ class SerializerProto(Protocol):
         response_type: Any,
     ) -> Serializer:
         ...
+
+    @staticmethod
+    def encode(message: Any) -> bytes:
+        return json.dumps(message).encode("utf-8")

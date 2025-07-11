@@ -129,9 +129,7 @@ def inject(
 
     if func is None:
         return decorator
-
-    else:
-        return decorator(func)
+    return decorator(func)
 
 
 def _wrap_inject(
@@ -205,7 +203,7 @@ def _wrap_inject(
                     raise AssertionError("unreachable")
 
         injected_wrapper._fastdepends_call_ = real_model.call  # type: ignore[attr-defined]
-        return wraps(func)(injected_wrapper)  # type: ignore[arg-type]
+        return wraps(func)(injected_wrapper)
 
     return func_wrapper
 

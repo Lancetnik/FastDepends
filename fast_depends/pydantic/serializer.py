@@ -82,7 +82,6 @@ class PydanticSerializer(SerializerProto):
 class _PydanticSerializer(Serializer):
     __slots__ = (
         "model",
-        "response_callback",
         "name",
         "options",
         "config",
@@ -108,8 +107,6 @@ class _PydanticSerializer(Serializer):
             __config__=self.config,
             **class_options,
         )
-
-        self.response_callback: Optional[Callable[[Any], Any]] = None
 
         super().__init__(name=name, options=options, response_type=response_type)
 

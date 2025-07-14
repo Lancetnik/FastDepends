@@ -4,5 +4,5 @@
 -r requirements.test.txt
 
 mypy >=1.8.0
-ruff ==0.12.2
+ruff ==0.12.3
 codespell ==2.4.1

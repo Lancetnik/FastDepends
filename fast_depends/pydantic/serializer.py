@@ -141,6 +141,7 @@ class _PydanticSerializerWithResponse(_PydanticSerializer):
             pydantic_config=pydantic_config,
         )
 
+        response_callback: Optional[Callable[[Any], Any]] = None
         try:
             is_model = issubclass(response_type or object, BaseModel)
         except Exception:
@@ -148,28 +149,28 @@ class _PydanticSerializerWithResponse(_PydanticSerializer):
 
         if is_model:
             if PYDANTIC_V2:
-                self.response_callback = response_type.model_validate
+                response_callback = response_type.model_validate
             else:
-                self.response_callback = response_type.validate
+                response_callback = response_type.validate
 
         elif PYDANTIC_V2:
             try:
                 response_pydantic_type = TypeAdapter(response_type, config=self.config)
             except PydanticUserError:
-                pass
-            else:
-                self.response_callback = response_pydantic_type.validate_python
+                response_pydantic_type = TypeAdapter(response_type)
+            response_callback = response_pydantic_type.validate_python
 
-        if self.response_callback is None and not (
-            response_type is None and not PYDANTIC_V2
-        ):
+        if response_callback is None and not PYDANTIC_V2:
             response_model = create_model(
                 "ResponseModel",
                 __config__=self.config,
                 r=(response_type or Any, ...),
             )
 
-            self.response_callback = lambda x: response_model(r=x).r
+            response_callback = lambda x: response_model(r=x).r
+
+        assert response_callback
+        self.response_callback = response_callback
 
     def response(self, value: Any) -> Any:
         return self.response_callback(value)

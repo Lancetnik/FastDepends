@@ -239,7 +239,7 @@ class CallModel(Generic[P, T]):
 
         else:
             call = self.call
-
+            
         if self.use_cache and call in cache_dependencies:
             return cache_dependencies[call]
 
@@ -376,7 +376,6 @@ class CallModel(Generic[P, T]):
                 **kwargs,
             )
 
-        # Always get from cache
         for dep in self.extra_dependencies:
             dep.solve(
                 *args,
@@ -388,13 +387,14 @@ class CallModel(Generic[P, T]):
             )
 
         for dep_arg, dep in self.dependencies.items():
-            kwargs[dep_arg] = dep.solve(
-                stack=stack,
-                cache_dependencies=cache_dependencies,
-                dependency_overrides=dependency_overrides,
-                nested=True,
-                **kwargs,
-            )
+            if dep_arg not in kwargs:
+                kwargs[dep_arg] = dep.solve(
+                    stack=stack,
+                    cache_dependencies=cache_dependencies,
+                    dependency_overrides=dependency_overrides,
+                    nested=True,
+                    **kwargs,
+                )
 
         for custom in self.custom_fields.values():
             if custom.field:
@@ -504,13 +504,14 @@ class CallModel(Generic[P, T]):
             )
 
         for dep_arg, dep in self.dependencies.items():
-            kwargs[dep_arg] = await dep.asolve(
-                stack=stack,
-                cache_dependencies=cache_dependencies,
-                dependency_overrides=dependency_overrides,
-                nested=True,
-                **kwargs,
-            )
+            if dep_arg not in kwargs:
+                kwargs[dep_arg] = await dep.asolve(
+                    stack=stack,
+                    cache_dependencies=cache_dependencies,
+                    dependency_overrides=dependency_overrides,
+                    nested=True,
+                    **kwargs,
+                )
 
         custom_to_solve: List[CustomField] = []
 

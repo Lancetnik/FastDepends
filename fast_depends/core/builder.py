@@ -32,7 +32,10 @@ if TYPE_CHECKING:
     from fast_depends.dependencies.provider import Key, Provider
 
 
-CUSTOM_ANNOTATIONS = (Dependant, CustomField,)
+CUSTOM_ANNOTATIONS = (
+    Dependant,
+    CustomField,
+)
 
 
 P = ParamSpec("P")
@@ -58,15 +61,13 @@ def build_call_model(
     if is_sync is None:
         is_sync = not is_call_async
     else:
-        assert not (
-            is_sync and is_call_async
-        ), f"You cannot use async dependency `{name}` at sync main"
+        assert not (is_sync and is_call_async), (
+            f"You cannot use async dependency `{name}` at sync main"
+        )
 
     typed_params, return_annotation = get_typed_signature(call)
-    if (
-        (is_call_generator := is_gen_callable(call) or
-        is_async_gen_callable(call)) and
-        (return_args := get_args(return_annotation))
+    if (is_call_generator := is_gen_callable(call) or is_async_gen_callable(call)) and (
+        return_args := get_args(return_annotation)
     ):
         return_annotation = return_args[0]
 
@@ -100,9 +101,9 @@ def build_call_model(
                 else:
                     regular_annotations.append(arg)
 
-            assert (
-                len(custom_annotations) <= 1
-            ), f"Cannot specify multiple `Annotated` Custom arguments for `{param_name}`!"
+            assert len(custom_annotations) <= 1, (
+                f"Cannot specify multiple `Annotated` Custom arguments for `{param_name}`!"
+            )
 
             next_custom = next(iter(custom_annotations), None)
             if next_custom is not None:
@@ -131,24 +132,28 @@ def build_call_model(
             default = param.default
 
         if isinstance(default, Dependant):
-            assert (
-                not dep
-            ), "You can not use `Depends` with `Annotated` and default both"
+            assert not dep, (
+                "You can not use `Depends` with `Annotated` and default both"
+            )
             dep, default = default, Ellipsis
 
         elif isinstance(default, CustomField):
-            assert (
-                not custom
-            ), "You can not use `CustomField` with `Annotated` and default both"
+            assert not custom, (
+                "You can not use `CustomField` with `Annotated` and default both"
+            )
             custom, default = default, Ellipsis
 
         elif not dep and not custom:
-            class_fields.append(OptionItem(
-                field_name=param_name,
-                field_type=annotation,
-                default_value=... if default is inspect.Parameter.empty else default,
-                kind=param.kind,
-            ))
+            class_fields.append(
+                OptionItem(
+                    field_name=param_name,
+                    field_type=annotation,
+                    default_value=...
+                    if default is inspect.Parameter.empty
+                    else default,
+                    kind=param.kind,
+                )
+            )
 
         if dep:
             dependency = build_call_model(
@@ -164,28 +169,30 @@ def build_call_model(
 
             overrided_dependency = dependency_provider.get_dependant(key)
 
-            assert not (
-                is_sync and is_coroutine_callable(overrided_dependency.call)
-            ), f"You cannot use async dependency `{overrided_dependency.call_name}` at sync main"
+            assert not (is_sync and is_coroutine_callable(overrided_dependency.call)), (
+                f"You cannot use async dependency `{overrided_dependency.call_name}` at sync main"
+            )
 
             dependencies[param_name] = key
 
             if not dep.cast:
                 annotation = Any
 
-            class_fields.append(OptionItem(
-                field_name=param_name,
-                field_type=annotation,
-                source=dep,
-                kind=param.kind,
-            ))
+            class_fields.append(
+                OptionItem(
+                    field_name=param_name,
+                    field_type=annotation,
+                    source=dep,
+                    kind=param.kind,
+                )
+            )
 
             keyword_args.append(param_name)
 
         elif custom:
-            assert not (
-                is_sync and is_coroutine_callable(custom.use)
-            ), f"You cannot use async custom field `{type(custom).__name__}` at sync `{name}`"
+            assert not (is_sync and is_coroutine_callable(custom.use)), (
+                f"You cannot use async custom field `{type(custom).__name__}` at sync `{name}`"
+            )
 
             custom.set_param_name(param_name)
             custom_fields[param_name] = custom
@@ -194,22 +201,28 @@ def build_call_model(
                 annotation = Any
 
             if custom.required:
-                class_fields.append(OptionItem(
-                    field_name=param_name,
-                    field_type=annotation,
-                    default_value=default,
-                    source=custom,
-                    kind=param.kind,
-                ))
+                class_fields.append(
+                    OptionItem(
+                        field_name=param_name,
+                        field_type=annotation,
+                        default_value=...,
+                        source=custom,
+                        kind=param.kind,
+                    )
+                )
 
             else:
-                class_fields.append(OptionItem(
-                    field_name=param_name,
-                    field_type=Optional[annotation],
-                    default_value=None if default is Ellipsis else default,
-                    source=custom,
-                    kind=param.kind,
-                ))
+                class_fields.append(
+                    OptionItem(
+                        field_name=param_name,
+                        field_type=Optional[annotation],
+                        default_value=None
+                        if (default is inspect.Parameter.empty or default is Ellipsis)
+                        else default,
+                        source=custom,
+                        kind=param.kind,
+                    )
+                )
 
             keyword_args.append(param_name)
 
@@ -245,9 +258,9 @@ def build_call_model(
 
         overrided_dependency = dependency_provider.get_dependant(key)
 
-        assert not (
-            is_sync and is_coroutine_callable(overrided_dependency.call)
-        ), f"You cannot use async dependency `{overrided_dependency.call_name}` at sync main"
+        assert not (is_sync and is_coroutine_callable(overrided_dependency.call)), (
+            f"You cannot use async dependency `{overrided_dependency.call_name}` at sync main"
+        )
 
         solved_extra_dependencies.append(key)
 
@@ -255,10 +268,9 @@ def build_call_model(
         call=call,
         serializer=serializer,
         params=tuple(
-            i for i in class_fields if (
-                i.field_name not in dependencies and
-                i.field_name not in custom_fields
-            )
+            i
+            for i in class_fields
+            if (i.field_name not in dependencies and i.field_name not in custom_fields)
         ),
         use_cache=use_cache,
         is_async=is_call_async,

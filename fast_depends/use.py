@@ -49,7 +49,7 @@ class _InjectWrapper(Protocol[P, T]):
 
 @overload
 def inject(  # pragma: no cover
-    func: None,
+    func: None = None,
     *,
     cast: bool = True,
     extra_dependencies: Sequence[model.Depends] = (),

@@ -241,11 +241,12 @@ class CallModel:
                     **kwargs,
                 )
 
-        for custom in self.custom_fields.values():
-            if custom.field:
-                custom.use_field(kwargs)
-            else:
-                kwargs = custom.use(**kwargs)
+        if self.custom_fields:
+            for custom in self.custom_fields.values():
+                if custom.field:
+                    custom.use_field(kwargs)
+                else:
+                    kwargs = custom.use(**kwargs)
 
         final_args, final_kwargs = cast_gen.send(kwargs)
 

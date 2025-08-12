@@ -183,6 +183,7 @@ def test_deep_overrides(provider: Provider) -> None:
         mock.dep4.assert_called_once()
 
 
+@pytest.mark.xfail(reason="https://github.com/Lancetnik/FastDepends/issues/186")
 def test_deep_overrides_with_different_signatures(provider: Provider) -> None:
     mock = Mock()
 

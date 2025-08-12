@@ -546,3 +546,19 @@ async def test_asynccontextmanager() -> None:
 
     async with func("a") as is_equal:
         assert is_equal
+
+
+@pytest.mark.anyio
+async def test_solve_wrapper() -> None:
+    @inject
+    async def dep1(a: int):
+        yield a + 1
+
+    async def dep2(a: int):
+        yield a + 2
+
+    @inject
+    async def func(a: int, b: int = Depends(dep1), c: int = Depends(dep2)):
+        return a, b, c
+
+    assert await func(1) == (1, 2, 3)

@@ -420,3 +420,18 @@ def test_contextmanager() -> None:
 
     with func("a") as is_equal:
         assert is_equal
+
+
+def test_solve_wrapper() -> None:
+    @inject
+    def dep1(a: int):
+        yield a + 1
+
+    def dep2(a: int):
+        yield a + 2
+
+    @inject
+    def func(a: int, b: int = Depends(dep1), c: int = Depends(dep2)):
+        return a, b, c
+
+    assert func(1) == (1, 2, 3)

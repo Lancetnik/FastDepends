@@ -2,7 +2,7 @@ import logging
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from functools import partial
-from typing import Annotated
+from typing import Annotated, AsyncGenerator
 from unittest.mock import Mock
 
 import pytest
@@ -562,3 +562,23 @@ async def test_solve_wrapper() -> None:
         return a, b, c
 
     assert await func(1) == (1, 2, 3)
+
+
+@pytest.mark.anyio
+async def test_asyncgenerator_iter() -> None:
+    # ref: https://github.com/Lancetnik/FastDepends/issues/165
+
+    async def simple_dependency(a: int, b: int = 3) -> int:
+        return a + b
+
+    @inject
+    async def method(
+        a: int, d: int = Depends(simple_dependency)
+    ) -> AsyncGenerator[int, None]:
+        for i in range(a + d):
+            yield i
+
+    iterator = method(5)
+
+    assert len([v async for v in iterator]) == 13
+    assert len([v async for v in iterator]) == 0

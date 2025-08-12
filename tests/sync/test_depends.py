@@ -2,7 +2,7 @@ import logging
 from contextlib import contextmanager
 from dataclasses import dataclass
 from functools import partial
-from typing import Annotated
+from typing import Annotated, Generator
 from unittest.mock import Mock
 
 import pytest
@@ -435,3 +435,21 @@ def test_solve_wrapper() -> None:
         return a, b, c
 
     assert func(1) == (1, 2, 3)
+
+
+def test_generator_iter() -> None:
+    # ref: https://github.com/Lancetnik/FastDepends/issues/165
+
+    def simple_dependency(a: int, b: int = 3) -> int:
+        return a + b
+
+    @inject
+    def method(
+        a: int, d: int = Depends(simple_dependency)
+    ) -> Generator[int, None, None]:
+        yield from range(a + d)
+
+    iterator = method(5)
+
+    assert len(list(iterator)) == 13
+    assert len(list(iterator)) == 0

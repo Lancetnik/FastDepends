@@ -116,7 +116,7 @@ class TestOneArg:
         }, schema
 
     def test_one_arg_with_embed(self) -> None:
-        def handler(a: int):
+        def handler(a: int) -> None:
             pass
 
         schema = get_schema(
@@ -130,7 +130,7 @@ class TestOneArg:
         assert schema == {"title": "A", "type": "integer"}, schema
 
     def test_one_arg_with_optional(self) -> None:
-        def handler(a: Optional[int]):
+        def handler(a: Optional[int]) -> None:
             pass
 
         schema = get_schema(
@@ -153,7 +153,7 @@ class TestOneArg:
         }, schema
 
     def test_one_arg_with_default(self) -> None:
-        def handler(a: int = 0):
+        def handler(a: int = 0) -> None:
             pass
 
         schema = get_schema(
@@ -170,7 +170,7 @@ class TestOneArg:
         }, schema
 
     def test_one_arg_with_default_and_embed(self) -> None:
-        def handler(a: int = 0):
+        def handler(a: int = 0) -> None:
             pass
 
         schema = get_schema(
@@ -189,7 +189,7 @@ class TestOneArgWithModel:
         class Model(BaseModel):
             a: int
 
-        def handler(a: Model):
+        def handler(a: Model) -> None:
             pass
 
         schema = get_schema(
@@ -218,7 +218,7 @@ class TestOneArgWithModel:
         class Model(BaseModel):
             a: int
 
-        def handler(a: Model):
+        def handler(a: Model) -> None:
             pass
 
         schema = get_schema(
@@ -247,7 +247,7 @@ class TestOneArgWithModel:
         class Model(BaseModel):
             a: int
 
-        def handler(a: Optional[Model] = None):
+        def handler(a: Optional[Model] = None) -> None:
             pass
 
         schema = get_schema(
@@ -291,7 +291,7 @@ class TestOneArgWithModel:
         class Model(BaseModel):
             a: int
 
-        def handler(a: Optional[Model]):
+        def handler(a: Optional[Model]) -> None:
             pass
 
         schema = get_schema(
@@ -331,7 +331,7 @@ class TestOneArgWithModel:
         class Model(BaseModel):
             a: Model2
 
-        def handler(a: Model):
+        def handler(a: Model) -> None:
             pass
 
         schema = get_schema(
@@ -367,7 +367,7 @@ class TestOneArgWithModel:
         class Model(BaseModel):
             a: int
 
-        def handler(a: Model):
+        def handler(a: Model) -> None:
             pass
 
         schema = get_schema(
@@ -393,7 +393,7 @@ class TestOneArgWithModel:
         class Model(BaseModel):
             a: Model2
 
-        def handler(a: Model):
+        def handler(a: Model) -> None:
             pass
 
         schema = get_schema(
@@ -422,7 +422,7 @@ class TestOneArgWithModel:
 
 class TestMultiArgs:
     def test_base(self) -> None:
-        def handler(a, b):
+        def handler(a, b) -> None:
             pass
 
         schema = get_schema(
@@ -440,7 +440,7 @@ class TestMultiArgs:
         }, schema
 
     def test_types_and_default(self) -> None:
-        def handler(a: str, b: int = 0):
+        def handler(a: str, b: int = 0) -> None:
             pass
 
         schema = get_schema(
@@ -461,7 +461,7 @@ class TestMultiArgs:
         }, schema
 
     def test_ignores_embed(self) -> None:
-        def handler(a: str, b: int = 0):
+        def handler(a: str, b: int = 0) -> None:
             pass
 
         schema = get_schema(
@@ -486,7 +486,7 @@ class TestMultiArgs:
         class Model(BaseModel):
             a: int = Field(0, description="description")
 
-        def handler(a: str, b: Model):
+        def handler(a: str, b: Model) -> None:
             pass
 
         schema = get_schema(
@@ -524,7 +524,7 @@ class TestMultiArgs:
         class Model(BaseModel):
             a: int = Field(0, description="description")
 
-        def handler(a: str, b: Model):
+        def handler(a: str, b: Model) -> None:
             pass
 
         schema = get_schema(
@@ -564,16 +564,16 @@ def test_depends() -> None:
     class CustomClass:
         pass
 
-    def dep4(d: Model): ...
+    def dep4(d: Model) -> None: ...
 
-    def dep2(c: float = Field(..., title="best")): ...
+    def dep2(c: float = Field(..., title="best")) -> None: ...
 
-    def dep(a: float = 1, d: CustomClass = Depends(dep2)): ...
+    def dep(a: float = 1, d: CustomClass = Depends(dep2)) -> None: ...
 
     def handler(
         b: str = Field(""),
         a=Depends(dep),
-    ): ...
+    ) -> None: ...
 
     schema = get_schema(
         build_call_model(

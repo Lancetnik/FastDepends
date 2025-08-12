@@ -1,8 +1,9 @@
 import logging
+from collections.abc import Generator
 from contextlib import contextmanager
 from dataclasses import dataclass
 from functools import partial
-from typing import Annotated, Generator
+from typing import Annotated
 from unittest.mock import Mock
 
 import pytest
@@ -424,10 +425,10 @@ def test_contextmanager() -> None:
 
 def test_solve_wrapper() -> None:
     @inject
-    def dep1(a: int):
+    def dep1(a: int) -> Generator[int, None, None]:
         yield a + 1
 
-    def dep2(a: int):
+    def dep2(a: int) -> Generator[int, None, None]:
         yield a + 2
 
     @inject

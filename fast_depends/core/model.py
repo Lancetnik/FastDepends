@@ -95,7 +95,6 @@ class CallModel:
         self.keyword_args = tuple(keyword_args or ())
         self.kwargs_name = kwargs_name
         self.positional_args = tuple(positional_args or ())
-
         self.use_cache = use_cache
         self.is_async = (
             is_async or

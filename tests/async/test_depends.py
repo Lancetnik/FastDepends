@@ -1,8 +1,9 @@
 import logging
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from functools import partial
-from typing import Annotated, AsyncGenerator
+from typing import Annotated
 from unittest.mock import Mock
 
 import pytest
@@ -391,12 +392,12 @@ async def test_generator() -> None:
     mock = Mock()
 
     def sync_simple_func():
-        mock.sync_simple()
+        mock.sync_call()
 
-    async def simple_func():
-        mock.simple()
+    async def async_simple_func():
+        mock.async_call()
 
-    async def func():
+    async def gen_func():
         mock.start()
         yield
         mock.end()
@@ -405,8 +406,8 @@ async def test_generator() -> None:
     async def simple_func(
         a: str,
         d3=Depends(sync_simple_func),
-        d2=Depends(simple_func),
-        d=Depends(func),
+        d2=Depends(async_simple_func),
+        d=Depends(gen_func),
     ):
         for _ in range(2):
             yield a
@@ -416,8 +417,8 @@ async def test_generator() -> None:
         assert not mock.end.called
         assert i == "1"
 
-    mock.sync_simple.assert_called_once()
-    mock.simple.assert_called_once()
+    mock.async_call.assert_called_once()
+    mock.sync_call.assert_called_once()
     mock.end.assert_called_once()
 
 

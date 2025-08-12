@@ -1,9 +1,10 @@
-from fast_depends import inject
-from fast_depends.library import CustomField
-
 from starlette.applications import Starlette
 from starlette.responses import PlainTextResponse
 from starlette.routing import Route
+
+from fast_depends import inject
+from fast_depends.library import CustomField
+
 
 class Path(CustomField):
     def use(self, /, *, request, **kwargs):

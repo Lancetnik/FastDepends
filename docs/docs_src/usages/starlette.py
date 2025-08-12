@@ -1,9 +1,11 @@
 # Is that FastAPI???
+from pydantic import Field
 from starlette.applications import Starlette
 from starlette.responses import PlainTextResponse
 from starlette.routing import Route
-from pydantic import Field
-from fast_depends import inject, Depends
+
+from fast_depends import Depends, inject
+
 
 def unwrap_path(func):
     async def wrapper(request):  # unwrap incoming params to **kwargs here

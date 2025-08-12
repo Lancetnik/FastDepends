@@ -1,30 +1,48 @@
 from typing import Optional
 
 from dirty_equals import IsDict, IsPartialDict
-from pydantic import BaseModel, Field
 
-from fast_depends import Depends
-from fast_depends._compat import PYDANTIC_V2
+from fast_depends import Depends, Provider
 from fast_depends.core import build_call_model
-from fast_depends.schema import get_schema
 
-REF_KEY = "$defs" if PYDANTIC_V2 else "definitions"
+try:
+    from pydantic import BaseModel, Field
+
+    from fast_depends.pydantic._compat import PYDANTIC_V2
+    from fast_depends.pydantic.schema import get_schema
+    from fast_depends.pydantic.serializer import PydanticSerializer
+
+    REF_KEY = "$defs" if PYDANTIC_V2 else "definitions"
+except ImportError:
+    REF_KEY = ""
 
 
 def test_base() -> None:
-    def handler() -> None:
+    def handler():
         pass
 
-    schema = get_schema(build_call_model(handler))
+    schema = get_schema(
+        build_call_model(
+            handler,
+            serializer_cls=PydanticSerializer(use_fastdepends_errors=True),
+            dependency_provider=Provider(),
+        )
+    )
     assert schema == {"title": "handler", "type": "null"}, schema
 
 
 class TestNoType:
     def test_no_type(self) -> None:
-        def handler(a) -> None:
+        def handler(a):
             pass
 
-        schema = get_schema(build_call_model(handler))
+        schema = get_schema(
+            build_call_model(
+                handler,
+                serializer_cls=PydanticSerializer(use_fastdepends_errors=True),
+                dependency_provider=Provider(),
+            )
+        )
         assert schema == {
             "properties": {"a": {"title": "A"}},
             "required": ["a"],
@@ -33,17 +51,30 @@ class TestNoType:
         }, schema
 
     def test_no_type_embeded(self) -> None:
-        def handler(a) -> None:
+        def handler(a):
             pass
 
-        schema = get_schema(build_call_model(handler), embed=True)
+        schema = get_schema(
+            build_call_model(
+                handler,
+                serializer_cls=PydanticSerializer(use_fastdepends_errors=True),
+                dependency_provider=Provider(),
+            ),
+            embed=True,
+        )
         assert schema == {"title": "A"}, schema
 
     def test_no_type_with_default(self) -> None:
-        def handler(a=None) -> None:
+        def handler(a=None):
             pass
 
-        schema = get_schema(build_call_model(handler))
+        schema = get_schema(
+            build_call_model(
+                handler,
+                serializer_cls=PydanticSerializer(use_fastdepends_errors=True),
+                dependency_provider=Provider(),
+            )
+        )
         assert schema == {
             "properties": {"a": IsPartialDict({"title": "A"})},
             "title": "handler",
@@ -51,19 +82,32 @@ class TestNoType:
         }, schema
 
     def test_no_type_with_default_and_embed(self) -> None:
-        def handler(a=None) -> None:
+        def handler(a=None):
             pass
 
-        schema = get_schema(build_call_model(handler), embed=True)
+        schema = get_schema(
+            build_call_model(
+                handler,
+                serializer_cls=PydanticSerializer(use_fastdepends_errors=True),
+                dependency_provider=Provider(),
+            ),
+            embed=True,
+        )
         assert schema == IsPartialDict({"title": "A"}), schema
 
 
 class TestOneArg:
     def test_one_arg(self) -> None:
-        def handler(a: int) -> None:
+        def handler(a: int):
             pass
 
-        schema = get_schema(build_call_model(handler))
+        schema = get_schema(
+            build_call_model(
+                handler,
+                serializer_cls=PydanticSerializer(use_fastdepends_errors=True),
+                dependency_provider=Provider(),
+            )
+        )
         assert schema == {
             "properties": {"a": {"title": "A", "type": "integer"}},
             "required": ["a"],
@@ -75,14 +119,27 @@ class TestOneArg:
         def handler(a: int) -> None:
             pass
 
-        schema = get_schema(build_call_model(handler), embed=True)
+        schema = get_schema(
+            build_call_model(
+                handler,
+                serializer_cls=PydanticSerializer(use_fastdepends_errors=True),
+                dependency_provider=Provider(),
+            ),
+            embed=True,
+        )
         assert schema == {"title": "A", "type": "integer"}, schema
 
     def test_one_arg_with_optional(self) -> None:
         def handler(a: Optional[int]) -> None:
             pass
 
-        schema = get_schema(build_call_model(handler))
+        schema = get_schema(
+            build_call_model(
+                handler,
+                serializer_cls=PydanticSerializer(use_fastdepends_errors=True),
+                dependency_provider=Provider(),
+            )
+        )
         assert schema == {
             "properties": {
                 "a": IsDict(
@@ -99,7 +156,13 @@ class TestOneArg:
         def handler(a: int = 0) -> None:
             pass
 
-        schema = get_schema(build_call_model(handler))
+        schema = get_schema(
+            build_call_model(
+                handler,
+                serializer_cls=PydanticSerializer(use_fastdepends_errors=True),
+                dependency_provider=Provider(),
+            )
+        )
         assert schema == {
             "properties": {"a": {"default": 0, "title": "A", "type": "integer"}},
             "title": "handler",
@@ -110,7 +173,14 @@ class TestOneArg:
         def handler(a: int = 0) -> None:
             pass
 
-        schema = get_schema(build_call_model(handler), embed=True)
+        schema = get_schema(
+            build_call_model(
+                handler,
+                serializer_cls=PydanticSerializer(use_fastdepends_errors=True),
+                dependency_provider=Provider(),
+            ),
+            embed=True,
+        )
         assert schema == {"default": 0, "title": "A", "type": "integer"}, schema
 
 
@@ -122,7 +192,13 @@ class TestOneArgWithModel:
         def handler(a: Model) -> None:
             pass
 
-        schema = get_schema(build_call_model(handler))
+        schema = get_schema(
+            build_call_model(
+                handler,
+                serializer_cls=PydanticSerializer(use_fastdepends_errors=True),
+                dependency_provider=Provider(),
+            )
+        )
         assert schema == {
             REF_KEY: {
                 "Model": {
@@ -145,7 +221,14 @@ class TestOneArgWithModel:
         def handler(a: Model) -> None:
             pass
 
-        schema = get_schema(build_call_model(handler), resolve_refs=True)
+        schema = get_schema(
+            build_call_model(
+                handler,
+                serializer_cls=PydanticSerializer(use_fastdepends_errors=True),
+                dependency_provider=Provider(),
+            ),
+            resolve_refs=True,
+        )
         assert schema == {
             "properties": {
                 "a": {
@@ -167,7 +250,14 @@ class TestOneArgWithModel:
         def handler(a: Optional[Model] = None) -> None:
             pass
 
-        schema = get_schema(build_call_model(handler), resolve_refs=True)
+        schema = get_schema(
+            build_call_model(
+                handler,
+                serializer_cls=PydanticSerializer(use_fastdepends_errors=True),
+                dependency_provider=Provider(),
+            ),
+            resolve_refs=True,
+        )
         assert schema == {
             "properties": {
                 "a": IsDict(
@@ -204,7 +294,15 @@ class TestOneArgWithModel:
         def handler(a: Optional[Model]) -> None:
             pass
 
-        schema = get_schema(build_call_model(handler), resolve_refs=True, embed=True)
+        schema = get_schema(
+            build_call_model(
+                handler,
+                serializer_cls=PydanticSerializer(use_fastdepends_errors=True),
+                dependency_provider=Provider(),
+            ),
+            resolve_refs=True,
+            embed=True,
+        )
         assert schema == IsDict(
             {
                 "anyOf": [
@@ -236,7 +334,14 @@ class TestOneArgWithModel:
         def handler(a: Model) -> None:
             pass
 
-        schema = get_schema(build_call_model(handler), resolve_refs=True)
+        schema = get_schema(
+            build_call_model(
+                handler,
+                serializer_cls=PydanticSerializer(use_fastdepends_errors=True),
+                dependency_provider=Provider(),
+            ),
+            resolve_refs=True,
+        )
         assert schema == {
             "properties": {
                 "a": {
@@ -265,7 +370,15 @@ class TestOneArgWithModel:
         def handler(a: Model) -> None:
             pass
 
-        schema = get_schema(build_call_model(handler), resolve_refs=True, embed=True)
+        schema = get_schema(
+            build_call_model(
+                handler,
+                serializer_cls=PydanticSerializer(use_fastdepends_errors=True),
+                dependency_provider=Provider(),
+            ),
+            resolve_refs=True,
+            embed=True,
+        )
         assert schema == {
             "properties": {"a": {"title": "A", "type": "integer"}},
             "required": ["a"],
@@ -283,7 +396,15 @@ class TestOneArgWithModel:
         def handler(a: Model) -> None:
             pass
 
-        schema = get_schema(build_call_model(handler), resolve_refs=True, embed=True)
+        schema = get_schema(
+            build_call_model(
+                handler,
+                serializer_cls=PydanticSerializer(use_fastdepends_errors=True),
+                dependency_provider=Provider(),
+            ),
+            resolve_refs=True,
+            embed=True,
+        )
         assert schema == {
             "properties": {
                 "a": {
@@ -304,7 +425,13 @@ class TestMultiArgs:
         def handler(a, b) -> None:
             pass
 
-        schema = get_schema(build_call_model(handler))
+        schema = get_schema(
+            build_call_model(
+                handler,
+                serializer_cls=PydanticSerializer(use_fastdepends_errors=True),
+                dependency_provider=Provider(),
+            )
+        )
         assert schema == {
             "properties": {"a": {"title": "A"}, "b": {"title": "B"}},
             "required": ["a", "b"],
@@ -316,7 +443,13 @@ class TestMultiArgs:
         def handler(a: str, b: int = 0) -> None:
             pass
 
-        schema = get_schema(build_call_model(handler))
+        schema = get_schema(
+            build_call_model(
+                handler,
+                serializer_cls=PydanticSerializer(use_fastdepends_errors=True),
+                dependency_provider=Provider(),
+            )
+        )
         assert schema == {
             "properties": {
                 "a": {"title": "A", "type": "string"},
@@ -331,7 +464,14 @@ class TestMultiArgs:
         def handler(a: str, b: int = 0) -> None:
             pass
 
-        schema = get_schema(build_call_model(handler), embed=True)
+        schema = get_schema(
+            build_call_model(
+                handler,
+                serializer_cls=PydanticSerializer(use_fastdepends_errors=True),
+                dependency_provider=Provider(),
+            ),
+            embed=True,
+        )
         assert schema == {
             "properties": {
                 "a": {"title": "A", "type": "string"},
@@ -349,7 +489,13 @@ class TestMultiArgs:
         def handler(a: str, b: Model) -> None:
             pass
 
-        schema = get_schema(build_call_model(handler))
+        schema = get_schema(
+            build_call_model(
+                handler,
+                serializer_cls=PydanticSerializer(use_fastdepends_errors=True),
+                dependency_provider=Provider(),
+            )
+        )
         assert schema == {
             REF_KEY: {
                 "Model": {
@@ -381,7 +527,14 @@ class TestMultiArgs:
         def handler(a: str, b: Model) -> None:
             pass
 
-        schema = get_schema(build_call_model(handler), resolve_refs=True)
+        schema = get_schema(
+            build_call_model(
+                handler,
+                serializer_cls=PydanticSerializer(use_fastdepends_errors=True),
+                dependency_provider=Provider(),
+            ),
+            resolve_refs=True,
+        )
         assert schema == {
             "properties": {
                 "a": {"title": "A", "type": "string"},
@@ -423,7 +576,12 @@ def test_depends() -> None:
     ) -> None: ...
 
     schema = get_schema(
-        build_call_model(handler, extra_dependencies=(Depends(dep4),)),
+        build_call_model(
+            handler,
+            extra_dependencies=(Depends(dep4),),
+            serializer_cls=PydanticSerializer(use_fastdepends_errors=True),
+            dependency_provider=Provider(),
+        ),
         resolve_refs=True,
         embed=True,
     )

@@ -1,4 +1,5 @@
-from fast_depends import Depends, inject, dependency_provider
+from fast_depends import Depends, dependency_provider, inject
+
 
 def original_dependency():
     raise NotImplementedError()

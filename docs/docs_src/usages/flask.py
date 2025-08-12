@@ -1,6 +1,7 @@
 from flask import Flask
-from fast_depends import inject, Depends
 from pydantic import Field
+
+from fast_depends import Depends, inject
 
 app = Flask(__name__)
 

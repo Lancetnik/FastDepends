@@ -1,5 +1,7 @@
-from fast_depends import Depends, inject
 from pydantic import BaseModel, PositiveInt
+
+from fast_depends import Depends, inject
+
 
 class User(BaseModel):
     user_id: PositiveInt

@@ -1,19 +1,21 @@
 import asyncio
 import functools
 import inspect
-from contextlib import AsyncExitStack, ExitStack, asynccontextmanager, contextmanager
+from collections.abc import AsyncGenerator, AsyncIterable, Awaitable
+from contextlib import (
+    AbstractContextManager,
+    AsyncExitStack,
+    ExitStack,
+    asynccontextmanager,
+    contextmanager,
+)
 from typing import (
     TYPE_CHECKING,
+    Annotated,
     Any,
-    AsyncGenerator,
-    AsyncIterable,
-    Awaitable,
     Callable,
-    ContextManager,
-    Dict,
     ForwardRef,
-    List,
-    Tuple,
+    Optional,
     TypeVar,
     Union,
     cast,
@@ -21,13 +23,12 @@ from typing import (
 
 import anyio
 from typing_extensions import (
-    Annotated,
     ParamSpec,
     get_args,
     get_origin,
 )
 
-from fast_depends._compat import evaluate_forwardref, partial
+from fast_depends._compat import evaluate_forwardref
 
 if TYPE_CHECKING:
     from types import FrameType
@@ -51,7 +52,9 @@ async def run_async(
 
 
 async def run_in_threadpool(
-    func: Callable[P, T], *args: P.args, **kwargs: P.kwargs
+    func: Callable[P, T],
+    *args: P.args,
+    **kwargs: P.kwargs,
 ) -> T:
     if kwargs:
         func = functools.partial(func, **kwargs)
@@ -59,7 +62,10 @@ async def run_in_threadpool(
 
 
 async def solve_generator_async(
-    *sub_args: Any, call: Callable[..., Any], stack: AsyncExitStack, **sub_values: Any
+    *sub_args: Any,
+    call: Callable[..., Any],
+    stack: AsyncExitStack,
+    **sub_values: Any,
 ) -> Any:
     if is_gen_callable(call):
         cm = contextmanager_in_threadpool(contextmanager(call)(**sub_values))
@@ -69,19 +75,24 @@ async def solve_generator_async(
 
 
 def solve_generator_sync(
-    *sub_args: Any, call: Callable[..., Any], stack: ExitStack, **sub_values: Any
+    *sub_args: Any,
+    call: Callable[..., Any],
+    stack: ExitStack,
+    **sub_values: Any,
 ) -> Any:
     cm = contextmanager(call)(*sub_args, **sub_values)
     return stack.enter_context(cm)
 
 
-def get_typed_signature(call: Callable[..., Any]) -> Tuple[inspect.Signature, Any]:
+def get_typed_signature(call: Callable[..., Any]) -> tuple[inspect.Signature, Any]:
     signature = inspect.signature(call)
 
     locals = collect_outer_stack_locals()
 
     # We unwrap call to get the original unwrapped function
     call = inspect.unwrap(call)
+
+    type_params = getattr(call, "__type_params__", ()) or None
 
     globalns = getattr(call, "__globals__", {})
     typed_params = [
@@ -93,6 +104,7 @@ def get_typed_signature(call: Callable[..., Any]) -> Tuple[inspect.Signature, An
                 param.annotation,
                 globalns,
                 locals,
+                type_params=type_params,
             ),
         )
         for param in signature.parameters.values()
@@ -102,13 +114,14 @@ def get_typed_signature(call: Callable[..., Any]) -> Tuple[inspect.Signature, An
         signature.return_annotation,
         globalns,
         locals,
+        type_params=type_params,
     )
 
 
-def collect_outer_stack_locals() -> Dict[str, Any]:
+def collect_outer_stack_locals() -> dict[str, Any]:
     frame = inspect.currentframe()
 
-    frames: List[FrameType] = []
+    frames: list[FrameType] = []
     while frame is not None:
         if "fast_depends" not in frame.f_code.co_filename:
             frames.append(frame)
@@ -123,19 +136,27 @@ def collect_outer_stack_locals() -> Dict[str, Any]:
 
 def get_typed_annotation(
     annotation: Any,
-    globalns: Dict[str, Any],
-    locals: Dict[str, Any],
+    globalns: dict[str, Any],
+    locals: dict[str, Any],
+    type_params: Optional[tuple[Any, ...]] = None,
 ) -> Any:
     if isinstance(annotation, str):
         annotation = ForwardRef(annotation)
 
     if isinstance(annotation, ForwardRef):
-        annotation = evaluate_forwardref(annotation, globalns, locals)
+        annotation = evaluate_forwardref(
+            annotation, globalns, locals, type_params=type_params
+        )
 
     if get_origin(annotation) is Annotated and (args := get_args(annotation)):
-        solved_args = [get_typed_annotation(x, globalns, locals) for x in args]
-        annotation.__origin__, annotation.__metadata__ = solved_args[0], tuple(
-            solved_args[1:]
+        solved_args = [
+            get_typed_annotation(x, globalns, locals, type_params=type_params)
+            for x in args
+        ]
+
+        annotation.__origin__, annotation.__metadata__ = (
+            solved_args[0],
+            tuple(solved_args[1:]),
         )
 
     return annotation
@@ -143,7 +164,7 @@ def get_typed_annotation(
 
 @asynccontextmanager
 async def contextmanager_in_threadpool(
-    cm: ContextManager[T],
+    cm: AbstractContextManager[T],
 ) -> AsyncGenerator[T, None]:
     exit_limiter = anyio.CapacityLimiter(1)
     try:
@@ -192,16 +213,3 @@ async def async_map(
 ) -> AsyncIterable[T]:
     async for i in async_iterable:
         yield func(i)
-
-
-class solve_wrapper(partial[T]):
-    call: Callable[..., T]
-
-    def __new__(
-        cls, func: Callable[..., T], *args: Any, **kwargs: Any,
-    ) -> "solve_wrapper[T]":
-        assert len(args) > 0, "Model should be passed as first argument"
-        model = args[0]
-        self = super().__new__(cls, func, *args, **kwargs)
-        self.call = model.call
-        return self

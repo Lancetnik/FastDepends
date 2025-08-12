@@ -1,5 +1,7 @@
 import asyncio
-from fast_depends import inject, Depends
+
+from fast_depends import Depends, inject
+
 
 async def simple_dependency(a: int, b: int = 3):
     return a + b

@@ -1,97 +1,100 @@
 import logging
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from functools import partial
-from typing import AsyncGenerator
+from typing import Annotated
 from unittest.mock import Mock
 
 import pytest
-from pydantic import ValidationError
-from typing_extensions import Annotated
 
 from fast_depends import Depends, inject
+from fast_depends.exceptions import ValidationError
+from tests.marks import serializer
 
 
 @pytest.mark.anyio
-async def test_depends():
-    async def dep_func(b: int, a: int = 3) -> float:
+async def test_depends() -> None:
+    async def dep_func(b, a=3):
         return a + b
 
     @inject
-    async def some_func(b: int, c=Depends(dep_func)) -> int:
-        assert isinstance(c, float)
+    async def some_func(b: int, c=Depends(dep_func)):
         return b + c
 
-    assert (await some_func("2")) == 7
+    assert (await some_func(2)) == 7
 
 
 @pytest.mark.anyio
-async def test_empty_main_body():
-    async def dep_func(a: int) -> float:
-        return a
+async def test_ignore_depends_if_setted_manual() -> None:
+    mock = Mock()
+
+    async def dep_func(a, b) -> int:
+        mock(a, b)
+        return a + b
 
     @inject
-    async def some_func(c=Depends(dep_func)):
-        assert isinstance(c, float)
-        assert c == 1.0
+    async def some_func(c=Depends(dep_func)) -> int:
+        return c
 
-    await some_func("1")
+    assert (await some_func(c=2)) == 2
+    assert not mock.called
 
-
-@pytest.mark.anyio
-async def test_sync_depends():
-    def sync_dep_func(a: int) -> float:
-        return a
-
-    @inject
-    async def some_func(a: int, b: int, c=Depends(sync_dep_func)) -> float:
-        assert isinstance(c, float)
-        return a + b + c
-
-    assert await some_func("1", "2")
+    assert (await some_func(1, 2)) == 3
+    mock.assert_called_once_with(1, 2)
 
 
 @pytest.mark.anyio
-async def test_depends_response_cast():
+async def test_empty_main_body() -> None:
     async def dep_func(a):
         return a
 
     @inject
-    async def some_func(a: int, b: int, c: int = Depends(dep_func)) -> float:
-        assert isinstance(c, int)
-        return a + b + c
+    async def some_func(c=Depends(dep_func)):
+        return c
 
-    assert await some_func("1", "2")
+    assert await some_func("1") == "1"
 
 
 @pytest.mark.anyio
-async def test_depends_error():
-    async def dep_func(b: dict, a: int = 3) -> float:  # pragma: no cover
-        return a + b
-
-    async def another_dep_func(b: int, a: int = 3) -> dict:  # pragma: no cover
-        return a + b
-
-    @inject
-    async def some_func(
-        b: int, c=Depends(dep_func), d=Depends(another_dep_func)
-    ) -> int:  # pragma: no cover
-        assert c is None
+async def test_empty_main_body_multiple_args() -> None:
+    def dep2(b):
         return b
 
-    with pytest.raises(ValidationError):
-        assert await some_func("2")
+    async def dep(a):
+        return a
+
+    @inject()
+    async def handler(d=Depends(dep2), c=Depends(dep)):
+        return d, c
+
+    assert await handler(a=1, b=2) == (2, 1)
+    assert await handler(1, b=2) == (2, 1)
+    assert await handler(1, a=2) == (1, 2)
+    assert await handler(1, 2) == (1, 1)  # all dependencies takes the first arg
 
 
 @pytest.mark.anyio
-async def test_depends_annotated():
+async def test_sync_depends() -> None:
+    def sync_dep_func(a):
+        return a
+
+    @inject
+    async def some_func(a: int, b: int, c=Depends(sync_dep_func)):
+        return a + b + c
+
+    assert await some_func(1, 2) == 4
+
+
+@pytest.mark.anyio
+async def test_depends_annotated() -> None:
     async def dep_func(a):
         return a
 
     D = Annotated[int, Depends(dep_func)]
 
     @inject
-    async def some_func(a: int, b: int, c: D = None) -> float:
+    async def some_func(a: int, b: int, c: D):
         assert isinstance(c, int)
         return a + b + c
 
@@ -99,37 +102,12 @@ async def test_depends_annotated():
     async def another_func(a: int, c: D):
         return a + c
 
-    assert await some_func("1", "2")
-    assert (await another_func(3)) == 6.0
+    assert await some_func(1, 2) == 4
+    assert (await another_func(3)) == 6
 
 
 @pytest.mark.anyio
-async def test_async_depends_annotated_str():
-    async def dep_func(a):
-        return a
-
-    @inject
-    async def some_func(
-        a: int,
-        b: int,
-        c: "Annotated[int, Depends(dep_func)]",
-    ) -> float:
-        assert isinstance(c, int)
-        return a + b + c
-
-    @inject
-    async def another_func(
-        a: int,
-        c: "Annotated[int, Depends(dep_func)]",
-    ):
-        return a + c
-
-    assert await some_func("1", "2")
-    assert await another_func("3") == 6.0
-
-
-@pytest.mark.anyio
-async def test_async_depends_annotated_str_partial():
+async def test_async_depends_annotated_str_partial() -> None:
     async def adep_func(a):
         return a
 
@@ -138,8 +116,7 @@ async def test_async_depends_annotated_str_partial():
         a: int,
         b: int,
         c: Annotated["float", Depends(adep_func)],
-    ) -> float:
-        assert isinstance(c, float)
+    ):
         return a + b + c
 
     @inject
@@ -149,12 +126,12 @@ async def test_async_depends_annotated_str_partial():
     ):
         return a + c
 
-    assert await some_func("1", "2")
-    assert await another_func("3") == 6.0
+    assert await some_func(1, 2) == 4
+    assert (await another_func(3)) == 6
 
 
 @pytest.mark.anyio
-async def test_cache():
+async def test_cache() -> None:
     mock = Mock()
 
     async def nested_dep_func():
@@ -174,7 +151,7 @@ async def test_cache():
 
 
 @pytest.mark.anyio
-async def test_not_cache():
+async def test_not_cache() -> None:
     mock = Mock()
 
     async def nested_dep_func():
@@ -197,7 +174,7 @@ async def test_not_cache():
 
 
 @pytest.mark.anyio
-async def test_yield():
+async def test_yield() -> None:
     mock = Mock()
 
     async def dep_func():
@@ -217,7 +194,7 @@ async def test_yield():
 
 
 @pytest.mark.anyio
-async def test_sync_yield():
+async def test_sync_yield() -> None:
     mock = Mock()
 
     def sync_dep_func():
@@ -237,7 +214,7 @@ async def test_sync_yield():
 
 
 @pytest.mark.anyio
-async def test_sync_yield_exception():
+async def test_sync_yield_exception() -> None:
     mock = Mock()
 
     def sync_dep_func():
@@ -259,7 +236,7 @@ async def test_sync_yield_exception():
 
 
 @pytest.mark.anyio
-async def test_sync_yield_exception_start():
+async def test_sync_yield_exception_start() -> None:
     mock = Mock()
 
     def sync_dep_func():
@@ -277,7 +254,7 @@ async def test_sync_yield_exception_start():
 
 
 @pytest.mark.anyio
-async def test_sync_yield_exception_main():
+async def test_sync_yield_exception_main() -> None:
     mock = Mock()
 
     def sync_dep_func():
@@ -301,7 +278,23 @@ async def test_sync_yield_exception_main():
 
 
 @pytest.mark.anyio
-async def test_class_depends():
+async def test_nested_yield_with_inject() -> None:
+    async def dep_c():
+        yield ["foo"]
+
+    @inject
+    async def dep_b(c=Depends(dep_c)):
+        yield c
+
+    @inject
+    async def a(b=Depends(dep_b)):
+        return b[0]
+
+    assert await a() == "foo"
+
+
+@pytest.mark.anyio
+async def test_class_depends() -> None:
     class MyDep:
         def __init__(self, a: int):
             self.a = a
@@ -316,7 +309,7 @@ async def test_class_depends():
 
 
 @pytest.mark.anyio
-async def test_callable_class_depends():
+async def test_callable_class_depends() -> None:
     class MyDep:
         def __init__(self, a: int):
             self.a = a
@@ -333,7 +326,7 @@ async def test_callable_class_depends():
 
 
 @pytest.mark.anyio
-async def test_async_callable_class_depends():
+async def test_async_callable_class_depends() -> None:
     class MyDep:
         def __init__(self, a: int):
             self.a = a
@@ -350,32 +343,7 @@ async def test_async_callable_class_depends():
 
 
 @pytest.mark.anyio
-async def test_not_cast():
-    @dataclass
-    class A:
-        a: int
-
-    async def dep() -> A:
-        return A(a=1)
-
-    async def get_logger() -> logging.Logger:
-        return logging.getLogger(__file__)
-
-    @inject
-    async def some_func(
-        b,
-        a: A = Depends(dep, cast=False),
-        logger: logging.Logger = Depends(get_logger, cast=False),
-    ):
-        assert a.a == 1
-        assert logger
-        return b
-
-    assert (await some_func(1)) == 1
-
-
-@pytest.mark.anyio
-async def test_not_cast_main():
+async def test_not_cast_main() -> None:
     @dataclass
     class A:
         a: int
@@ -400,7 +368,7 @@ async def test_not_cast_main():
 
 
 @pytest.mark.anyio
-async def test_extra():
+async def test_extra() -> None:
     mock = Mock()
 
     async def dep():
@@ -420,10 +388,13 @@ async def test_extra():
 
 
 @pytest.mark.anyio
-async def test_generator():
+async def test_generator() -> None:
     mock = Mock()
 
-    async def func():
+    def sync_simple_func():
+        mock.sync_call()
+
+    async def async_simple_func():
         mock.async_call()
 
     async def gen_func():
@@ -434,23 +405,25 @@ async def test_generator():
     @inject
     async def simple_func(
         a: str,
-        d=Depends(gen_func),
-        d2=Depends(func),
-    ) -> int:
+        d=Depends(async_simple_func),
+        d2=Depends(sync_simple_func),
+        d3=Depends(gen_func),
+    ):
         for _ in range(2):
             yield a
 
     async for i in simple_func("1"):
         mock.start.assert_called_once()
         assert not mock.end.called
-        assert i == 1
+        assert i == "1"
 
+    mock.sync_call.assert_called_once()
     mock.async_call.assert_called_once()
     mock.end.assert_called_once()
 
 
 @pytest.mark.anyio
-async def test_partial():
+async def test_partial() -> None:
     async def dep(a):
         return a
 
@@ -461,8 +434,97 @@ async def test_partial():
     assert await func() == 10
 
 
+@serializer
 @pytest.mark.anyio
-async def test_default_key_value():
+class TestSerializer:
+    @pytest.mark.anyio
+    async def test_not_cast(self) -> None:
+        @dataclass
+        class A:
+            a: int
+
+        async def dep1() -> A:
+            return {"a": 1}
+
+        async def dep2() -> A:
+            return {"a": 1}
+
+        async def dep3() -> A:
+            return 1
+
+        async def get_logger() -> logging.Logger:
+            return logging.getLogger(__file__)
+
+        @inject
+        async def some_func(
+            b,
+            a1: A = Depends(dep1, cast=False, cast_result=True),
+            a2: A = Depends(dep2, cast=True, cast_result=False),
+            a3: A = Depends(dep3, cast=False, cast_result=False),
+            logger: logging.Logger = Depends(get_logger),
+        ):
+            assert a1.a == 1
+            assert a2.a == 1
+            assert a3 == 1
+            assert logger
+            return b
+
+        assert (await some_func(1)) == 1
+
+    async def test_depends_error(self) -> None:
+        async def dep_func(b: dict, a: int = 3) -> float:  # pragma: no cover
+            return a + b
+
+        async def another_dep_func(b: int, a: int = 3) -> dict:  # pragma: no cover
+            return a + b
+
+        @inject
+        async def some_func(
+            b: int, c=Depends(dep_func), d=Depends(another_dep_func)
+        ) -> int:  # pragma: no cover
+            assert c is None
+            return b
+
+        with pytest.raises(ValidationError):
+            assert await some_func("2")
+
+    async def test_depends_response_cast(self) -> None:
+        async def dep_func(a):
+            return a
+
+        @inject
+        async def some_func(a: int, b: int, c: int = Depends(dep_func)) -> float:
+            assert isinstance(c, int)
+            return a + b + c
+
+        assert await some_func("1", "2")
+
+    async def test_async_depends_annotated_str(self) -> None:
+        async def dep_func(a):
+            return a
+
+        @inject
+        async def some_func(
+            a: int,
+            b: int,
+            c: "Annotated[int, Depends(dep_func)]",
+        ) -> float:
+            assert isinstance(c, int)
+            return a + b + c
+
+        @inject
+        async def another_func(
+            a: int,
+            c: "Annotated[int, Depends(dep_func)]",
+        ):
+            return a + c
+
+        assert await some_func("1", "2")
+        assert await another_func("3") == 6.0
+
+
+@pytest.mark.anyio
+async def test_default_key_value() -> None:
     async def dep(a: str = "a"):
         return a
 
@@ -474,7 +536,7 @@ async def test_default_key_value():
 
 
 @pytest.mark.anyio
-async def test_asynccontextmanager():
+async def test_asynccontextmanager() -> None:
     async def dep(a: str):
         return a
 
@@ -488,25 +550,7 @@ async def test_asynccontextmanager():
 
 
 @pytest.mark.anyio
-async def test_asyncgenerator_iter():
-    # ref: https://github.com/Lancetnik/FastDepends/issues/165
-
-    async def simple_dependency(a: int, b: int = 3):
-        return a + b
-
-    @inject
-    async def method(a: int, d: int = Depends(simple_dependency)) -> AsyncGenerator[int, None]:
-        for i in range(a + d):
-            yield i
-
-    iterator = method(5)
-
-    assert len([v async for v in iterator]) == 13
-    assert len([v async for v in iterator]) == 0
-
-
-@pytest.mark.anyio
-async def test_solve_wrapper():
+async def test_solve_wrapper() -> None:
     @inject
     async def dep1(a: int):
         yield a + 1
@@ -519,3 +563,23 @@ async def test_solve_wrapper():
         return a, b, c
 
     assert await func(1) == (1, 2, 3)
+
+
+@pytest.mark.anyio
+async def test_asyncgenerator_iter() -> None:
+    # ref: https://github.com/Lancetnik/FastDepends/issues/165
+
+    async def simple_dependency(a: int, b: int = 3) -> int:
+        return a + b
+
+    @inject
+    async def method(
+        a: int, d: int = Depends(simple_dependency)
+    ) -> AsyncGenerator[int, None]:
+        for i in range(a + d):
+            yield i
+
+    iterator = method(5)
+
+    assert len([v async for v in iterator]) == 13
+    assert len([v async for v in iterator]) == 0

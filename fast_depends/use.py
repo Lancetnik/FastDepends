@@ -1,13 +1,12 @@
+from collections.abc import AsyncIterator, Iterator, Sequence
 from contextlib import AsyncExitStack, ExitStack
-from functools import wraps
+from functools import partial, wraps
 from typing import (
+    TYPE_CHECKING,
     Any,
-    AsyncIterator,
     Callable,
-    Iterator,
     Optional,
     Protocol,
-    Sequence,
     TypeVar,
     Union,
     cast,
@@ -16,60 +15,89 @@ from typing import (
 
 from typing_extensions import ParamSpec
 
-from fast_depends._compat import ConfigDict
 from fast_depends.core import CallModel, build_call_model
-from fast_depends.dependencies import dependency_provider, model
-from fast_depends.utils import solve_wrapper
+from fast_depends.dependencies import Dependant, Provider
+from fast_depends.library.serializer import SerializerProto
+
+SerializerCls: Optional["SerializerProto"] = None
+
+if SerializerCls is None:
+    try:
+        from fast_depends.pydantic import PydanticSerializer
+
+        SerializerCls = PydanticSerializer()
+    except ImportError:
+        pass
+
+if SerializerCls is None:
+    try:
+        from fast_depends.msgspec import MsgSpecSerializer
+
+        SerializerCls = MsgSpecSerializer()
+    except ImportError:
+        pass
+
 
 P = ParamSpec("P")
 T = TypeVar("T")
 
+if TYPE_CHECKING:
+    from fast_depends.library.serializer import SerializerProto
+
+    class InjectWrapper(Protocol[P, T]):
+        def __call__(
+            self,
+            func: Callable[P, T],
+            model: Optional[CallModel] = None,
+        ) -> Callable[P, T]:
+            ...
+
+
+global_provider = Provider()
+
 
 def Depends(
-    dependency: Callable[P, T],
+    dependency: Callable[..., Any],
     *,
     use_cache: bool = True,
     cast: bool = True,
+    cast_result: bool = False,
 ) -> Any:
-    return model.Depends(
+    return Dependant(
         dependency=dependency,
         use_cache=use_cache,
         cast=cast,
+        cast_result=cast_result,
     )
 
 
-class _InjectWrapper(Protocol[P, T]):
-    def __call__(
-        self,
-        func: Callable[P, T],
-        model: Optional[CallModel[P, T]] = None,
-    ) -> Callable[P, T]:
-        ...
-
-
 @overload
-def inject(  # pragma: no cover
-    func: None,
+def inject(
+    func: Callable[P, T],
     *,
     cast: bool = True,
-    extra_dependencies: Sequence[model.Depends] = (),
-    pydantic_config: Optional[ConfigDict] = None,
-    dependency_overrides_provider: Optional[Any] = dependency_provider,
-    wrap_model: Callable[[CallModel[P, T]], CallModel[P, T]] = lambda x: x,
-) -> _InjectWrapper[P, T]:
+    cast_result: bool = True,
+    extra_dependencies: Sequence["Dependant"] = (),
+    dependency_provider: Optional["Provider"] = None,
+    wrap_model: Callable[["CallModel"], "CallModel"] = lambda x: x,
+    serializer_cls: Optional["SerializerProto"] = SerializerCls,
+    **call_extra: Any,
+) -> Callable[P, T]:
     ...
 
 
 @overload
-def inject(  # pragma: no cover
-    func: Callable[P, T],
+def inject(
+    func: None = None,
     *,
     cast: bool = True,
-    extra_dependencies: Sequence[model.Depends] = (),
-    pydantic_config: Optional[ConfigDict] = None,
-    dependency_overrides_provider: Optional[Any] = dependency_provider,
-    wrap_model: Callable[[CallModel[P, T]], CallModel[P, T]] = lambda x: x,
-) -> Callable[P, T]:
+    cast_result: bool = True,
+    extra_dependencies: Sequence["Dependant"] = (),
+    dependency_provider: Optional["Provider"] = None,
+    wrap_model: Callable[["CallModel"], "CallModel"] = lambda x: x,
+    serializer_cls: Optional["SerializerProto"] = SerializerCls,
+    **call_extra: Any,
+) -> "InjectWrapper[P, T]":
     ...
 
 
@@ -77,59 +105,54 @@ def inject(
     func: Optional[Callable[P, T]] = None,
     *,
     cast: bool = True,
-    extra_dependencies: Sequence[model.Depends] = (),
-    pydantic_config: Optional[ConfigDict] = None,
-    dependency_overrides_provider: Optional[Any] = dependency_provider,
-    wrap_model: Callable[[CallModel[P, T]], CallModel[P, T]] = lambda x: x,
-) -> Union[
-    Callable[P, T],
-    _InjectWrapper[P, T],
-]:
+    cast_result: bool = True,
+    extra_dependencies: Sequence[Dependant] = (),
+    dependency_provider: Optional["Provider"] = None,
+    wrap_model: Callable[["CallModel"], "CallModel"] = lambda x: x,
+    serializer_cls: Optional["SerializerProto"] = SerializerCls,
+    **call_extra: Any,
+) -> Union[Callable[P, T], "InjectWrapper[P, T]"]:
+    if dependency_provider is None:
+        dependency_provider = global_provider
+
+    if not cast:
+        serializer_cls = None
+
     decorator = _wrap_inject(
-        dependency_overrides_provider=dependency_overrides_provider,
+        dependency_provider=dependency_provider,
         wrap_model=wrap_model,
         extra_dependencies=extra_dependencies,
-        cast=cast,
-        pydantic_config=pydantic_config,
+        serializer_cls=serializer_cls,
+        cast_result=cast_result,
+        **call_extra,
     )
 
     if func is None:
         return decorator
-
-    else:
-        return decorator(func)
+    return decorator(func)
 
 
 def _wrap_inject(
-    dependency_overrides_provider: Optional[Any],
-    wrap_model: Callable[
-        [CallModel[P, T]],
-        CallModel[P, T],
-    ],
-    extra_dependencies: Sequence[model.Depends],
-    cast: bool,
-    pydantic_config: Optional[ConfigDict],
-) -> _InjectWrapper[P, T]:
-    if (
-        dependency_overrides_provider
-        and getattr(dependency_overrides_provider, "dependency_overrides", None)
-        is not None
-    ):
-        overrides = dependency_overrides_provider.dependency_overrides
-    else:
-        overrides = None
-
+    *,
+    dependency_provider: "Provider",
+    wrap_model: Callable[["CallModel"], "CallModel"],
+    extra_dependencies: Sequence[Dependant],
+    serializer_cls: Optional["SerializerProto"],
+    cast_result: bool,
+    **call_extra: Any,
+) -> "InjectWrapper[P, T]":
     def func_wrapper(
         func: Callable[P, T],
-        model: Optional[CallModel[P, T]] = None,
+        model: Optional["CallModel"] = None,
     ) -> Callable[P, T]:
         if model is None:
             real_model = wrap_model(
                 build_call_model(
                     call=func,
                     extra_dependencies=extra_dependencies,
-                    cast=cast,
-                    pydantic_config=pydantic_config,
+                    dependency_provider=dependency_provider,
+                    serializer_cls=serializer_cls,
+                    serialize_result=cast_result,
                 )
             )
         else:
@@ -139,47 +162,48 @@ def _wrap_inject(
             injected_wrapper: Callable[P, T]
 
             if real_model.is_generator:
-                injected_wrapper = solve_wrapper(solve_async_gen, real_model, overrides)  # type: ignore[assignment]
+                injected_wrapper = partial(  # type: ignore[assignment]
+                    solve_async_gen,
+                    real_model,
+                )
 
             else:
 
-                @wraps(func)
-                async def injected_wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
+                async def injected_wrapper(*args: P.args, **kwargs: P.kwargs) -> T:  # type: ignore[misc]
                     async with AsyncExitStack() as stack:
-                        r = await real_model.asolve(
+                        return await real_model.asolve(  # type: ignore[no-any-return]
                             *args,
                             stack=stack,
-                            dependency_overrides=overrides,
                             cache_dependencies={},
                             nested=False,
-                            **kwargs,
+                            **(call_extra | kwargs),
                         )
-                        return r
 
                     raise AssertionError("unreachable")
 
         else:
             if real_model.is_generator:
-                injected_wrapper = solve_wrapper(solve_gen, real_model, overrides)  # type: ignore[assignment]
+                injected_wrapper = partial(  # type: ignore[assignment]
+                    solve_gen,
+                    real_model,
+                )
 
             else:
 
-                @wraps(func)
                 def injected_wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
                     with ExitStack() as stack:
-                        r = real_model.solve(
+                        return real_model.solve(  # type: ignore[no-any-return]
                             *args,
                             stack=stack,
-                            dependency_overrides=overrides,
                             cache_dependencies={},
                             nested=False,
-                            **kwargs,
+                            **(call_extra | kwargs),
                         )
-                        return r
 
                     raise AssertionError("unreachable")
 
-        return injected_wrapper
+        injected_wrapper._fastdepends_call_ = real_model.call  # type: ignore[attr-defined]
+        return wraps(func)(injected_wrapper)
 
     return func_wrapper
 
@@ -189,15 +213,13 @@ class solve_async_gen:
 
     def __init__(
         self,
-        model: "CallModel[..., Any]",
-        overrides: Optional[Any],
+        model: "CallModel",
         *args: Any,
         **kwargs: Any,
     ):
         self.call = model
         self.args = args
         self.kwargs = kwargs
-        self.overrides = overrides
 
     def __aiter__(self) -> "solve_async_gen":
         self.stack = AsyncExitStack()
@@ -213,7 +235,6 @@ class solve_async_gen:
                     await self.call.asolve(
                         *self.args,
                         stack=stack,
-                        dependency_overrides=self.overrides,
                         cache_dependencies={},
                         nested=False,
                         **self.kwargs,
@@ -223,9 +244,9 @@ class solve_async_gen:
 
         try:
             r = await self._iter.__anext__()
-        except StopAsyncIteration as e:
+        except StopAsyncIteration:
             await self.stack.__aexit__(None, None, None)
-            raise e
+            raise
         else:
             return r
 
@@ -235,15 +256,13 @@ class solve_gen:
 
     def __init__(
         self,
-        model: "CallModel[..., Any]",
-        overrides: Optional[Any],
+        model: "CallModel",
         *args: Any,
         **kwargs: Any,
     ):
         self.call = model
         self.args = args
         self.kwargs = kwargs
-        self.overrides = overrides
 
     def __iter__(self) -> "solve_gen":
         self.stack = ExitStack()
@@ -259,7 +278,6 @@ class solve_gen:
                     self.call.solve(
                         *self.args,
                         stack=stack,
-                        dependency_overrides=self.overrides,
                         cache_dependencies={},
                         nested=False,
                         **self.kwargs,
@@ -269,8 +287,8 @@ class solve_gen:
 
         try:
             r = next(self._iter)
-        except StopIteration as e:
+        except StopIteration:
             self.stack.__exit__(None, None, None)
-            raise e
+            raise
         else:
             return r

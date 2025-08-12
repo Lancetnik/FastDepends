@@ -1,8 +1,9 @@
 import logging
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from functools import partial
-from typing import Annotated, AsyncGenerator
+from typing import Annotated
 from unittest.mock import Mock
 
 import pytest
@@ -67,10 +68,10 @@ async def test_empty_main_body_multiple_args() -> None:
     async def handler(d=Depends(dep2), c=Depends(dep)):
         return d, c
 
-    await handler(a=1, b=2) == (2, 1)
-    await handler(1, b=2) == (2, 1)
-    await handler(1, a=2) == (1, 2)
-    await handler(1, 2) == (1, 1)  # all dependencies takes the first arg
+    assert await handler(a=1, b=2) == (2, 1)
+    assert await handler(1, b=2) == (2, 1)
+    assert await handler(1, a=2) == (1, 2)
+    assert await handler(1, 2) == (1, 1)  # all dependencies takes the first arg
 
 
 @pytest.mark.anyio
@@ -391,12 +392,12 @@ async def test_generator() -> None:
     mock = Mock()
 
     def sync_simple_func():
-        mock.sync_simple()
+        mock.sync_call()
 
-    async def simple_func():
-        mock.simple()
+    async def async_simple_func():
+        mock.async_call()
 
-    async def func():
+    async def gen_func():
         mock.start()
         yield
         mock.end()
@@ -404,9 +405,9 @@ async def test_generator() -> None:
     @inject
     async def simple_func(
         a: str,
-        d3=Depends(sync_simple_func),
-        d2=Depends(simple_func),
-        d=Depends(func),
+        d=Depends(async_simple_func),
+        d2=Depends(sync_simple_func),
+        d3=Depends(gen_func),
     ):
         for _ in range(2):
             yield a
@@ -416,8 +417,8 @@ async def test_generator() -> None:
         assert not mock.end.called
         assert i == "1"
 
-    mock.sync_simple.assert_called_once()
-    mock.simple.assert_called_once()
+    mock.sync_call.assert_called_once()
+    mock.async_call.assert_called_once()
     mock.end.assert_called_once()
 
 

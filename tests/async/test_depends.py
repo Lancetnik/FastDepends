@@ -1,8 +1,9 @@
 import logging
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from functools import partial
-from typing import Annotated, AsyncGenerator
+from typing import Annotated
 from unittest.mock import Mock
 
 import pytest
@@ -67,10 +68,10 @@ async def test_empty_main_body_multiple_args() -> None:
     async def handler(d=Depends(dep2), c=Depends(dep)):
         return d, c
 
-    await handler(a=1, b=2) == (2, 1)
-    await handler(1, b=2) == (2, 1)
-    await handler(1, a=2) == (1, 2)
-    await handler(1, 2) == (1, 1)  # all dependencies takes the first arg
+    assert await handler(a=1, b=2) == (2, 1)
+    assert await handler(1, b=2) == (2, 1)
+    assert await handler(1, a=2) == (1, 2)
+    assert await handler(1, 2) == (1, 1)  # all dependencies takes the first arg
 
 
 @pytest.mark.anyio
@@ -397,6 +398,9 @@ async def test_generator() -> None:
         mock.simple()
 
     async def func():
+        mock.async_call()
+
+    async def gen_func():
         mock.start()
         yield
         mock.end()

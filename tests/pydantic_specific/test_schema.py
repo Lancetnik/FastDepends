@@ -189,7 +189,7 @@ class TestOneArgWithModel:
         class Model(BaseModel):
             a: int
 
-        def handler(a: Model):
+        def handler(a: Model) -> None:
             pass
 
         schema = get_schema(
@@ -218,7 +218,7 @@ class TestOneArgWithModel:
         class Model(BaseModel):
             a: int
 
-        def handler(a: Model):
+        def handler(a: Model) -> None:
             pass
 
         schema = get_schema(
@@ -247,7 +247,7 @@ class TestOneArgWithModel:
         class Model(BaseModel):
             a: int
 
-        def handler(a: Optional[Model] = None):
+        def handler(a: Optional[Model] = None) -> None:
             pass
 
         schema = get_schema(
@@ -291,7 +291,7 @@ class TestOneArgWithModel:
         class Model(BaseModel):
             a: int
 
-        def handler(a: Optional[Model]):
+        def handler(a: Optional[Model]) -> None:
             pass
 
         schema = get_schema(
@@ -331,7 +331,7 @@ class TestOneArgWithModel:
         class Model(BaseModel):
             a: Model2
 
-        def handler(a: Model):
+        def handler(a: Model) -> None:
             pass
 
         schema = get_schema(
@@ -367,7 +367,7 @@ class TestOneArgWithModel:
         class Model(BaseModel):
             a: int
 
-        def handler(a: Model):
+        def handler(a: Model) -> None:
             pass
 
         schema = get_schema(
@@ -393,7 +393,7 @@ class TestOneArgWithModel:
         class Model(BaseModel):
             a: Model2
 
-        def handler(a: Model):
+        def handler(a: Model) -> None:
             pass
 
         schema = get_schema(
@@ -486,7 +486,7 @@ class TestMultiArgs:
         class Model(BaseModel):
             a: int = Field(0, description="description")
 
-        def handler(a: str, b: Model):
+        def handler(a: str, b: Model) -> None:
             pass
 
         schema = get_schema(
@@ -524,7 +524,7 @@ class TestMultiArgs:
         class Model(BaseModel):
             a: int = Field(0, description="description")
 
-        def handler(a: str, b: Model):
+        def handler(a: str, b: Model) -> None:
             pass
 
         schema = get_schema(

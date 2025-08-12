@@ -1,8 +1,9 @@
 import logging
+from collections.abc import Generator
 from contextlib import contextmanager
 from dataclasses import dataclass
 from functools import partial
-from typing import Annotated, Generator
+from typing import Annotated
 from unittest.mock import Mock
 
 import pytest

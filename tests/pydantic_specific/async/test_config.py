@@ -17,8 +17,7 @@ async def dep(a: str):
     ),
     dependency_provider=Provider(),
 )
-async def limited_str(a=Depends(dep)):
-    ...
+async def limited_str(a=Depends(dep)): ...
 
 
 @inject(dependency_provider=Provider())

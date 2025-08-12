@@ -49,8 +49,7 @@ if TYPE_CHECKING:
             self,
             func: Callable[P, T],
             model: Optional[CallModel] = None,
-        ) -> Callable[P, T]:
-            ...
+        ) -> Callable[P, T]: ...
 
 
 global_provider = Provider()
@@ -82,8 +81,7 @@ def inject(
     wrap_model: Callable[["CallModel"], "CallModel"] = lambda x: x,
     serializer_cls: Optional["SerializerProto"] = SerializerCls,
     **call_extra: Any,
-) -> Callable[P, T]:
-    ...
+) -> Callable[P, T]: ...
 
 
 @overload
@@ -97,8 +95,7 @@ def inject(
     wrap_model: Callable[["CallModel"], "CallModel"] = lambda x: x,
     serializer_cls: Optional["SerializerProto"] = SerializerCls,
     **call_extra: Any,
-) -> "InjectWrapper[..., Any]":
-    ...
+) -> "InjectWrapper[..., Any]": ...
 
 
 def inject(
@@ -157,6 +154,13 @@ def _wrap_inject(
             )
         else:
             real_model = model
+
+        if (
+            not real_model.dependencies
+            and not real_model.extra_dependencies
+            and not real_model.serializer
+        ):
+            return func
 
         if real_model.is_async:
             injected_wrapper: Callable[P, T]

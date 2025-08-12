@@ -68,10 +68,10 @@ async def test_empty_main_body_multiple_args() -> None:
     async def handler(d=Depends(dep2), c=Depends(dep)):
         return d, c
 
-    await handler(a=1, b=2) == (2, 1)
-    await handler(1, b=2) == (2, 1)
-    await handler(1, a=2) == (1, 2)
-    await handler(1, 2) == (1, 1)  # all dependencies takes the first arg
+    assert await handler(a=1, b=2) == (2, 1)
+    assert await handler(1, b=2) == (2, 1)
+    assert await handler(1, a=2) == (1, 2)
+    assert await handler(1, 2) == (1, 1)  # all dependencies takes the first arg
 
 
 @pytest.mark.anyio
@@ -405,9 +405,9 @@ async def test_generator() -> None:
     @inject
     async def simple_func(
         a: str,
-        d3=Depends(sync_simple_func),
-        d2=Depends(async_simple_func),
-        d=Depends(gen_func),
+        d=Depends(async_simple_func),
+        d2=Depends(sync_simple_func),
+        d3=Depends(gen_func),
     ):
         for _ in range(2):
             yield a
@@ -417,8 +417,8 @@ async def test_generator() -> None:
         assert not mock.end.called
         assert i == "1"
 
-    mock.async_call.assert_called_once()
     mock.sync_call.assert_called_once()
+    mock.async_call.assert_called_once()
     mock.end.assert_called_once()
 
 

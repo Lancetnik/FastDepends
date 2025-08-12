@@ -18,9 +18,9 @@ class Header(CustomField):
 
 
 @pydanticV2
-def test_annotated_header_with_meta():
-    @inject
-    def sync_catch(key: Annotated[int, Header(), Ge(3)] = 3):  # noqa: B008
+def test_annotated_header_with_meta() -> None:
+    @inject()
+    def sync_catch(key: Annotated[int, Header(), Ge(3)] = 3) -> int:
         return key
 
     assert sync_catch(headers={"key": "4"}) == 4

@@ -148,9 +148,7 @@ def build_call_model(
                 OptionItem(
                     field_name=param_name,
                     field_type=annotation,
-                    default_value=...
-                    if default is inspect.Parameter.empty
-                    else default,
+                    default_value=Ellipsis if default is inspect.Parameter.empty else default,
                     kind=param.kind,
                 )
             )
@@ -205,7 +203,7 @@ def build_call_model(
                     OptionItem(
                         field_name=param_name,
                         field_type=annotation,
-                        default_value=...,
+                        default_value=Ellipsis if default is inspect.Parameter.empty else default,
                         source=custom,
                         kind=param.kind,
                     )

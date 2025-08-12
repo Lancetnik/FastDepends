@@ -73,7 +73,7 @@ def Depends(
 
 @overload
 def inject(
-    func: Callable[P, T],
+    func: Callable[P, T] = ...,
     *,
     cast: bool = True,
     cast_result: bool = True,
@@ -97,7 +97,7 @@ def inject(
     wrap_model: Callable[["CallModel"], "CallModel"] = lambda x: x,
     serializer_cls: Optional["SerializerProto"] = SerializerCls,
     **call_extra: Any,
-) -> "InjectWrapper[P, T]":
+) -> "InjectWrapper[..., Any]":
     ...
 
 

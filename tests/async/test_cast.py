@@ -8,6 +8,15 @@ from tests.marks import serializer
 
 
 @pytest.mark.anyio
+async def test_skip_not_required() -> None:
+    @inject(serializer_cls=None)
+    async def some_func() -> int:
+        return 1
+
+    assert await some_func(useless=object()) == 1
+
+
+@pytest.mark.anyio
 async def test_not_annotated() -> None:
     @inject
     async def some_func(a, b):

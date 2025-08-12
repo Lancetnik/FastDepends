@@ -155,13 +155,6 @@ def _wrap_inject(
         else:
             real_model = model
 
-        if (
-            not real_model.dependencies
-            and not real_model.extra_dependencies
-            and not real_model.serializer
-        ):
-            return func
-
         if real_model.is_async:
             injected_wrapper: Callable[P, T]
 

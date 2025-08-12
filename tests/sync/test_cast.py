@@ -7,6 +7,14 @@ from fast_depends.exceptions import ValidationError
 from tests.marks import serializer
 
 
+def test_skip_not_required():
+    @inject(serializer_cls=None)
+    def some_func() -> int:
+        return 1
+
+    assert some_func(useless=object()) == 1
+
+
 def test_not_annotated():
     @inject
     def some_func(a, b):

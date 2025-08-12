@@ -97,14 +97,10 @@ class CallModel:
         self.positional_args = tuple(positional_args or ())
         self.use_cache = use_cache
         self.is_async = (
-            is_async or
-            is_coroutine_callable(call) or
-            is_async_gen_callable(call)
+            is_async or is_coroutine_callable(call) or is_async_gen_callable(call)
         )
         self.is_generator = (
-            is_generator or
-            is_gen_callable(call) or
-            is_async_gen_callable(call)
+            is_generator or is_gen_callable(call) or is_async_gen_callable(call)
         )
 
         self.dependencies = dependencies or {}
@@ -178,11 +174,7 @@ class CallModel:
         else:
             args_ = ()
 
-        kwargs_ = {
-            arg: solved_kw.pop(arg)
-            for arg in keyword_args
-            if arg in solved_kw
-        }
+        kwargs_ = {arg: solved_kw.pop(arg) for arg in keyword_args if arg in solved_kw}
         if self.kwargs_name:
             kwargs_.update(solved_kw.get(self.kwargs_name, solved_kw))
 
@@ -305,7 +297,9 @@ class CallModel:
 
         for dep_arg, dep_key in self.dependencies.items():
             if dep_arg not in kwargs:
-                kwargs[dep_arg] = await self.dependency_provider.get_dependant(dep_key).asolve(
+                kwargs[dep_arg] = await self.dependency_provider.get_dependant(
+                    dep_key
+                ).asolve(
                     *args,
                     stack=stack,
                     cache_dependencies=cache_dependencies,

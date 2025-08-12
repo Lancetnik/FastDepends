@@ -38,7 +38,7 @@ classifiers = [
     "Framework :: Pydantic :: 2",
 ]
 
-version = "3.0.0a12"
+version = "3.0.0rc0"
 
 dependencies = [
     "anyio>=3.0.0,<5.0.0",

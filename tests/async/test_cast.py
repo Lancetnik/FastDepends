@@ -136,14 +136,14 @@ async def test_args_kwargs_5():
 @serializer
 @pytest.mark.anyio
 class TestSerialization:
-    async def test_no_cast_result(self):
+    async def test_no_cast_result(self) -> None:
         @inject(cast_result=False)
         async def some_func(a: int, b: int) -> str:
             return a + b
 
         assert await some_func("1", "2") == 3
 
-    async def test_annotated_partial(self):
+    async def test_annotated_partial(self) -> None:
         @inject
         async def some_func(a, b: int):
             assert isinstance(b, int)
@@ -151,7 +151,7 @@ class TestSerialization:
 
         assert isinstance(await some_func(1, "2"), int)
 
-    async def test_types_casting(self):
+    async def test_types_casting(self) -> None:
         @inject
         async def some_func(a: int, b: int) -> float:
             assert isinstance(a, int)
@@ -162,14 +162,14 @@ class TestSerialization:
 
         assert isinstance(await some_func("1", "2"), float)
 
-    async def test_types_casting_from_str(self):
+    async def test_types_casting_from_str(self) -> None:
         @inject
         async def some_func(a: "int") -> float:
             return a
 
         assert isinstance(await some_func("1"), float)
 
-    async def test_wrong_incoming_types(self):
+    async def test_wrong_incoming_types(self) -> None:
         @inject
         async def some_func(a: int):  # pragma: no cover
             return a
@@ -177,7 +177,7 @@ class TestSerialization:
         with pytest.raises(ValidationError):
             await some_func({"key", 1})
 
-    async def test_wrong_return_types(self):
+    async def test_wrong_return_types(self) -> None:
         @inject
         async def some_func(a: int) -> dict:
             return a
@@ -185,7 +185,7 @@ class TestSerialization:
         with pytest.raises(ValidationError):
             await some_func("2")
 
-    async def test_generator(self):
+    async def test_generator(self) -> None:
         @inject
         async def simple_func(a: str) -> int:
             for _ in range(2):
@@ -194,7 +194,7 @@ class TestSerialization:
         async for i in simple_func("1"):
             assert i == 1
 
-    async def test_generator_iterator_type(self):
+    async def test_generator_iterator_type(self) -> None:
         @inject
         async def simple_func(a: str) -> Iterator[int]:
             for _ in range(2):

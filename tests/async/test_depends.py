@@ -392,12 +392,9 @@ async def test_generator() -> None:
     mock = Mock()
 
     def sync_simple_func():
-        mock.sync_simple()
+        mock.sync_call()
 
-    async def simple_func():
-        mock.simple()
-
-    async def func():
+    async def async_simple_func():
         mock.async_call()
 
     async def gen_func():
@@ -408,9 +405,9 @@ async def test_generator() -> None:
     @inject
     async def simple_func(
         a: str,
-        d3=Depends(sync_simple_func),
-        d2=Depends(simple_func),
-        d=Depends(func),
+        d=Depends(async_simple_func),
+        d2=Depends(sync_simple_func),
+        d3=Depends(gen_func),
     ):
         for _ in range(2):
             yield a
@@ -420,8 +417,8 @@ async def test_generator() -> None:
         assert not mock.end.called
         assert i == "1"
 
-    mock.sync_simple.assert_called_once()
-    mock.simple.assert_called_once()
+    mock.sync_call.assert_called_once()
+    mock.async_call.assert_called_once()
     mock.end.assert_called_once()
 
 

@@ -48,10 +48,7 @@ class Provider:
             dependency_provider=self,
         )
 
-        if (original_dependant := self.dependencies.get(key)):
-            override_model.serializer = original_dependant.serializer
-
-        else:
+        if not self.dependencies.get(key):
             self.dependencies[key] = build_call_model(
                 original,
                 dependency_provider=self,

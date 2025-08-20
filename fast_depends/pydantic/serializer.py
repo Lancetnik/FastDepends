@@ -167,7 +167,7 @@ class _PydanticSerializerWithResponse(_PydanticSerializer):
                 r=(response_type or Any, ...),
             )
 
-            response_callback = lambda x: response_model(r=x).r
+            response_callback = lambda x: response_model(r=x).r  # noqa: E731
 
         assert response_callback
         self.response_callback = response_callback

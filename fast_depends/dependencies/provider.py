@@ -43,18 +43,21 @@ class Provider:
     ) -> None:
         key = self.__get_original_key(original)
 
-        override_model = build_call_model(
-            override,
-            dependency_provider=self,
-        )
+        if (original_dependant := self.dependencies.get(key)):
+            serializer_cls = type(original_dependant.serializer)
+        else:
+            serializer_cls = None
 
-        if not self.dependencies.get(key):
             self.dependencies[key] = build_call_model(
                 original,
                 dependency_provider=self,
             )
 
-        self.overrides[key] = override_model
+        self.overrides[key] = build_call_model(
+            override,
+            dependency_provider=self,
+            serializer_cls=serializer_cls,
+        )
 
     @contextmanager
     def scope(

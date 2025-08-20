@@ -6,13 +6,6 @@ import pytest
 from fast_depends import Depends, Provider, inject
 
 
-@pytest.fixture
-def provider() -> Generator[Provider, None, None]:
-    provider = Provider()
-    yield provider
-    provider.clear()
-
-
 def test_not_override(provider: Provider) -> None:
     mock = Mock()
 

@@ -281,4 +281,5 @@ def build_call_model(
         kwargs_name=kwargs_name,
         extra_dependencies=solved_extra_dependencies,
         dependency_provider=dependency_provider,
+        serializer_cls=serializer_cls,
     )

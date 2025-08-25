@@ -37,7 +37,7 @@ pip install --group dev -e .
 or
 
 ```bash
-uv sync group --dev
+uv sync --group dev
 ```
 
 It will install all the dependencies and your local FastDepends in your local environment.

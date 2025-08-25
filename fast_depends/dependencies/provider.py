@@ -34,19 +34,7 @@ class Provider:
         return key
 
     def get_dependant(self, key: Key) -> "CallModel":
-        original_dependant = self.dependencies[key]
-        if (override_model := self.overrides.get(key)):
-            if override_model.serializer_cls != original_dependant.serializer_cls:
-                override_model = build_call_model(
-                    override_model.call,
-                    dependency_provider=self,
-                    serializer_cls=original_dependant.serializer_cls,
-                )
-                self.overrides[key] = override_model
-
-            return override_model
-
-        return original_dependant
+        return self.overrides.get(key) or self.dependencies[key]
 
     def override(
         self,

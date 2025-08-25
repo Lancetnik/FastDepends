@@ -6,11 +6,11 @@ from fast_depends import Depends, Provider, inject
 from fast_depends.pydantic import PydanticSerializer
 
 
-def dep(a: Annotated[int, Field(default=1)]) -> int:
+def dep(a: Annotated[int, Field()] = 1) -> int:
     return a
 
 
-def dep2(a: Annotated[int, Field(default=2)]) -> int:
+def dep2(a: Annotated[int, Field()] = 2) -> int:
     return a
 
 

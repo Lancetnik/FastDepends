@@ -6,13 +6,6 @@ import pytest
 from fast_depends import Depends, Provider, inject
 
 
-@pytest.fixture
-def provider() -> Generator[Provider, None, None]:
-    provider = Provider()
-    yield provider
-    provider.clear()
-
-
 def test_not_override(provider: Provider) -> None:
     mock = Mock()
 
@@ -183,7 +176,6 @@ def test_deep_overrides(provider: Provider) -> None:
         mock.dep4.assert_called_once()
 
 
-@pytest.mark.xfail(reason="https://github.com/Lancetnik/FastDepends/issues/186")
 def test_deep_overrides_with_different_signatures(provider: Provider) -> None:
     mock = Mock()
 

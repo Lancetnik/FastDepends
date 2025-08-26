@@ -12,7 +12,7 @@ import anyio
 
 from fast_depends._compat import ExceptionGroup
 from fast_depends.library.model import CustomField
-from fast_depends.library.serializer import OptionItem, Serializer
+from fast_depends.library.serializer import OptionItem, Serializer, SerializerProto
 from fast_depends.utils import (
     async_map,
     is_async_gen_callable,
@@ -44,6 +44,7 @@ class CallModel:
         "use_cache",
         "serializer",
         "dependency_provider",
+        "serializer_cls",
     )
 
     alias_arguments: tuple[str, ...]
@@ -82,6 +83,7 @@ class CallModel:
         positional_args: list[str],
         custom_fields: dict[str, CustomField],
         dependency_provider: "Provider",
+        serializer_cls: Optional[SerializerProto],
     ):
         self.call = call
         self.serializer = serializer
@@ -109,6 +111,7 @@ class CallModel:
 
         self.params = params
         self.dependency_provider = dependency_provider
+        self.serializer_cls = serializer_cls
 
     def _solve(
         self,

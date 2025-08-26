@@ -165,6 +165,13 @@ def build_call_model(
 
             key = dependency_provider.add_dependant(dependency)
 
+            _rebuild_override_model(
+                dependency_provider=dependency_provider,
+                dependency=dependency,
+                key=key,
+                serializer_cls=serializer_cls,
+            )
+
             overrided_dependency = dependency_provider.get_dependant(key)
 
             assert not (is_sync and is_coroutine_callable(overrided_dependency.call)), (
@@ -281,4 +288,18 @@ def build_call_model(
         kwargs_name=kwargs_name,
         extra_dependencies=solved_extra_dependencies,
         dependency_provider=dependency_provider,
+        serializer_cls=serializer_cls,
     )
+
+
+def _rebuild_override_model(
+    dependency_provider: "Provider",
+    dependency: CallModel,
+    key: "Key",
+    serializer_cls: Optional["SerializerProto"],
+) -> None:
+    """Rebuild override model in case of a different serializer class"""
+    override_model = dependency_provider.overrides.get(key)
+    if override_model is not None and override_model.serializer_cls != serializer_cls:
+        dependency_provider.override(dependency.call, override_model.call)
+

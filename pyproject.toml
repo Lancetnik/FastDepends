@@ -65,14 +65,14 @@ docs = [
 test = [
     "coverage[toml]>=7.2.0,<8.0.0",
     "pytest>=8.0.0,<9",
-    "dirty-equals>=0.7.0,<0.9",
+    "dirty-equals>=0.7.0,<0.10",
     "annotated_types",
 ]
 
 lint = [
-    "mypy==1.16.1",
-    "ruff==0.12.2",
-    "codespell==2.2.6",
+    "mypy==1.17.1",
+    "ruff==0.12.10",
+    "codespell==2.4.1",
 ]
 
 dev = [

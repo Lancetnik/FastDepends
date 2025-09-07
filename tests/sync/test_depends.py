@@ -454,3 +454,23 @@ def test_generator_iter() -> None:
 
     assert len(list(iterator)) == 13
     assert len(list(iterator)) == 0
+
+
+def test_dict_param_mutation() -> None:
+    @inject(cast=True)
+    def some_func(a: dict) -> None:
+        a["key"] = "value"
+
+    state = {}
+    some_func(state)
+    assert state == {"key": "value"}
+
+
+def test_dict_param_mutation_no_cast() -> None:
+    @inject(cast=False)
+    def some_func(a: dict) -> None:
+        a["key"] = "value"
+
+    state = {}
+    some_func(state)
+    assert state == {"key": "value"}

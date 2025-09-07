@@ -1,23 +1,25 @@
 name: Test
 
 on:
-  push:
-    branches:
-      - main
+  schedule:
+    - cron: "0 0 * * *"
   pull_request:
-    types: [opened, synchronize]
+    types:
+      - opened
+      - synchronize
+      - ready_for_review
 
 jobs:
-  test:
+  test-pydantic:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13", "3.14.0-rc.2"]
+        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13", "3.14.0-rc.2"]
         pydantic-version: ["pydantic-v1", "pydantic-v2"]
       fail-fast: false
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -29,13 +31,13 @@ jobs:
           key: ${{ runner.os }}-python-${{ env.pythonLocation }}-${{ hashFiles('pyproject.toml') }}-test-v03
       - name: Install Dependencies
         if: steps.cache.outputs.cache-hit != 'true'
-        run: pip install -r requirements.test.txt
+        run: pip install --group test .
       - name: Install Pydantic v1
         if: matrix.pydantic-version == 'pydantic-v1'
         run: pip install "pydantic>=1.10.0,<2.0.0"
       - name: Install Pydantic v2
         if: matrix.pydantic-version == 'pydantic-v2'
-        run: pip install --pre "pydantic>=2.0.0b2,<3.0.0"
+        run: pip install "pydantic>=2.0.0,<3.0.0"
       - run: mkdir coverage
       - name: Test
         run: bash scripts/test.sh
@@ -50,12 +52,77 @@ jobs:
           if-no-files-found: error
           include-hidden-files: true
 
-  coverage-combine:
-    needs: [test]
+  test-msgspec:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
+      fail-fast: false
+
+    steps:
+      - uses: actions/checkout@v5
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - uses: actions/cache@v4
+        id: cache
+        with:
+          path: ${{ env.pythonLocation }}
+          key: ${{ runner.os }}-python-${{ env.pythonLocation }}-${{ hashFiles('pyproject.toml') }}-test-v03
+      - name: Install Dependencies
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: pip install --group test ".[msgspec]"
+      - run: mkdir coverage
+      - name: Test
+        run: bash scripts/test.sh
+        env:
+          COVERAGE_FILE: coverage/.coverage.${{ runner.os }}-py${{ matrix.python-version }}-msgspec
+          CONTEXT: ${{ runner.os }}-py${{ matrix.python-version }}-msgspec
+      - name: Store coverage files
+        uses: actions/upload-artifact@v4
+        with:
+          name: .coverage.${{ runner.os }}-py${{ matrix.python-version }}-msgspec
+          path: coverage
+          if-no-files-found: error
+          include-hidden-files: true
+
+  test-no-serializer:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/cache@v4
+        id: cache
+        with:
+          path: ${{ env.pythonLocation }}
+          key: no-pydantic-python-${{ env.pythonLocation }}-${{ hashFiles('pyproject.toml') }}
+      - name: Install Dependencies
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: pip install --group test .
+      - run: mkdir coverage
+      - name: Test
+        run: bash scripts/test.sh
+        env:
+          COVERAGE_FILE: coverage/.coverage.no-serializer
+          CONTEXT: no-serializer
+      - name: Store coverage files
+        uses: actions/upload-artifact@v4
+        with:
+          name: .coverage.no-serializer
+          path: coverage
+          if-no-files-found: error
+          include-hidden-files: true
+
+  coverage-combine:
+    needs: [test-pydantic,test-msgspec,test-no-serializer]
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
 
       - uses: actions/setup-python@v5
         with:

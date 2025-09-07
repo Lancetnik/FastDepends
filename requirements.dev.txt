@@ -1,8 +1,0 @@
--e .
-
--r requirements.docs.txt
--r requirements.test.txt
-
-mypy >=1.8.0
-ruff ==0.12.8
-codespell ==2.4.1

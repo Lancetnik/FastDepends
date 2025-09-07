@@ -1,5 +1,7 @@
 from typing import Any
-from fast_depends import inject, Depends
+
+from fast_depends import Depends, inject
+
 
 class MyDependency:
     def __init__(self, a: int):

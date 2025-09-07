@@ -12,7 +12,9 @@ authors = [
 
 keywords = ["fastapi", "dependency injection"]
 
-requires-python = ">=3.8"
+version = "3.0.0rc1"
+
+requires-python = ">=3.9"
 
 classifiers = [
     "Development Status :: 5 - Production/Stable",
@@ -21,7 +23,6 @@ classifiers = [
     "Programming Language :: Python :: Implementation :: CPython",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
@@ -39,12 +40,46 @@ classifiers = [
     "Framework :: Pydantic :: 2",
 ]
 
-dynamic = ["version"]
-
 dependencies = [
-    "pydantic>=1.7.4,!=1.8,!=1.8.1,<3.0.0",
     "anyio>=3.0.0,<5.0.0",
-    "typing-extensions<4.12.1; python_version < '3.9'",
+    "typing-extensions!=4.12.1",
+]
+
+[project.optional-dependencies]
+pydantic = [
+    "pydantic>=1.7.4,!=1.8,!=1.8.1,<3.0.0",
+]
+
+msgspec = [
+    "msgspec",
+]
+
+[dependency-groups]
+docs = [
+    "mkdocs-material>=9.4.0,<10.0.0",
+    "mkdocs-minify-plugin>=0.7.0,<1.0.0",
+    "mdx-include>=1.4.1,<2.0.0",
+    "mkdocs-markdownextradata-plugin>=0.1.7,<0.3.0",
+]
+
+test = [
+    "coverage[toml]>=7.2.0,<8.0.0",
+    "pytest>=8.0.0,<9",
+    "dirty-equals>=0.7.0,<0.10",
+    "annotated_types",
+]
+
+lint = [
+    "mypy==1.17.1",
+    "ruff==0.12.10",
+    "codespell==2.4.1",
+]
+
+dev = [
+    "fast-depends[pydantic,msgspec]",
+    {include-group = "docs"},
+    {include-group = "test"},
+    {include-group = "lint"},
 ]
 
 [project.urls]
@@ -57,9 +92,6 @@ Source = "https://github.com/Lancetnik/FastDepends"
 allow-direct-references = true
 allow-ambiguous-features = true
 
-[tool.hatch.version]
-path = "fast_depends/__about__.py"
-
 [tool.hatch.build]
 skip-excluded-dirs = true
 exclude = [
@@ -70,10 +102,14 @@ exclude = [
 [tool.mypy]
 strict = true
 ignore_missing_imports = true
+python_version = "3.9"
 
 [tool.isort]
 profile = "black"
 known_third_party = ["pydantic", "anyio"]
+
+[tool.ruff]
+target-version = "py39"
 
 [tool.ruff.lint]
 select = [

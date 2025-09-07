@@ -1,12 +1,18 @@
-from typing import Dict, Iterator, Tuple
+from collections.abc import Iterator
 
 import pytest
-from annotated_types import Ge
-from pydantic import BaseModel, Field, ValidationError
-from typing_extensions import Annotated
 
 from fast_depends import inject
-from tests.marks import pydanticV2
+from fast_depends.exceptions import ValidationError
+from tests.marks import serializer
+
+
+def test_skip_not_required():
+    @inject(serializer_cls=None)
+    def some_func() -> int:
+        return 1
+
+    assert some_func(useless=object()) == 1
 
 
 def test_not_annotated():
@@ -15,15 +21,6 @@ def test_not_annotated():
         return a + b
 
     assert isinstance(some_func("1", "2"), str)
-
-
-def test_annotated_partial():
-    @inject
-    def some_func(a, b: int):
-        assert isinstance(b, int)
-        return a + b
-
-    assert isinstance(some_func(1, "2"), int)
 
 
 def test_arbitrary_args():
@@ -50,100 +47,21 @@ def test_arbitrary_response():
     assert isinstance(some_func(ArbitraryType()), ArbitraryType)
 
 
-def test_validation_error():
+def test_args():
     @inject
-    def some_func(a, b: str = Field(..., max_length=1)):  # pragma: no cover
-        pass
+    def some_func(a, *ar):
+        return a, ar
 
-    with pytest.raises(ValidationError):
-        assert some_func()
-
-    with pytest.raises(ValidationError):
-        assert some_func(1, "dsdas")
-
-
-def test_types_casting():
-    @inject
-    def some_func(a: int, b: int) -> float:
-        assert isinstance(a, int)
-        assert isinstance(b, int)
-        r = a + b
-        assert isinstance(r, int)
-        return r
-
-    assert isinstance(some_func("1", "2"), float)
-
-
-def test_types_casting_from_str():
-    @inject
-    def some_func(a: "int") -> float:
-        return a
-
-    assert isinstance(some_func("1"), float)
-
-
-def test_pydantic_types_casting():
-    class SomeModel(BaseModel):
-        field: int
-
-    @inject
-    def some_func(a: SomeModel):
-        return a.field
-
-    assert isinstance(some_func({"field": "31"}), int)
-
-
-def test_pydantic_field_types_casting():
-    @inject
-    def some_func(a: int = Field(..., alias="b")) -> float:
-        assert isinstance(a, int)
-        return a
-
-    @inject
-    def another_func(a=Field(..., alias="b")) -> float:
-        assert isinstance(a, str)
-        return a
-
-    assert isinstance(some_func(b="2"), float)
-    assert isinstance(another_func(b="2"), float)
-
-
-def test_wrong_incoming_types():
-    @inject
-    def some_func(a: int):  # pragma: no cover
-        return a
-
-    with pytest.raises(ValidationError):
-        some_func({"key", 1})
-
-
-def test_wrong_return_types():
-    @inject
-    def some_func(a: int) -> dict:
-        return a
-
-    with pytest.raises(ValidationError):
-        some_func("2")
-
-
-def test_annotated():
-    A = Annotated[int, Field(..., alias="b")]
-
-    @inject
-    def some_func(a: A) -> float:
-        assert isinstance(a, int)
-        return a
-
-    assert isinstance(some_func(b="2"), float)
+    assert (1, (2,)) == some_func(1, 2)
 
 
 def test_args_kwargs_1():
     @inject
     def simple_func(
         a: int,
-        *args: Tuple[float, ...],
+        *args: tuple[float, ...],
         b: int,
-        **kwargs: Dict[str, int],
+        **kwargs: dict[str, int],
     ):
         return a, args, b, kwargs
 
@@ -154,7 +72,7 @@ def test_args_kwargs_2():
     @inject
     def simple_func(
         a: int,
-        *args: Tuple[float, ...],
+        *args: tuple[float, ...],
         b: int,
     ):
         return a, args, b
@@ -178,35 +96,105 @@ def test_args_kwargs_3():
     )
 
 
-def test_generator():
+def test_args_kwargs_4():
     @inject
-    def simple_func(a: str) -> int:
-        for _ in range(2):
-            yield a
+    def simple_func(
+        *args: tuple[float, ...],
+        **kwargs: dict[str, int],
+    ):
+        return args, kwargs
 
-    for i in simple_func("1"):
-        assert i == 1
+    assert (
+        (1.0, 2.0, 3.0),
+        {
+            "key": 1,
+            "b": 3,
+        },
+    ) == simple_func(1.0, 2.0, 3, b=3.0, key=1.0)
 
 
-def test_generator_iterator_type():
+def test_args_kwargs_5():
     @inject
-    def simple_func(a: str) -> Iterator[int]:
-        for _ in range(2):
-            yield a
+    def simple_func(
+        *a: tuple[float, ...],
+        **kw: dict[str, int],
+    ):
+        return a, kw
 
-    for i in simple_func("1"):
-        assert i == 1
+    assert (
+        (1.0, 2.0, 3.0),
+        {
+            "key": 1,
+            "b": 3,
+        },
+    ) == simple_func(1.0, 2.0, 3, b=3.0, key=1.0)
 
 
-@pydanticV2
-def test_multi_annotated():
-    from pydantic.functional_validators import AfterValidator
+@serializer
+class TestSerializer:
+    def test_no_cast_result(self):
+        @inject(cast_result=False)
+        def some_func(a: int, b: int) -> str:
+            return a + b
 
-    @inject()
-    def f(a: Annotated[int, Ge(10), AfterValidator(lambda x: x + 10)]) -> int:
-        return a
+        assert some_func("1", "2") == 3
 
-    with pytest.raises(ValidationError):
-        f(1)
+    def test_annotated_partial(self):
+        @inject
+        def some_func(a, b: int):
+            assert isinstance(b, int)
+            return a + b
 
-    assert f(10) == 20
+        assert isinstance(some_func(1, "2"), int)
+
+    def test_types_casting(self):
+        @inject
+        def some_func(a: int, b: int) -> float:
+            assert isinstance(a, int)
+            assert isinstance(b, int)
+            r = a + b
+            assert isinstance(r, int)
+            return r
+
+        assert isinstance(some_func("1", "2"), float)
+
+    def test_types_casting_from_str(self):
+        @inject
+        def some_func(a: "int") -> float:
+            return a
+
+        assert isinstance(some_func("1"), float)
+
+    def test_wrong_incoming_types(self):
+        @inject
+        def some_func(a: int):  # pragma: no cover
+            return a
+
+        with pytest.raises(ValidationError):
+            some_func({"key", 1})
+
+    def test_wrong_return_type(self):
+        @inject
+        def some_func(a: int) -> dict:
+            return a
+
+        with pytest.raises(ValidationError):
+            some_func("2")
+
+    def test_generator(self):
+        @inject
+        def simple_func(a: str) -> int:
+            for _ in range(2):
+                yield a
+
+        for i in simple_func("1"):
+            assert i == 1
+
+    def test_generator_iterator_type(self):
+        @inject
+        def simple_func(a: str) -> Iterator[int]:
+            for _ in range(2):
+                yield a
+
+        for i in simple_func("1"):
+            assert i == 1

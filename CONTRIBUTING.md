@@ -31,7 +31,13 @@ python -m pip install --upgrade pip
 After activating the environment as described above:
 
 ```bash
-pip install -r requirements.dev.txt
+pip install --group dev -e .
+```
+
+or
+
+```bash
+uv sync --group dev
 ```
 
 It will install all the dependencies and your local FastDepends in your local environment.

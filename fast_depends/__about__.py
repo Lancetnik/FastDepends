@@ -1,3 +1,5 @@
 """FastDepends - extracted and cleared from HTTP domain FastAPI Dependency Injection System"""
 
-__version__ = "2.4.12"
+from importlib.metadata import version
+
+__version__ = version("fast_depends")

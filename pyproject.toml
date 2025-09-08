@@ -73,6 +73,7 @@ lint = [
     "mypy==1.17.1",
     "ruff==0.12.10",
     "codespell==2.4.1",
+    "types-ujson>=5.10.0.20250822",
 ]
 
 dev = [
@@ -186,3 +187,11 @@ omit = [
 
 [tool.codespell]
 skip = "venv,./docs/site/*,*.js,*.css"
+
+[[tool.mypy.overrides]]
+module = ["fast_depends.pydantic._compat.*"]
+disable_error_code = ["attr-defined"]
+
+[[tool.mypy.overrides]]
+module = ["fast_depends.pydantic.*"]
+disable_error_code = ["unused-ignore"]

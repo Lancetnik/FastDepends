@@ -115,7 +115,7 @@ def inject(
     if not cast:
         serializer_cls = None
 
-    decorator = _wrap_inject(
+    decorator: InjectWrapper[P, T] = _wrap_inject(
         dependency_provider=dependency_provider,
         wrap_model=wrap_model,
         extra_dependencies=extra_dependencies,

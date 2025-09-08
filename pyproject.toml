@@ -71,7 +71,7 @@ test = [
 
 lint = [
     "mypy==1.17.1",
-    "ruff==0.12.10",
+    "ruff==0.12.12",
     "codespell==2.4.1",
 ]
 

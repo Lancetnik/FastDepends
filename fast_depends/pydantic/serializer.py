@@ -102,7 +102,7 @@ class _PydanticSerializer(Serializer):
 
         self.config = get_config_base(pydantic_config)
 
-        self.model = create_model(
+        self.model = create_model( # type: ignore[call-overload]
             name,
             __config__=self.config,
             **class_options,
@@ -161,13 +161,13 @@ class _PydanticSerializerWithResponse(_PydanticSerializer):
             response_callback = response_pydantic_type.validate_python
 
         if response_callback is None and not PYDANTIC_V2:
-            response_model = create_model(
+            response_model = create_model( # type: ignore[call-overload]
                 "ResponseModel",
                 __config__=self.config,
                 r=(response_type or Any, ...),
             )
 
-            response_callback = lambda x: response_model(r=x).r
+            response_callback = lambda x: response_model(r=x).r # type: ignore[attr-defined]
 
         assert response_callback
         self.response_callback = response_callback
@@ -190,7 +190,7 @@ class _PydanticWrappedSerializer(_PydanticSerializer):
         self,
         call_kwargs: Any,
         options: dict[str, OptionItem],
-        locations: Sequence[str] = (),
+        locations: Sequence[Any] = (),
     ) -> Iterator[None]:
         try:
             yield

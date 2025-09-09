@@ -10,7 +10,7 @@ __all__ = (
 
 ANYIO_V3 = get_version("anyio").startswith("3.")
 
-if ANYIO_V3:
+if ANYIO_V3 and not typing.TYPE_CHECKING:
     from anyio import ExceptionGroup as ExceptionGroup
 else:
     if sys.version_info < (3, 11):

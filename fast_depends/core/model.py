@@ -121,7 +121,7 @@ class CallModel:
         **kwargs: dict[str, Any],
     ) -> Generator[
         tuple[
-            Sequence[Any],
+            tuple[Any, ...],
             dict[str, Any],
         ],
         Any,

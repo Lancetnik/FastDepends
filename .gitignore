@@ -1,6 +1,5 @@
 dist
 __pycache__
-*.lock
 .vscode
 .pypirc
 venv

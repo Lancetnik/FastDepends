@@ -21,7 +21,7 @@ will be the type of your dependency:
 
 !!! warning
     You should use `Any` annotation if `MyDependency` is not a `pydantic.BaseModel` subclass.
-    Using `MyDependency` annotation raises `ValueError` exception at code inicialization time as the pydantic
+    Using `MyDependency` annotation raises `ValueError` exception at code initialization time as the pydantic
     can't cast any value to not-pydantic class.
 
 ---

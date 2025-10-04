@@ -37,6 +37,6 @@ class ValidationError(ValueError, FastDependsError):
         return (
             "\n    Incoming options: "
             + content
-            + "\n    In the following option types error occured:\n    "
+            + "\n    In the following option types error occurred:\n    "
             + "\n    ".join(map(str, self.error_fields))
         )

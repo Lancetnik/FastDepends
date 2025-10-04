@@ -445,9 +445,7 @@ def test_generator_iter() -> None:
         return a + b
 
     @inject
-    def method(
-        a: int, d: int = Depends(simple_dependency)
-    ) -> Generator[int, None, None]:
+    def method(a: int, d: int = Depends(simple_dependency)) -> Generator[int, None, None]:
         yield from range(a + d)
 
     iterator = method(5)

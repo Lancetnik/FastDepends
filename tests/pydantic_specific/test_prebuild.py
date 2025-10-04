@@ -18,7 +18,7 @@ def model_func(m: Model) -> str:
     return m.a
 
 
-def test_prebuild_with_wrapper():
+def test_prebuild_with_wrapper() -> None:
     func = noop_wrap(model_func)
     assert func(Model(a="Hi!")) == "Hi!"
 

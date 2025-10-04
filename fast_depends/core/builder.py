@@ -1,19 +1,18 @@
 import inspect
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from copy import deepcopy
 from typing import (
     TYPE_CHECKING,
     Annotated,
     Any,
-    Callable,
     Optional,
     TypeVar,
+    get_args,
+    get_origin,
 )
 
 from typing_extensions import (
     ParamSpec,
-    get_args,
-    get_origin,
 )
 
 from fast_depends.dependencies.model import Dependant
@@ -47,7 +46,7 @@ def build_call_model(
     *,
     dependency_provider: "Provider",
     use_cache: bool = True,
-    is_sync: Optional[bool] = None,
+    is_sync: bool | None = None,
     extra_dependencies: Sequence[Dependant] = (),
     serializer_cls: Optional["SerializerProto"] = None,
     serialize_result: bool = True,
@@ -79,12 +78,12 @@ def build_call_model(
     custom_fields: dict[str, CustomField] = {}
     positional_args: list[str] = []
     keyword_args: list[str] = []
-    args_name: Optional[str] = None
-    kwargs_name: Optional[str] = None
+    args_name: str | None = None
+    kwargs_name: str | None = None
 
     for param_name, param in typed_params.parameters.items():
-        dep: Optional[Dependant] = None
-        custom: Optional[CustomField] = None
+        dep: Dependant | None = None
+        custom: CustomField | None = None
 
         if param.annotation is inspect.Parameter.empty:
             annotation = Any
@@ -132,9 +131,7 @@ def build_call_model(
             default = param.default
 
         if isinstance(default, Dependant):
-            assert not dep, (
-                "You can not use `Depends` with `Annotated` and default both"
-            )
+            assert not dep, "You can not use `Depends` with `Annotated` and default both"
             dep, default = default, Ellipsis
 
         elif isinstance(default, CustomField):
@@ -148,7 +145,9 @@ def build_call_model(
                 OptionItem(
                     field_name=param_name,
                     field_type=annotation,
-                    default_value=Ellipsis if default is inspect.Parameter.empty else default,
+                    default_value=Ellipsis
+                    if default is inspect.Parameter.empty
+                    else default,
                     kind=param.kind,
                 )
             )
@@ -210,7 +209,9 @@ def build_call_model(
                     OptionItem(
                         field_name=param_name,
                         field_type=annotation,
-                        default_value=Ellipsis if default is inspect.Parameter.empty else default,
+                        default_value=Ellipsis
+                        if default is inspect.Parameter.empty
+                        else default,
                         source=custom,
                         kind=param.kind,
                     )
@@ -220,7 +221,7 @@ def build_call_model(
                 class_fields.append(
                     OptionItem(
                         field_name=param_name,
-                        field_type=Optional[annotation],
+                        field_type=Optional[annotation],  # noqa: UP045
                         default_value=None
                         if (default is inspect.Parameter.empty or default is Ellipsis)
                         else default,
@@ -241,7 +242,7 @@ def build_call_model(
             else:
                 positional_args.append(param_name)
 
-    serializer: Optional[Serializer] = None
+    serializer: Serializer | None = None
     if serializer_cls is not None:
         serializer = serializer_cls(
             name=name,
@@ -302,4 +303,3 @@ def _rebuild_override_model(
     override_model = dependency_provider.overrides.get(key)
     if override_model is not None and override_model.serializer_cls != serializer_cls:
         dependency_provider.override(dependency.call, override_model.call)
-

@@ -14,7 +14,7 @@ keywords = ["fastapi", "dependency injection"]
 
 version = "3.0.0rc1"
 
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 
 classifiers = [
     "Development Status :: 5 - Production/Stable",
@@ -23,7 +23,6 @@ classifiers = [
     "Programming Language :: Python :: Implementation :: CPython",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -41,7 +40,7 @@ classifiers = [
 ]
 
 dependencies = [
-    "anyio>=3.0.0,<5.0.0",
+    "anyio>=4.0.0,<5.0.0",
     "typing-extensions!=4.12.1",
 ]
 
@@ -65,14 +64,15 @@ docs = [
 test = [
     "coverage[toml]>=7.2.0,<8.0.0",
     "pytest>=8.0.0,<9",
-    "dirty-equals>=0.7.0,<0.10",
+    "dirty-equals>=0.7.0,<0.11",
     "annotated_types",
 ]
 
 lint = [
-    "mypy==1.17.1",
-    "ruff==0.12.10",
+    "mypy==1.18.2",
+    "ruff==0.13.2",
     "codespell==2.4.1",
+    "types-ujson>=5.10.0.20250822",
 ]
 
 dev = [
@@ -102,14 +102,26 @@ exclude = [
 [tool.mypy]
 strict = true
 ignore_missing_imports = true
-python_version = "3.9"
+python_version = "3.10"
+files = [
+    "fast_depends",
+]
 
 [tool.isort]
 profile = "black"
 known_third_party = ["pydantic", "anyio"]
 
 [tool.ruff]
-target-version = "py39"
+target-version = "py310"
+
+fix = true
+
+line-length = 90
+indent-width = 4
+
+exclude = [
+    "docs",
+]
 
 [tool.ruff.lint]
 select = [
@@ -133,8 +145,10 @@ ignore = [
 [tool.ruff.lint.flake8-bugbear]
 extend-immutable-calls = [
     "fast_depends.Depends",
-    "AsyncHeader", "Header", "MyDep",
     "pydantic.Field",
+    "AsyncHeader",
+    "Header",
+    "MyDep",
 ]
 
 [tool.pytest.ini_options]
@@ -186,3 +200,11 @@ omit = [
 
 [tool.codespell]
 skip = "venv,./docs/site/*,*.js,*.css"
+
+[[tool.mypy.overrides]]
+module = ["fast_depends.pydantic._compat.*"]
+disable_error_code = ["attr-defined"]
+
+[[tool.mypy.overrides]]
+module = ["fast_depends.pydantic.*"]
+disable_error_code = ["unused-ignore"]

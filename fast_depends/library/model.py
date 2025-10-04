@@ -1,11 +1,11 @@
 from abc import ABC
-from typing import Any, Optional, TypeVar
+from typing import Any, TypeVar
 
 Cls = TypeVar("Cls", bound="CustomField")
 
 
 class CustomField(ABC):
-    param_name: Optional[str]
+    param_name: str | None
     cast: bool
     required: bool
 

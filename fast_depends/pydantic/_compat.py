@@ -1,5 +1,6 @@
 import json
-from typing import Any, Callable, Optional
+from collections.abc import Callable
+from typing import Any
 
 from pydantic import BaseModel, create_model
 from pydantic.version import VERSION as PYDANTIC_VERSION
@@ -12,6 +13,7 @@ __all__ = (
     "ConfigDict",
     "TypeAdapter",
     "PydanticUserError",
+    "dump_json",
 )
 
 
@@ -20,14 +22,18 @@ orjson: Any
 ujson: Any
 
 try:
-    import orjson
+    import orjson as orjson_
 except ImportError:
     orjson = None
+else:
+    orjson = orjson_
 
 try:
-    import ujson
+    import ujson as ujson_
 except ImportError:
     ujson = None
+else:
+    ujson = ujson_
 
 if orjson:
     json_loads = orjson.loads
@@ -45,6 +51,7 @@ else:
     def json_dumps(*a: Any, **kw: Any) -> bytes:
         return json.dumps(*a, **kw).encode()
 
+
 PYDANTIC_V2 = PYDANTIC_VERSION.startswith("2.")
 
 default_pydantic_config = {"arbitrary_types_allowed": True}
@@ -54,38 +61,41 @@ if PYDANTIC_V2:
     from pydantic import ConfigDict, TypeAdapter
     from pydantic.fields import FieldInfo
     from pydantic.errors import PydanticUserError
-    from pydantic_core import to_json as dump_json
+    from pydantic_core import to_json
 
     def model_schema(model: type[BaseModel]) -> dict[str, Any]:
-        return model.model_json_schema()
+        schema: dict[str, Any] = model.model_json_schema()
+        return schema
 
-    def get_config_base(config_data: Optional[ConfigDict] = None) -> ConfigDict:
+    def get_config_base(config_data: ConfigDict | None = None) -> ConfigDict:
         return config_data or ConfigDict(**default_pydantic_config)  # type: ignore[typeddict-item]
 
     def get_aliases(model: type[BaseModel]) -> tuple[str, ...]:
         return tuple(f.alias or name for name, f in get_model_fields(model).items())
 
     def get_model_fields(model: type[BaseModel]) -> dict[str, FieldInfo]:
-        fields: Optional[dict[str, FieldInfo]] = getattr(
-            model, "__pydantic_fields__", None
-        )
+        fields: dict[str, FieldInfo] | None = getattr(model, "__pydantic_fields__", None)
 
         if fields is not None:
             return fields
 
         # Deprecated in Pydantic V2.11 to be removed in V3.0.
-        return model.model_fields
+        model_fields: dict[str, FieldInfo] = model.model_fields
+        return model_fields
+
+    def dump_json(data: Any) -> bytes:
+        return to_json(data)
 
 else:
     from pydantic.config import get_config, ConfigDict, BaseConfig
-    from pydantic.fields import ModelField
+    from pydantic.fields import ModelField, FieldInfo
     from pydantic.json import pydantic_encoder
 
-    TypeAdapter = None
-    PydanticUserError = Exception
+    TypeAdapter = None  # type: ignore[assignment, misc]
+    PydanticUserError = Exception  # type: ignore[assignment, misc]
 
-    def get_config_base(config_data: Optional[ConfigDict] = None) -> type[BaseConfig]:  # type: ignore[misc]
-        return get_config(config_data or ConfigDict(**default_pydantic_config))  # type: ignore[typeddict-item]
+    def get_config_base(config_data: ConfigDict | None = None) -> type[BaseConfig]:  # type: ignore[misc]
+        return get_config(config_data or ConfigDict(**default_pydantic_config))  # type: ignore[typeddict-item, no-any-return]
 
     def model_schema(model: type[BaseModel]) -> dict[str, Any]:
         return model.schema()
@@ -93,8 +103,8 @@ else:
     def get_aliases(model: type[BaseModel]) -> tuple[str, ...]:
         return tuple(f.alias or name for name, f in model.__fields__.items())
 
-    def get_model_fields(model: type[BaseModel]) -> dict[str, ModelField]:
-        return model.__fields__
+    def get_model_fields(model: type[BaseModel]) -> dict[str, ModelField]:  # type: ignore[misc]
+        return model.__fields__  # type: ignore[return-value]
 
     def dump_json(data: Any) -> bytes:
         return json_dumps(data, default=pydantic_encoder)

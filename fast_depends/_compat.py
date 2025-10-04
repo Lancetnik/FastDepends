@@ -1,6 +1,6 @@
 import sys
 import typing
-from importlib.metadata import version as get_version
+from types import NoneType
 
 __all__ = (
     "ExceptionGroup",
@@ -8,29 +8,24 @@ __all__ = (
 )
 
 
-ANYIO_V3 = get_version("anyio").startswith("3.")
-
-if ANYIO_V3:
-    from anyio import ExceptionGroup as ExceptionGroup
+if sys.version_info < (3, 11):
+    from exceptiongroup import ExceptionGroup as ExceptionGroup
 else:
-    if sys.version_info < (3, 11):
-        from exceptiongroup import ExceptionGroup as ExceptionGroup
-    else:
-        ExceptionGroup = ExceptionGroup
+    ExceptionGroup = ExceptionGroup
 
 
 def evaluate_forwardref(
     value: typing.Any,
-    globalns: typing.Optional[dict[str, typing.Any]] = None,
-    localns: typing.Optional[dict[str, typing.Any]] = None,
-    type_params: typing.Optional[tuple[typing.Any, ...]] = None,
+    globalns: dict[str, typing.Any] | None = None,
+    localns: dict[str, typing.Any] | None = None,
+    type_params: tuple[typing.Any, ...] | None = None,
 ) -> typing.Any:
     """Behaves like typing._eval_type, except it won't raise an error if a forward reference can't be resolved."""
     if value is None:
         value = NoneType
 
     elif isinstance(value, str):
-        value = _make_forward_ref(value, is_argument=False, is_class=True)
+        value = typing.ForwardRef(value, is_argument=False, is_class=True)
 
     try:
         return eval_type_backport(value, globalns, localns, type_params=type_params)
@@ -41,9 +36,9 @@ def evaluate_forwardref(
 
 def eval_type_backport(
     value: typing.Any,
-    globalns: typing.Optional[dict[str, typing.Any]] = None,
-    localns: typing.Optional[dict[str, typing.Any]] = None,
-    type_params: typing.Optional[tuple[typing.Any, ...]] = None,
+    globalns: dict[str, typing.Any] | None = None,
+    localns: dict[str, typing.Any] | None = None,
+    type_params: tuple[typing.Any, ...] | None = None,
 ) -> typing.Any:
     """Like `typing._eval_type`, but falls back to the `eval_type_backport` package if it's
     installed to let older Python versions use newer typing features.
@@ -83,35 +78,7 @@ def eval_type_backport(
 
 def is_backport_fixable_error(e: TypeError) -> bool:
     msg = str(e)
-    return msg.startswith("unsupported operand type(s) for |: ") or "' object is not subscriptable" in msg
-
-
-if sys.version_info < (3, 10):
-    NoneType = type(None)
-else:
-    from types import NoneType as NoneType
-
-
-if sys.version_info < (3, 9, 8) or (3, 10) <= sys.version_info < (3, 10, 1):
-    def _make_forward_ref(
-        arg: typing.Any,
-        is_argument: bool = True,
-        *,
-        is_class: bool = False,
-    ) -> typing.ForwardRef:
-        """Wrapper for ForwardRef that accounts for the `is_class` argument missing in older versions.
-        The `module` argument is omitted as it breaks <3.9.8, =3.10.0 and isn't used in the calls below.
-
-        See https://github.com/python/cpython/pull/28560 for some background.
-        The backport happened on 3.9.8, see:
-        https://github.com/pydantic/pydantic/discussions/6244#discussioncomment-6275458,
-        and on 3.10.1 for the 3.10 branch, see:
-        https://github.com/pydantic/pydantic/issues/6912
-
-        Implemented as EAFP with memory.
-        """
-        return typing.ForwardRef(arg, is_argument)
-
-else:
-    _make_forward_ref = typing.ForwardRef
-
+    return (
+        msg.startswith("unsupported operand type(s) for |: ")
+        or "' object is not subscriptable" in msg
+    )

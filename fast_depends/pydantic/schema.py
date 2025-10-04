@@ -1,4 +1,4 @@
-from typing import Any, Optional
+from typing import Any
 
 from fast_depends.core import CallModel
 from fast_depends.pydantic._compat import PYDANTIC_V2, create_model, model_schema
@@ -10,8 +10,7 @@ def get_schema(
     resolve_refs: bool = False,
 ) -> dict[str, Any]:
     class_options: dict[str, Any] = {
-        i.field_name: (i.field_type, i.default_value)
-        for i in call.flat_params
+        i.field_name: (i.field_type, i.default_value) for i in call.flat_params
     }
 
     name = getattr(call.serializer, "name", "Undefined")
@@ -19,10 +18,7 @@ def get_schema(
     if not class_options:
         return {"title": name, "type": "null"}
 
-    params_model = create_model(
-        name,
-        **class_options
-    )
+    params_model = create_model(name, **class_options)
 
     body = model_schema(params_model)
 
@@ -38,9 +34,7 @@ def get_schema(
 
 
 def _move_pydantic_refs(
-    original: Any,
-    key: str,
-    refs: Optional[dict[str, Any]] = None
+    original: Any, key: str, refs: dict[str, Any] | None = None
 ) -> Any:
     if not isinstance(original, dict):
         return original
@@ -51,7 +45,7 @@ def _move_pydantic_refs(
         raw_refs = data.get(key, {})
         refs = _move_pydantic_refs(raw_refs, key, raw_refs)
 
-    name: Optional[str] = None
+    name: str | None = None
     for k in data:
         if k == "$ref":
             name = data[k].replace(f"#/{key}/", "")

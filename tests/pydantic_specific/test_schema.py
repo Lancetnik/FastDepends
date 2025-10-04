@@ -1,20 +1,13 @@
-from typing import Optional
-
 from dirty_equals import IsDict, IsPartialDict
+from pydantic import BaseModel, Field
 
 from fast_depends import Depends, Provider
 from fast_depends.core import build_call_model
+from fast_depends.pydantic._compat import PYDANTIC_V2
+from fast_depends.pydantic.schema import get_schema
+from fast_depends.pydantic.serializer import PydanticSerializer
 
-try:
-    from pydantic import BaseModel, Field
-
-    from fast_depends.pydantic._compat import PYDANTIC_V2
-    from fast_depends.pydantic.schema import get_schema
-    from fast_depends.pydantic.serializer import PydanticSerializer
-
-    REF_KEY = "$defs" if PYDANTIC_V2 else "definitions"
-except ImportError:
-    REF_KEY = ""
+REF_KEY = "$defs" if PYDANTIC_V2 else "definitions"
 
 
 def test_base() -> None:
@@ -130,7 +123,7 @@ class TestOneArg:
         assert schema == {"title": "A", "type": "integer"}, schema
 
     def test_one_arg_with_optional(self) -> None:
-        def handler(a: Optional[int]) -> None:
+        def handler(a: int | None) -> None:
             pass
 
         schema = get_schema(
@@ -247,7 +240,7 @@ class TestOneArgWithModel:
         class Model(BaseModel):
             a: int
 
-        def handler(a: Optional[Model] = None) -> None:
+        def handler(a: Model | None = None) -> None:
             pass
 
         schema = get_schema(
@@ -291,7 +284,7 @@ class TestOneArgWithModel:
         class Model(BaseModel):
             a: int
 
-        def handler(a: Optional[Model]) -> None:
+        def handler(a: Model | None) -> None:
             pass
 
         schema = get_schema(

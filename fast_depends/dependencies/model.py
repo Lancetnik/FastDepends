@@ -1,5 +1,6 @@
+from collections.abc import Callable
 from inspect import unwrap
-from typing import Any, Callable
+from typing import Any
 
 
 class Dependant:

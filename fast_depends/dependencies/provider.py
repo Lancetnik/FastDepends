@@ -1,8 +1,6 @@
-from collections.abc import Hashable, Iterator
+from collections.abc import Callable, Hashable, Iterator
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Any, Callable
-
-from typing_extensions import TypeAlias
+from typing import TYPE_CHECKING, Any, TypeAlias
 
 from fast_depends.core import build_call_model
 

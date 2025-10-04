@@ -69,8 +69,7 @@ class SerializerProto(Protocol):
         name: str,
         options: list[OptionItem],
         response_type: Any,
-    ) -> Serializer:
-        ...
+    ) -> Serializer: ...
 
     @staticmethod
     def encode(message: Any) -> bytes:

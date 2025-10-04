@@ -1,11 +1,9 @@
-from collections.abc import Generator, Iterable, Sequence
+from collections.abc import Callable, Generator, Iterable, Sequence
 from contextlib import AsyncExitStack, ExitStack
 from inspect import Parameter, unwrap
 from typing import (
     TYPE_CHECKING,
     Any,
-    Callable,
-    Optional,
 )
 
 import anyio
@@ -70,20 +68,20 @@ class CallModel:
         self,
         *,
         call: Callable[..., Any],
-        serializer: Optional[Serializer],
+        serializer: Serializer | None,
         params: tuple[OptionItem, ...],
         use_cache: bool,
         is_async: bool,
         is_generator: bool,
-        args_name: Optional[str],
-        kwargs_name: Optional[str],
+        args_name: str | None,
+        kwargs_name: str | None,
         dependencies: dict[str, "Key"],
         extra_dependencies: Iterable["Key"],
         keyword_args: list[str],
         positional_args: list[str],
         custom_fields: dict[str, CustomField],
         dependency_provider: "Provider",
-        serializer_cls: Optional[SerializerProto],
+        serializer_cls: SerializerProto | None,
     ):
         self.call = call
         self.serializer = serializer

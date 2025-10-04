@@ -2,7 +2,7 @@ import inspect
 import re
 from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
-from typing import Any, Union
+from typing import Any
 
 import msgspec
 
@@ -75,7 +75,7 @@ class _MsgSpecSerializer(Serializer):
         options: list[OptionItem],
         response_type: Any = None,
     ):
-        model_options: list[Union[str, tuple[str, type], tuple[str, type, Any]]] = []
+        model_options: list[str | tuple[str, type] | tuple[str, type, Any]] = []
         aliases = {}
         for i in options:
             if isinstance(

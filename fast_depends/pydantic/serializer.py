@@ -1,8 +1,8 @@
 import inspect
-from collections.abc import Iterator, Sequence
+from collections.abc import Callable, Iterator, Sequence
 from contextlib import contextmanager
 from itertools import chain
-from typing import Any, Callable, Optional
+from typing import Any
 
 from pydantic import ValidationError as PValidationError
 
@@ -30,7 +30,7 @@ class PydanticSerializer(SerializerProto):
 
     def __init__(
         self,
-        pydantic_config: Optional[ConfigDict] = None,
+        pydantic_config: ConfigDict | None = None,
         use_fastdepends_errors: bool = True,
     ) -> None:
         self.config = pydantic_config
@@ -94,7 +94,7 @@ class _PydanticSerializer(Serializer):
         name: str,
         options: list[OptionItem],
         response_type: Any = None,
-        pydantic_config: Optional[ConfigDict] = None,
+        pydantic_config: ConfigDict | None = None,
     ):
         class_options: dict[str, Any] = {
             i.field_name: (i.field_type, i.default_value) for i in options
@@ -102,7 +102,7 @@ class _PydanticSerializer(Serializer):
 
         self.config = get_config_base(pydantic_config)
 
-        self.model = create_model( # type: ignore[call-overload]
+        self.model = create_model(  # type: ignore[call-overload]
             name,
             __config__=self.config,
             **class_options,
@@ -132,7 +132,7 @@ class _PydanticSerializerWithResponse(_PydanticSerializer):
         name: str,
         options: list[OptionItem],
         response_type: Any,
-        pydantic_config: Optional[ConfigDict] = None,
+        pydantic_config: ConfigDict | None = None,
     ):
         super().__init__(
             name=name,
@@ -141,7 +141,7 @@ class _PydanticSerializerWithResponse(_PydanticSerializer):
             pydantic_config=pydantic_config,
         )
 
-        response_callback: Optional[Callable[[Any], Any]] = None
+        response_callback: Callable[[Any], Any] | None = None
         try:
             is_model = issubclass(response_type or object, BaseModel)
         except Exception:
@@ -161,13 +161,14 @@ class _PydanticSerializerWithResponse(_PydanticSerializer):
             response_callback = response_pydantic_type.validate_python
 
         if response_callback is None and not PYDANTIC_V2:
-            response_model = create_model( # type: ignore[call-overload]
+            response_model = create_model(  # type: ignore[call-overload]
                 "ResponseModel",
                 __config__=self.config,
                 r=(response_type or Any, ...),
             )
 
-            response_callback = lambda x: response_model(r=x).r # type: ignore[attr-defined]
+            def response_callback(x: Any) -> Any:
+                return response_model(r=x).r  # type: ignore[attr-defined]
 
         assert response_callback
         self.response_callback = response_callback

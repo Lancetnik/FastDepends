@@ -24,17 +24,17 @@ def dep2(a: Annotated[int, Field()] = 2) -> int:
         ),
         pytest.param(
             True,
-            id="Enabled Fastepends Error", 
+            id="Enabled Fastepends Error",
         ),
-    ]
+    ],
 )
-def test_overrides_after_root_func_creation(provider: Provider, fastdepends_error: bool) -> None:
+def test_overrides_after_root_func_creation(
+    provider: Provider, fastdepends_error: bool
+) -> None:
     @inject(
-        serializer_cls=PydanticSerializer(
-            use_fastdepends_errors=fastdepends_error
-            ),
+        serializer_cls=PydanticSerializer(use_fastdepends_errors=fastdepends_error),
         dependency_provider=provider,
-        )
+    )
     def func(a: Annotated[int, Depends(dep)]) -> int:
         return a
 

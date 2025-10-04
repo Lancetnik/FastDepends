@@ -1,10 +1,9 @@
-from collections.abc import AsyncIterator, Iterator, Sequence
+from collections.abc import AsyncIterator, Callable, Iterator, Sequence
 from contextlib import AsyncExitStack, ExitStack
 from functools import partial, wraps
 from typing import (
     TYPE_CHECKING,
     Any,
-    Callable,
     Optional,
     Protocol,
     TypeVar,
@@ -48,7 +47,7 @@ if TYPE_CHECKING:
         def __call__(
             self,
             func: Callable[P, T],
-            model: Optional[CallModel] = None,
+            model: CallModel | None = None,
         ) -> Callable[P, T]: ...
 
 
@@ -99,7 +98,7 @@ def inject(
 
 
 def inject(
-    func: Optional[Callable[P, T]] = None,
+    func: Callable[P, T] | None = None,
     *,
     cast: bool = True,
     cast_result: bool = True,
@@ -206,7 +205,7 @@ def _wrap_inject(
 
 
 class solve_async_gen:
-    _iter: Optional[AsyncIterator[Any]] = None
+    _iter: AsyncIterator[Any] | None = None
 
     def __init__(
         self,
@@ -249,7 +248,7 @@ class solve_async_gen:
 
 
 class solve_gen:
-    _iter: Optional[Iterator[Any]] = None
+    _iter: Iterator[Any] | None = None
 
     def __init__(
         self,

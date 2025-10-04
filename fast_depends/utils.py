@@ -1,7 +1,7 @@
 import asyncio
 import functools
 import inspect
-from collections.abc import AsyncGenerator, AsyncIterable, Awaitable
+from collections.abc import AsyncGenerator, AsyncIterable, Awaitable, Callable
 from contextlib import (
     AbstractContextManager,
     AsyncExitStack,
@@ -13,19 +13,16 @@ from typing import (
     TYPE_CHECKING,
     Annotated,
     Any,
-    Callable,
     ForwardRef,
-    Optional,
     TypeVar,
-    Union,
     cast,
+    get_args,
+    get_origin,
 )
 
 import anyio
 from typing_extensions import (
     ParamSpec,
-    get_args,
-    get_origin,
 )
 
 from fast_depends._compat import evaluate_forwardref
@@ -38,10 +35,7 @@ T = TypeVar("T")
 
 
 async def run_async(
-    func: Union[
-        Callable[P, T],
-        Callable[P, Awaitable[T]],
-    ],
+    func: Callable[P, T] | Callable[P, Awaitable[T]],
     *args: P.args,
     **kwargs: P.kwargs,
 ) -> T:
@@ -138,7 +132,7 @@ def get_typed_annotation(
     annotation: Any,
     globalns: dict[str, Any],
     locals: dict[str, Any],
-    type_params: Optional[tuple[Any, ...]] = None,
+    type_params: tuple[Any, ...] | None = None,
 ) -> Any:
     if isinstance(annotation, str):
         annotation = ForwardRef(annotation)

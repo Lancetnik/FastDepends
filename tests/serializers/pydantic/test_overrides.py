@@ -1,5 +1,6 @@
 from typing import Annotated
 
+import pytest
 from pydantic import Field
 
 from fast_depends import Depends, Provider, inject
@@ -14,8 +15,26 @@ def dep2(a: Annotated[int, Field()] = 2) -> int:
     return a
 
 
-def test_overrides_after_root_func_creation(provider: Provider) -> None:
-    @inject(serializer_cls=PydanticSerializer(), dependency_provider=provider)
+@pytest.mark.parametrize(
+    "fastdepends_error",
+    [
+        pytest.param(
+            False,
+            id="Disabled Fastepends Error",
+        ),
+        pytest.param(
+            True,
+            id="Enabled Fastepends Error", 
+        ),
+    ]
+)
+def test_overrides_after_root_func_creation(provider: Provider, fastdepends_error: bool) -> None:
+    @inject(
+        serializer_cls=PydanticSerializer(
+            use_fastdepends_errors=fastdepends_error
+            ),
+        dependency_provider=provider,
+        )
     def func(a: Annotated[int, Depends(dep)]) -> int:
         return a
 

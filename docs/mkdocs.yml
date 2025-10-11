@@ -9,6 +9,9 @@ edit_uri: https://github.com/lancetnik/FastDepends
 copyright: Copyright &copy; 2023 - 2024 Pastukhov Nikita
 
 docs_dir: docs
+watch:
+  - docs
+  - docs_src
 
 extra_css:
   - assets/stylesheets/termynal.css

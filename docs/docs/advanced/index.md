@@ -59,7 +59,7 @@ class CustomField:
 * `required` - if CustomField is **required**, raises `pydantic.error_wrappers.ValidationError` if it is not present at final **kwargs**
 * `cast` - specify the typecasting behavior. Use *False* to disable pydantic typecasting for fields using with your *CustomField*
 
-```python linenums="1" hl_lines="3 8 12-13"
+```python linenums="1" hl_lines="3 7 10-11"
 {!> docs_src/advanced/custom/cast_arg.py !}
 ```
 

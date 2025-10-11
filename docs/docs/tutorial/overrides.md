@@ -34,8 +34,7 @@ And then **FastDepends** will call that override instead of the original depende
 
 ### Use `pytest.fixture`
 
-!!! tip
-    `dependency_provider` is a library global object. Override dependency at one place, you override it everywhere.
+`dependency_provider` is a library global object. Override dependency at one place, you override it everywhere.
 
 So, if you don't wish to override dependency everywhere, I extremely recommend to use the following fixture for your tests
 
@@ -44,3 +43,28 @@ So, if you don't wish to override dependency everywhere, I extremely recommend t
 ```
 
 1.  Drop all overridings
+
+!!! tip
+    Alternatively, you can create you own dependency provider in pass it in the functions you want.
+
+    ```python linenums="1" hl_lines="4 12 18"
+    from typing import Annotated
+    from fast_depends import Depends, Provider, inject
+
+    provider = Provider()
+
+    def abc_func() -> int:
+        raise 2
+
+    def real_func() -> int:
+        return 1
+
+    @inject(dependency_overrides_provider=provider)
+    def func(
+        dependency: Annotated[int, Depends(abc_func)]
+    ) -> int:
+        return dependency
+
+    with provider.scope(abc_func, real_func):
+        assert func() == 1
+    ```

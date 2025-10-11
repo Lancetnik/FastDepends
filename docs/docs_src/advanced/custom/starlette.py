@@ -5,7 +5,6 @@ from starlette.routing import Route
 from fast_depends import inject
 from fast_depends.library import CustomField
 
-
 class Path(CustomField):
     def use(self, /, *, request, **kwargs):
         return {

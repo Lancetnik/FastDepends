@@ -81,13 +81,12 @@ You can use this library without any frameworks in both **sync** and **async** c
 
 Also, **FastDepends** can be used as a lightweight DI container. Using it, you can easily override basic dependencies with application startup or in tests.
 
-```python
+```python linenums="1" hl_lines="16"
 from typing import Annotated
-
 from fast_depends import Depends, dependency_provider, inject
 
 def abc_func() -> int:
-    raise NotImplementedError()
+    raise 2
 
 def real_func() -> int:
     return 1
@@ -104,15 +103,14 @@ with dependency_provider.scope(abc_func, real_func):
 
 `dependency_provider` in this case is just a default container already declared in the library. But you can use your own the same way:
 
-```python
+```python linenums="1" hl_lines="4 12 18"
 from typing import Annotated
-
 from fast_depends import Depends, Provider, inject
 
 provider = Provider()
 
 def abc_func() -> int:
-    raise NotImplementedError()
+    raise 2
 
 def real_func() -> int:
     return 1
@@ -139,7 +137,7 @@ Custom fields can be used to adding something specific to a function arguments (
 
 FastDepends grants you this opportunity a very intuitive and comfortable way.
 
-```python
+```python linenums="1"
 from fast_depends import inject
 from fast_depends.library import CustomField
 
@@ -154,7 +152,7 @@ def my_func(header_field: int = Header()):
     return header_field
 
 assert my_func(
-    headers={ "header_field": "1" }
+    headers={"header_field": "1"}
 ) == 1
 ```
 

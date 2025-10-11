@@ -3,7 +3,6 @@ import pytest
 from fast_depends import Depends, dependency_provider, inject
 
 # Base code
-
 def base_dep():
     return 1
 
@@ -15,7 +14,6 @@ def func(d = Depends(base_dep)):
     return d
 
 # Tests
-
 @pytest.fixture
 def provider():
     yield dependency_provider

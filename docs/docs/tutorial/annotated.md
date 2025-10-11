@@ -14,7 +14,7 @@ One of the biggest benefits is that now you can create `Annotated` dependencies 
 
 For example, you could have code like this:
 
-```python linenums="1" hl_lines="11 15"
+```python linenums="1" hl_lines="12 16"
 {!> docs_src/tutorial_4_annotated/not_annotated.py !}
 ```
 
@@ -32,14 +32,10 @@ CurrentUser = Annotated[User, Depends(get_user)]
 ```
 
 And then you can reuse this `Annotated` dependency:
-=== "Python 3.9+"
-    ```python linenums="1" hl_lines="11 14 18"
-    {!> docs_src/tutorial_4_annotated/annotated_39.py !}
-    ```
-=== "Python 3.6+"
-    ```python linenums="1" hl_lines="11 14 18"
-    {!> docs_src/tutorial_4_annotated/annotated_36.py !}
-    ```
+
+```python linenums="1" hl_lines="11 14 18"
+{!> docs_src/tutorial_4_annotated/annotated_39.py !}
+```
 
 ...and `CurrentUser` has all the typing information as `User`, so your editor will work as expected (autocompletion and everything), and **FastDepends** will be able to understand the dependency defined in `Annotated`. :sunglasses:
 
@@ -47,14 +43,9 @@ And then you can reuse this `Annotated` dependency:
 
 You able to use `Field` and `Depends` with `Annotated` as well
 
-=== "Python 3.9+"
-    ```python linenums="1"
-    {!> docs_src/tutorial_4_annotated/annotated_variants_39.py !}
-    ```
-=== "Python 3.6+"
-    ```python linenums="1"
-    {!> docs_src/tutorial_4_annotated/annotated_variants_36.py !}
-    ```
+```python linenums="1"
+{!> docs_src/tutorial_4_annotated/annotated_variants_39.py !}
+```
 
 ## Limitations
 

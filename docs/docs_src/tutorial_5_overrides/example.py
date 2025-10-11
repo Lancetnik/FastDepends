@@ -1,6 +1,5 @@
 from fast_depends import Depends, dependency_provider, inject
 
-
 def original_dependency():
     raise NotImplementedError()
 

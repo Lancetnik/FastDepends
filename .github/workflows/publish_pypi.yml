@@ -28,7 +28,6 @@ jobs:
           cache-dependency-path: pyproject.toml
 
       - name: Install build dependencies
-        if: steps.cache.outputs.cache-hit != 'true'
         run: pip install build
 
       - name: Build distribution

@@ -1,6 +1,5 @@
 from fast_depends import Depends, inject
 
-
 class MyDependency:
     @staticmethod
     def dep(a: int):

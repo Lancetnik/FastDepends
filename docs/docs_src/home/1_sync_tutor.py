@@ -1,6 +1,5 @@
 from fast_depends import Depends, inject
 
-
 def dependency(a: int) -> int:
     return a
 

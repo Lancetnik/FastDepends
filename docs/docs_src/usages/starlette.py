@@ -6,7 +6,6 @@ from starlette.routing import Route
 
 from fast_depends import Depends, inject
 
-
 def unwrap_path(func):
     async def wrapper(request):  # unwrap incoming params to **kwargs here
         return await func(**request.path_params)

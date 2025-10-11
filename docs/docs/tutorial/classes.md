@@ -15,7 +15,7 @@ Yep, all of these examples can be used as a dependency!
 You can use class initializer as a dependency. This way, object of this class
 will be the type of your dependency:
 
-```python linenums="1" hl_lines="5-6 9"
+```python linenums="1" hl_lines="5-7 10"
 {!> docs_src/tutorial_2_classes/tutorial_2.py !}
 ```
 

@@ -2,6 +2,9 @@
 requires = ["uv_build>=0.8.4,<0.9.0"]
 build-backend = "uv_build"
 
+[tool.uv.build-backend]
+module-root = ""
+
 [project]
 name = "fast-depends"
 description = "FastDepends - extracted and cleared from HTTP domain logic FastAPI Dependency Injection System. Async and sync are both supported."

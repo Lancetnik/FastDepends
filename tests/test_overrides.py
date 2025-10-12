@@ -43,6 +43,27 @@ def test_sync_override(provider: Provider) -> None:
     provider.clear()
 
 
+def test_override_by_key(provider: Provider) -> None:
+    mock = Mock()
+
+    def base_dep():
+        raise NotImplementedError
+
+    def override_dep():
+        mock.override()
+        return 2
+
+    provider[base_dep] = override_dep
+
+    @inject(dependency_provider=provider)
+    def func(d=Depends(base_dep)):
+        assert d == 2
+
+    func()
+
+    provider.clear()
+
+
 def test_override_context(provider: Provider) -> None:
     def base_dep():
         return 1

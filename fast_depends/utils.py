@@ -14,7 +14,7 @@ from typing import (
     Annotated,
     Any,
     ForwardRef,
-    TypeVar,
+    TypeAliasType, TypeVar,
     cast,
     get_args,
     get_origin,
@@ -134,6 +134,9 @@ def get_typed_annotation(
     locals: dict[str, Any],
     type_params: tuple[Any, ...] | None = None,
 ) -> Any:
+    if isinstance(annotation, TypeAliasType):
+        annotation = annotation.__value__
+
     if isinstance(annotation, str):
         annotation = ForwardRef(annotation)
 

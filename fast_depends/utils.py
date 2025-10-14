@@ -1,6 +1,7 @@
 import asyncio
 import functools
 import inspect
+import sys
 from collections.abc import AsyncGenerator, AsyncIterable, Awaitable, Callable
 from contextlib import (
     AbstractContextManager,
@@ -14,12 +15,16 @@ from typing import (
     Annotated,
     Any,
     ForwardRef,
-    TypeAliasType,
     TypeVar,
     cast,
     get_args,
     get_origin,
 )
+
+if sys.version_info >= (3, 12):
+    from typing import TypeAliasType
+else:
+    from typing_extensions import TypeAliasType
 
 import anyio
 from typing_extensions import (

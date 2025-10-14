@@ -1,3 +1,5 @@
+import sys
+
 import pytest
 
 try:
@@ -32,3 +34,7 @@ pydanticV1 = pytest.mark.skipif(
 pydanticV2 = pytest.mark.skipif(
     not HAS_PYDANTIC or not PYDANTIC_V2, reason="requires PydanticV1"
 )  # noqa: N816
+
+python312and_above = pytest.mark.skipif(
+    sys.version_info < (3, 12), reason="requires Python >= 3.12"
+) # noqa: N816

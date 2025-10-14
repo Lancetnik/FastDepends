@@ -10,7 +10,7 @@ import pytest
 
 from fast_depends import Depends, inject
 from fast_depends.exceptions import ValidationError
-from tests.marks import serializer
+from tests.marks import python312and_above, serializer
 
 
 def test_depends() -> None:
@@ -453,7 +453,7 @@ def test_generator_iter() -> None:
     assert len(list(iterator)) == 13
     assert len(list(iterator)) == 0
 
-
+@python312and_above
 def test_typealiastype_depends() -> None:
     def dep_func(b):
         return b

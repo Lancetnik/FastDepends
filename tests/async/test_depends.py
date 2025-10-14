@@ -10,7 +10,7 @@ import pytest
 
 from fast_depends import Depends, inject
 from fast_depends.exceptions import ValidationError
-from tests.marks import serializer
+from tests.marks import python312and_above, serializer
 
 
 @pytest.mark.anyio
@@ -586,6 +586,7 @@ async def test_asyncgenerator_iter() -> None:
 
 
 @pytest.mark.anyio
+@python312and_above
 async def test_typealiastype_depends() -> None:
     async def dep_func(b):
         return b

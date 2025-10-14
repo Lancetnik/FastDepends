@@ -583,3 +583,18 @@ async def test_asyncgenerator_iter() -> None:
 
     assert len([v async for v in iterator]) == 13
     assert len([v async for v in iterator]) == 0
+
+
+@pytest.mark.anyio
+async def test_typealiastype_depends() -> None:
+    async def dep_func(b):
+        return b
+
+    type D = Annotated[int, Depends(dep_func)]
+
+    @inject
+    async def some_async_func(a: int, b: D) -> int:
+        assert isinstance(b, int)
+        return a + b
+
+    assert await some_async_func(1, 2) == 3

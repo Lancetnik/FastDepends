@@ -452,3 +452,17 @@ def test_generator_iter() -> None:
 
     assert len(list(iterator)) == 13
     assert len(list(iterator)) == 0
+
+
+def test_typealiastype_depends() -> None:
+    def dep_func(b):
+        return b
+
+    type D = Annotated[int, Depends(dep_func)]
+
+    @inject
+    def some_func(a: int, b: D) -> int:
+        assert isinstance(b, int)
+        return a + b
+
+    assert some_func(1, 2) == 3

@@ -21,15 +21,8 @@ from typing import (
     get_origin,
 )
 
-if sys.version_info >= (3, 12):
-    from typing import TypeAliasType
-else:
-    from typing_extensions import TypeAliasType
-
 import anyio
-from typing_extensions import (
-    ParamSpec,
-)
+from typing_extensions import ParamSpec, TypeAliasType
 
 from fast_depends._compat import evaluate_forwardref
 

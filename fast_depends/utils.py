@@ -1,6 +1,7 @@
 import asyncio
 import functools
 import inspect
+import sys
 from collections.abc import AsyncGenerator, AsyncIterable, Awaitable, Callable
 from contextlib import (
     AbstractContextManager,
@@ -20,10 +21,14 @@ from typing import (
     get_origin,
 )
 
+if sys.version_info >= (3, 12):
+    # to support PydanticV1 we should switch it expicitly
+    from typing import TypeAliasType
+else:
+    from typing_extensions import TypeAliasType
+
 import anyio
-from typing_extensions import (
-    ParamSpec,
-)
+from typing_extensions import ParamSpec
 
 from fast_depends._compat import evaluate_forwardref
 
@@ -134,6 +139,9 @@ def get_typed_annotation(
     locals: dict[str, Any],
     type_params: tuple[Any, ...] | None = None,
 ) -> Any:
+    if isinstance(annotation, TypeAliasType):
+        annotation = annotation.__value__
+
     if isinstance(annotation, str):
         annotation = ForwardRef(annotation)
 

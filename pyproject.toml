@@ -12,10 +12,12 @@ readme = "README.md"
 authors = [
     { name = "Nikita Pastukhov", email = "nikita@pastukhov-dev.com" },
 ]
+license = "MIT"
+license-files = ["LICENSE"]
 
 keywords = ["fastapi", "dependency injection"]
 
-version = "3.0.2"
+version = "3.0.3"
 
 requires-python = ">=3.10"
 

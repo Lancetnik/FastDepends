@@ -20,7 +20,6 @@ class Provider:
         self.overrides = {}
 
     def clear(self) -> None:
-        self.dependencies = {}
         self.overrides = {}
 
     def add_dependant(

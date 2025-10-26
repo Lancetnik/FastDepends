@@ -1,4 +1,5 @@
 from collections.abc import Generator
+from typing import Annotated
 from unittest.mock import Mock
 
 import pytest
@@ -280,3 +281,25 @@ async def test_async_override_context_with_undefined_generator(
 
     with provider.scope(base_dep, override_dep):
         assert await func() == 2
+
+
+def test_clear_overrides(provider: Provider) -> None:
+    def base_dep() -> int:
+        raise NotImplementedError
+
+    def override_dep() -> int:
+        return 2
+
+    @inject(dependency_provider=provider)
+    def func(d: Annotated[int, Depends(base_dep)]) -> None:
+        pass
+
+    provider.override(base_dep, override_dep)
+
+    assert len(provider.overrides) == 1
+    assert len(provider.dependencies) == 1
+
+    provider.clear()
+
+    assert provider.overrides == {}
+    assert len(provider.dependencies) == 1

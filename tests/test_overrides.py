@@ -1,4 +1,5 @@
-from collections.abc import Generator
+from collections.abc import AsyncGenerator, Generator
+from typing import Annotated
 from unittest.mock import Mock
 
 import pytest
@@ -250,10 +251,10 @@ def test_override_context_with_undefined_generator(provider: Provider) -> None:
 
 @pytest.mark.anyio
 async def test_async_override_context_with_generator(provider: Provider) -> None:
-    async def base_dep() -> Generator[int, None, None]:
+    async def base_dep() -> AsyncGenerator[int, None]:
         raise NotImplementedError
 
-    async def override_dep() -> Generator[int, None, None]:
+    async def override_dep() -> AsyncGenerator[int, None]:
         yield 2
 
     @inject(dependency_provider=provider)
@@ -268,10 +269,10 @@ async def test_async_override_context_with_generator(provider: Provider) -> None
 async def test_async_override_context_with_undefined_generator(
     provider: Provider,
 ) -> None:
-    async def base_dep() -> Generator[int, None, None]:
+    async def base_dep() -> AsyncGenerator[int, None]:
         raise NotImplementedError
 
-    async def override_dep() -> Generator[int, None, None]:
+    async def override_dep() -> AsyncGenerator[int, None]:
         yield 2
 
     @inject(dependency_provider=provider)
@@ -280,3 +281,27 @@ async def test_async_override_context_with_undefined_generator(
 
     with provider.scope(base_dep, override_dep):
         assert await func() == 2
+
+
+def test_clear_overrides(provider: Provider) -> None:
+    def base_dep() -> int:
+        return 1
+
+    def override_dep() -> int:
+        return 2
+
+    @inject(dependency_provider=provider)
+    def func(d: Annotated[int, Depends(base_dep)]) -> int:
+        return d
+
+    provider.override(base_dep, override_dep)
+
+    assert len(provider.overrides) == 1
+    assert len(provider.dependencies) == 1
+    assert func() == 2  # override dependency called
+
+    provider.clear()
+
+    assert len(provider.overrides) == 0
+    assert len(provider.dependencies) == 1
+    assert func() == 1  # original dep called

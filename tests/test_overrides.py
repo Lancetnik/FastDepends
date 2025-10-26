@@ -1,4 +1,4 @@
-from collections.abc import Generator
+from collections.abc import AsyncGenerator, Generator
 from typing import Annotated
 from unittest.mock import Mock
 
@@ -251,10 +251,10 @@ def test_override_context_with_undefined_generator(provider: Provider) -> None:
 
 @pytest.mark.anyio
 async def test_async_override_context_with_generator(provider: Provider) -> None:
-    async def base_dep() -> Generator[int, None, None]:
+    async def base_dep() -> AsyncGenerator[int, None]:
         raise NotImplementedError
 
-    async def override_dep() -> Generator[int, None, None]:
+    async def override_dep() -> AsyncGenerator[int, None]:
         yield 2
 
     @inject(dependency_provider=provider)
@@ -269,10 +269,10 @@ async def test_async_override_context_with_generator(provider: Provider) -> None
 async def test_async_override_context_with_undefined_generator(
     provider: Provider,
 ) -> None:
-    async def base_dep() -> Generator[int, None, None]:
+    async def base_dep() -> AsyncGenerator[int, None]:
         raise NotImplementedError
 
-    async def override_dep() -> Generator[int, None, None]:
+    async def override_dep() -> AsyncGenerator[int, None]:
         yield 2
 
     @inject(dependency_provider=provider)

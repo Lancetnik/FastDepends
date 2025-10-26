@@ -1,5 +1,6 @@
 from collections.abc import Callable, Hashable, Iterator
 from contextlib import contextmanager
+from inspect import unwrap
 from typing import TYPE_CHECKING, Any, TypeAlias
 
 from fast_depends.core import build_call_model
@@ -78,4 +79,8 @@ class Provider:
         self.overrides.pop(self.__get_original_key(original), None)
 
     def __get_original_key(self, original: Callable[..., Any]) -> Key:
-        return original
+        try:
+            unwrapped = unwrap(original)
+        except (ValueError, TypeError):
+            unwrapped = original
+        return hash(unwrapped)

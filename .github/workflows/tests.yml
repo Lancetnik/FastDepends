@@ -45,7 +45,7 @@ jobs:
           COVERAGE_FILE: coverage/.coverage.${{ runner.os }}-py${{ matrix.python-version }}-${{ matrix.pydantic-version }}
           CONTEXT: ${{ runner.os }}-py${{ matrix.python-version }}-${{ matrix.pydantic-version }}
       - name: Store coverage files
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: .coverage.${{ runner.os }}-py${{ matrix.python-version }}-${{ matrix.pydantic-version }}
           path: coverage
@@ -80,7 +80,7 @@ jobs:
           COVERAGE_FILE: coverage/.coverage.${{ runner.os }}-py${{ matrix.python-version }}-msgspec
           CONTEXT: ${{ runner.os }}-py${{ matrix.python-version }}-msgspec
       - name: Store coverage files
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: .coverage.${{ runner.os }}-py${{ matrix.python-version }}-msgspec
           path: coverage
@@ -110,7 +110,7 @@ jobs:
           COVERAGE_FILE: coverage/.coverage.no-serializer
           CONTEXT: no-serializer
       - name: Store coverage files
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: .coverage.no-serializer
           path: coverage
@@ -129,7 +129,7 @@ jobs:
           python-version: '3.13'
 
       - name: Get coverage files
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v6
         with:
           pattern: .coverage*
           path: coverage
@@ -143,7 +143,7 @@ jobs:
       - run: coverage html --show-contexts --title "FastDepends coverage for ${{ github.sha }}"
 
       - name: Store coverage html
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: coverage-html
           path: htmlcov

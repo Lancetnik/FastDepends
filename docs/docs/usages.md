@@ -14,7 +14,7 @@ There are some usage examples with popular Python HTTP Frameworks:
     ```
 
 === "Starlette"
-    ```python hl_lines="9 16-18" linenums="1"
+    ```python hl_lines="9 17-19" linenums="1"
     {!> docs_src/usages/starlette.py !}
     ```
 

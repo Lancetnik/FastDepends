@@ -1,6 +1,5 @@
 from fast_depends import Depends, dependency_provider, inject
 
-
 def original_dependency():
     raise NotImplementedError()
 
@@ -13,7 +12,7 @@ def func(d = Depends(original_dependency)):
 
 dependency_provider.override(original_dependency, override_dependency)
 # or
-dependency_provider.dependency_overrides[original_dependency] = override_dependency
+dependency_provider[original_dependency] = override_dependency
 
 def test():
     assert func() == 1

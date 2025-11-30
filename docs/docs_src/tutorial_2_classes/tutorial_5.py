@@ -1,6 +1,5 @@
 from fast_depends import Depends, inject
 
-
 class MyDependency:
     def __init__(self, a):
         self.field = a

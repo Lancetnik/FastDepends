@@ -20,7 +20,6 @@ class Provider:
         self.overrides = {}
 
     def clear(self) -> None:
-        self.dependencies = {}
         self.overrides = {}
 
     def add_dependant(
@@ -59,6 +58,14 @@ class Provider:
         )
 
         self.overrides[key] = override_model
+
+    def __setitem__(
+        self,
+        key: Callable[..., Any],
+        value: Callable[..., Any],
+    ) -> None:
+        """Alias for `provider[key] = value` syntax"""
+        self.override(key, value)
 
     @contextmanager
     def scope(

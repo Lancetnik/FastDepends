@@ -1,6 +1,9 @@
 [build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
+requires = ["uv_build>=0.9.2"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-root = ""
 
 [project]
 name = "fast-depends"
@@ -9,10 +12,12 @@ readme = "README.md"
 authors = [
     { name = "Nikita Pastukhov", email = "nikita@pastukhov-dev.com" },
 ]
+license = "MIT"
+license-files = ["LICENSE"]
 
 keywords = ["fastapi", "dependency injection"]
 
-version = "3.0.0rc1"
+version = "3.0.3"
 
 requires-python = ">=3.10"
 
@@ -27,6 +32,7 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Operating System :: OS Independent",
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Topic :: Software Development :: Libraries",
@@ -70,7 +76,7 @@ test = [
 
 lint = [
     "mypy==1.18.2",
-    "ruff==0.13.2",
+    "ruff==0.14.6",
     "codespell==2.4.1",
     "types-ujson>=5.10.0.20250822",
 ]
@@ -120,7 +126,7 @@ line-length = 90
 indent-width = 4
 
 exclude = [
-    "docs",
+    "docs/docs_src",
 ]
 
 [tool.ruff.lint]

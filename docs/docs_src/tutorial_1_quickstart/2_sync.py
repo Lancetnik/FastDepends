@@ -1,6 +1,5 @@
 from fast_depends import Depends, inject
 
-
 def another_dependency(a: int):
     return a * 2
 

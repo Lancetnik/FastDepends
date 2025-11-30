@@ -20,19 +20,26 @@ Activate the new environment with:
 source ./venv/bin/activate
 ```
 
-Make sure you have the latest pip version on your virtual environment to
+## Install dependencies
 
-```bash
-python -m pip install --upgrade pip
-```
+=== "pip"
+    Make sure you have the latest pip version on your virtual environment to
 
-## pip
+    ```bash
+    python -m pip install -U pip
+    ```
 
-After activating the environment as described above:
+    After activating the environment as described above:
 
-```bash
-pip install -r requirements.dev.txt
-```
+    ```bash
+    pip install --group dev -e .
+    ```
+
+=== "uv"
+
+    ```bash
+    uv sync --group dev
+    ```
 
 It will install all the dependencies and your local FastDepends in your local environment.
 

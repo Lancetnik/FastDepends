@@ -1,4 +1,3 @@
-import asyncio
 import functools
 import inspect
 import sys
@@ -203,11 +202,11 @@ def is_coroutine_callable(call: Callable[..., Any]) -> bool:
     if inspect.isclass(call):
         return False
 
-    if asyncio.iscoroutinefunction(call):
+    if inspect.iscoroutinefunction(call):
         return True
 
     dunder_call = getattr(call, "__call__", None)  # noqa: B004
-    return asyncio.iscoroutinefunction(dunder_call)
+    return inspect.iscoroutinefunction(dunder_call)
 
 
 async def async_map(

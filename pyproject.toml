@@ -10,14 +10,14 @@ name = "fast-depends"
 description = "FastDepends - extracted and cleared from HTTP domain logic FastAPI Dependency Injection System. Async and sync are both supported."
 readme = "README.md"
 authors = [
-    { name = "Nikita Pastukhov", email = "nikita@pastukhov-dev.com" },
+    { name = "Nikita Pastukhov", email = "nikita@pastukhov-dev.ru" },
 ]
 license = "MIT"
 license-files = ["LICENSE"]
 
 keywords = ["fastapi", "dependency injection"]
 
-version = "3.0.3"
+version = "3.0.4"
 
 requires-python = ">=3.10"
 

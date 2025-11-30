@@ -1,23 +1,27 @@
 import inspect
 import re
-from collections.abc import Iterator, Sequence
+from collections.abc import Callable, Iterator, Sequence
 from contextlib import contextmanager
-from typing import Any
+from typing import Any, TypeVar
 
 import msgspec
 
 from fast_depends.exceptions import ValidationError
 from fast_depends.library.serializer import OptionItem, Serializer, SerializerProto
 
+T = TypeVar("T")
+
 
 class MsgSpecSerializer(SerializerProto):
-    __slots__ = ("use_fastdepends_errors",)
+    __slots__ = ("use_fastdepends_errors", "dec_hook")
 
     def __init__(
         self,
         use_fastdepends_errors: bool = True,
+        dec_hook: Callable[[type[T], Any], T] | None = None,
     ) -> None:
         self.use_fastdepends_errors = use_fastdepends_errors
+        self.dec_hook = dec_hook
 
     def __call__(
         self,
@@ -25,18 +29,20 @@ class MsgSpecSerializer(SerializerProto):
         name: str,
         options: list[OptionItem],
         response_type: Any,
-    ) -> "Serializer":
+    ) -> "_MsgSpecSerializer":
         if self.use_fastdepends_errors:
             if response_type is not inspect.Parameter.empty:
                 return _MsgSpecWrappedSerializerWithResponse(
                     name=name,
                     options=options,
                     response_type=response_type,
+                    dec_hook=self.dec_hook,
                 )
 
             return _MsgSpecWrappedSerializer(
                 name=name,
                 options=options,
+                dec_hook=self.dec_hook,
             )
 
         if response_type is not inspect.Parameter.empty:
@@ -44,11 +50,13 @@ class MsgSpecSerializer(SerializerProto):
                 name=name,
                 options=options,
                 response_type=response_type,
+                dec_hook=self.dec_hook,
             )
 
         return _MsgSpecSerializer(
             name=name,
             options=options,
+            dec_hook=self.dec_hook,
         )
 
     @staticmethod
@@ -66,6 +74,7 @@ class _MsgSpecSerializer(Serializer):
         "name",
         "options",
         "response_option",
+        "dec_hook",
     )
 
     def __init__(
@@ -74,15 +83,11 @@ class _MsgSpecSerializer(Serializer):
         name: str,
         options: list[OptionItem],
         response_type: Any = None,
+        dec_hook: Callable[[type[T], Any], T] | None = None,
     ):
         model_options: list[str | tuple[str, type] | tuple[str, type, Any]] = []
         aliases = {}
         for i in options:
-            if isinstance(
-                msgspec.inspect.type_info(i.field_type), msgspec.inspect.CustomType
-            ):
-                continue
-
             default_value = i.default_value
 
             if isinstance(default_value, msgspec._core.Field) and default_value.name:
@@ -108,6 +113,7 @@ class _MsgSpecSerializer(Serializer):
 
         self.aliases = aliases
         self.model = msgspec.defstruct(name, model_options, kw_only=True)
+        self.dec_hook = dec_hook
         super().__init__(name=name, options=options, response_type=response_type)
 
     def get_aliases(self) -> tuple[str, ...]:
@@ -119,6 +125,7 @@ class _MsgSpecSerializer(Serializer):
             type=self.model,
             strict=False,
             str_keys=True,
+            dec_hook=self.dec_hook,
         )
 
         return {
@@ -134,12 +141,23 @@ class _MsgSpecSerializerWithResponse(_MsgSpecSerializer):
         name: str,
         options: list[OptionItem],
         response_type: Any,
+        dec_hook: Callable[[type[T], Any], T] | None = None,
     ):
-        super().__init__(name=name, options=options, response_type=response_type)
+        super().__init__(
+            name=name,
+            options=options,
+            response_type=response_type,
+            dec_hook=dec_hook,
+        )
         self.response_type = response_type
 
     def response(self, value: Any) -> Any:
-        return msgspec.convert(value, type=self.response_type, strict=False)
+        return msgspec.convert(
+            value,
+            type=self.response_type,
+            strict=False,
+            dec_hook=self.dec_hook,
+        )
 
 
 class _MsgSpecWrappedSerializer(_MsgSpecSerializer):
@@ -150,6 +168,7 @@ class _MsgSpecWrappedSerializer(_MsgSpecSerializer):
                 type=self.model,
                 strict=False,
                 str_keys=True,
+                dec_hook=self.dec_hook,
             )
 
         return {
@@ -182,10 +201,21 @@ class _MsgSpecWrappedSerializerWithResponse(_MsgSpecWrappedSerializer):
         name: str,
         options: list[OptionItem],
         response_type: Any,
+        dec_hook: Callable[[type[T], Any], T] | None = None,
     ):
-        super().__init__(name=name, options=options, response_type=response_type)
+        super().__init__(
+            name=name,
+            options=options,
+            response_type=response_type,
+            dec_hook=dec_hook,
+        )
         self.response_type = response_type
 
     def response(self, value: Any) -> Any:
         with self._try_msgspec(value, self.response_option, ("return",)):
-            return msgspec.convert(value, type=self.response_type, strict=False)
+            return msgspec.convert(
+                value,
+                type=self.response_type,
+                strict=False,
+                dec_hook=self.dec_hook,
+            )

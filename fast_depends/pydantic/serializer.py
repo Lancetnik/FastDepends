@@ -24,7 +24,7 @@ from fast_depends.pydantic._compat import (
 
 class PydanticSerializer(SerializerProto):
     __slots__ = (
-        "pydantic_config",
+        "config",
         "use_fastdepends_errors",
     )
 

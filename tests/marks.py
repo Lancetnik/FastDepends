@@ -26,9 +26,9 @@ msgspec = pytest.mark.skipif(not HAS_MSGSPEC, reason="requires Msgspec")  # noqa
 pydantic = pytest.mark.skipif(not HAS_PYDANTIC, reason="requires Pydantic")  # noqa: N816
 
 pydanticV1 = pytest.mark.skipif(
-    not HAS_PYDANTIC or PYDANTIC_V2, reason="requires PydanticV2"
+    not HAS_PYDANTIC or PYDANTIC_V2, reason="requires PydanticV1"
 )  # noqa: N816
 
 pydanticV2 = pytest.mark.skipif(
-    not HAS_PYDANTIC or not PYDANTIC_V2, reason="requires PydanticV1"
+    not HAS_PYDANTIC or not PYDANTIC_V2, reason="requires PydanticV2"
 )  # noqa: N816

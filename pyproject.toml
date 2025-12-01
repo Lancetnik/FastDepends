@@ -69,14 +69,14 @@ docs = [
 
 test = [
     "coverage[toml]>=7.2.0,<8.0.0",
-    "pytest>=8.0.0,<9",
-    "dirty-equals>=0.7.0,<0.11",
+    "pytest>=8.0.0,<10",
+    "dirty-equals>=0.7.0,<0.12",
     "annotated_types",
 ]
 
 lint = [
-    "mypy==1.18.2",
-    "ruff==0.14.6",
+    "mypy==1.19.0",
+    "ruff==0.14.7",
     "codespell==2.4.1",
     "types-ujson>=5.10.0.20250822",
 ]

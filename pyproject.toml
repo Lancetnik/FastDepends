@@ -75,8 +75,8 @@ test = [
 ]
 
 lint = [
-    "mypy==1.19.0",
-    "ruff==0.14.8",
+    "mypy==1.19.1",
+    "ruff==0.14.9",
     "codespell==2.4.1",
     "types-ujson>=5.10.0.20250822",
 ]

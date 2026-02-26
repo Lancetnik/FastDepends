@@ -24,6 +24,45 @@ def test_base() -> None:
     assert schema == {"title": "handler", "type": "null"}, schema
 
 
+class TestExclude:
+    def test_exclude_one_field(self) -> None:
+        def handler(a: int, b: str, c: bool) -> None:
+            pass
+
+        schema = get_schema(
+            build_call_model(
+                handler,
+                serializer_cls=PydanticSerializer(use_fastdepends_errors=True),
+                dependency_provider=Provider(),
+            ),
+            exclude=("b",),
+        )
+        assert schema == {
+            "properties": {
+                "a": {"title": "A", "type": "integer"},
+                "c": {"title": "C", "type": "boolean"},
+            },
+            "required": ["a", "c"],
+            "title": "handler",
+            "type": "object",
+        }, schema
+        assert "b" not in schema["properties"]
+
+    def test_exclude_all_fields(self) -> None:
+        def handler(a: int, b: str) -> None:
+            pass
+
+        schema = get_schema(
+            build_call_model(
+                handler,
+                serializer_cls=PydanticSerializer(use_fastdepends_errors=True),
+                dependency_provider=Provider(),
+            ),
+            exclude=("a", "b"),
+        )
+        assert schema == {"title": "handler", "type": "null"}, schema
+
+
 class TestNoType:
     def test_no_type(self) -> None:
         def handler(a):

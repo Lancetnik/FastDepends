@@ -1,3 +1,4 @@
+from collections.abc import Iterable
 from typing import Any
 
 from fast_depends.core import CallModel
@@ -6,11 +7,15 @@ from fast_depends.pydantic._compat import PYDANTIC_V2, create_model, model_schem
 
 def get_schema(
     call: CallModel,
+    *,
     embed: bool = False,
     resolve_refs: bool = False,
+    exclude: Iterable[str] = (),
 ) -> dict[str, Any]:
     class_options: dict[str, Any] = {
-        i.field_name: (i.field_type, i.default_value) for i in call.flat_params
+        i.field_name: (i.field_type, i.default_value)
+        for i in call.flat_params
+        if i.field_name not in exclude
     }
 
     name = getattr(call.serializer, "name", "Undefined")

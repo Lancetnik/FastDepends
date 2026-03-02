@@ -201,6 +201,7 @@ class CallModel:
         stack: ExitStack,
         cache_dependencies: dict[Callable[..., Any], Any],
         nested: bool = False,
+        depencency_provider: "Provider | None" = None,
         **kwargs: dict[str, Any],
     ) -> Any:
         cast_gen = self._solve(
@@ -214,7 +215,12 @@ class CallModel:
             cached_value = e.value
             return cached_value
 
-        for dep in map(self.dependency_provider.get_dependant, self.extra_dependencies):
+        if depencency_provider:
+            provider = self.dependency_provider.merge(depencency_provider)
+        else:
+            provider = self.dependency_provider
+
+        for dep in map(provider.get_dependant, self.extra_dependencies):
             dep.solve(
                 *args,
                 stack=stack,
@@ -225,7 +231,7 @@ class CallModel:
 
         for dep_arg, dep_key in self.dependencies.items():
             if dep_arg not in kwargs:
-                kwargs[dep_arg] = self.dependency_provider.get_dependant(dep_key).solve(
+                kwargs[dep_arg] = provider.get_dependant(dep_key).solve(
                     *args,
                     stack=stack,
                     cache_dependencies=cache_dependencies,
@@ -273,6 +279,7 @@ class CallModel:
         stack: AsyncExitStack,
         cache_dependencies: dict[Callable[..., Any], Any],
         nested: bool = False,
+        depencency_provider: "Provider | None" = None,
         **kwargs: dict[str, Any],
     ) -> Any:
         cast_gen = self._solve(
@@ -286,7 +293,12 @@ class CallModel:
             cached_value = e.value
             return cached_value
 
-        for dep in map(self.dependency_provider.get_dependant, self.extra_dependencies):
+        if depencency_provider:
+            provider = self.dependency_provider.merge(depencency_provider)
+        else:
+            provider = self.dependency_provider
+
+        for dep in map(provider.get_dependant, self.extra_dependencies):
             # TODO: run concurrently
             await dep.asolve(
                 *args,
@@ -298,7 +310,7 @@ class CallModel:
 
         for dep_arg, dep_key in self.dependencies.items():
             if dep_arg not in kwargs:
-                kwargs[dep_arg] = await self.dependency_provider.get_dependant(
+                kwargs[dep_arg] = await provider.get_dependant(
                     dep_key
                 ).asolve(
                     *args,

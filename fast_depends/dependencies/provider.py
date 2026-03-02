@@ -19,6 +19,12 @@ class Provider:
         self.dependencies = {}
         self.overrides = {}
 
+    def merge(self, provider: "Provider") -> "Provider":
+        p = Provider()
+        p.dependencies = self.dependencies | provider.dependencies
+        p.overrides = self.overrides | provider.overrides
+        return p
+
     def clear(self) -> None:
         self.overrides = {}
 

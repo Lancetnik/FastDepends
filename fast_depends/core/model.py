@@ -241,10 +241,22 @@ class CallModel:
 
         if self.custom_fields:
             for custom in self.custom_fields.values():
-                if custom.field:
-                    custom.use_field(kwargs)
+                custom_override = provider.overrides.get(
+                    custom
+                ) or provider.overrides.get(type(custom))
+                if custom_override:
+                    kwargs[custom.param_name] = custom_override.solve(
+                        *args,
+                        stack=stack,
+                        cache_dependencies=cache_dependencies,
+                        nested=True,
+                        **kwargs,
+                    )
                 else:
-                    kwargs = custom.use(**kwargs)
+                    if custom.field:
+                        custom.use_field(kwargs)
+                    else:
+                        kwargs = custom.use(**kwargs)
 
         final_args, final_kwargs = cast_gen.send(kwargs)
 
@@ -310,9 +322,7 @@ class CallModel:
 
         for dep_arg, dep_key in self.dependencies.items():
             if dep_arg not in kwargs:
-                kwargs[dep_arg] = await provider.get_dependant(
-                    dep_key
-                ).asolve(
+                kwargs[dep_arg] = await provider.get_dependant(dep_key).asolve(
                     *args,
                     stack=stack,
                     cache_dependencies=cache_dependencies,
@@ -326,10 +336,22 @@ class CallModel:
             try:
                 async with anyio.create_task_group() as tg:
                     for custom in self.custom_fields.values():
-                        if custom.field:
-                            tg.start_soon(run_async, custom.use_field, kwargs)
+                        custom_override = provider.overrides.get(
+                            custom
+                        ) or provider.overrides.get(type(custom))
+                        if custom_override:
+                            kwargs[custom.param_name] = await custom_override.asolve(
+                                *args,
+                                stack=stack,
+                                cache_dependencies=cache_dependencies,
+                                nested=True,
+                                **kwargs,
+                            )
                         else:
-                            custom_to_solve.append(custom)
+                            if custom.field:
+                                tg.start_soon(run_async, custom.use_field, kwargs)
+                            else:
+                                custom_to_solve.append(custom)
 
             except ExceptionGroup as exgr:
                 for ex in exgr.exceptions:

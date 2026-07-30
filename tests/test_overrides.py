@@ -1,10 +1,11 @@
 from collections.abc import AsyncGenerator, Generator
-from typing import Annotated
+from typing import Annotated, Any
 from unittest.mock import Mock
 
 import pytest
 
 from fast_depends import Depends, Provider, inject
+from fast_depends.library import CustomField
 
 
 def test_not_override(provider: Provider) -> None:
@@ -305,3 +306,69 @@ def test_clear_overrides(provider: Provider) -> None:
     assert len(provider.overrides) == 0
     assert len(provider.dependencies) == 1
     assert func() == 1  # original dep called
+
+
+class Header(CustomField):
+    def use(self, /, **kwargs: dict[str, Any]) -> dict[str, Any]:
+        kwargs = super().use(**kwargs)
+        kwargs[self.param_name] = kwargs.get("headers", {}).get(self.param_name)
+        return kwargs
+
+
+def test_override_custom_field_class(provider: Provider) -> None:
+    @inject(dependency_provider=provider)
+    def func(h: int = Header()) -> int:
+        return h
+
+    provider.override(Header, lambda: 1)
+
+    assert func() == 1
+
+
+def test_override_custom_field_instance(provider: Provider) -> None:
+    h = Header()
+
+    @inject(dependency_provider=provider)
+    def func(header_field: int = h) -> int:
+        return header_field
+
+    provider.override(h, lambda: 2)
+
+    assert func() == 2
+
+
+@pytest.mark.anyio
+async def test_async_override_custom_field(provider: Provider) -> None:
+    h = Header()
+
+    @inject(dependency_provider=provider)
+    async def func(header_field: int = h) -> int:
+        return header_field
+
+    async def override_dep() -> int:
+        return 3
+
+    provider.override(h, override_dep)
+
+    assert await func() == 3
+
+
+class HeaderField(CustomField):
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+        self.field = True
+
+    def use_field(self, kwargs: dict[str, Any]) -> None:
+        kwargs[self.param_name] = kwargs.get("headers", {}).get(self.param_name)
+
+
+def test_override_custom_field_field(provider: Provider) -> None:
+    h = HeaderField()
+
+    @inject(dependency_provider=provider)
+    def func(header_field: int = h) -> int:
+        return header_field
+
+    provider.override(h, lambda: 2)
+
+    assert func() == 2

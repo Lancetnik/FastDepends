@@ -45,12 +45,33 @@ class AsyncFieldHeader(Header):
             kwargs[self.param_name] = v
 
 
+class FailingAsyncFieldHeader(Header):
+    def __init__(self) -> None:
+        super().__init__()
+        self.field = True
+
+    async def use_field(self, kwargs: Any) -> None:
+        raise ValueError("failed to resolve field")
+
+
 def test_header():
     @inject
     def sync_catch(key: int = Header()):  # noqa: B008
         return key
 
     assert sync_catch(headers={"key": 1}) == 1
+
+
+@pytest.mark.anyio
+async def test_async_field_header_error_is_unwrapped():
+    @inject
+    async def async_catch(key=FailingAsyncFieldHeader()):  # noqa: B008
+        raise AssertionError("unreachable")
+
+    # `field=True` customs are resolved inside an `anyio` task group, which wraps
+    # failures into an `ExceptionGroup` - the original error must be re-raised as is
+    with pytest.raises(ValueError, match="failed to resolve field"):
+        await async_catch(headers={"key": 1})
 
 
 def test_custom_with_class():

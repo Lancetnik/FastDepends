@@ -332,7 +332,7 @@ class CallModel:
                             custom_to_solve.append(custom)
 
             except ExceptionGroup as exgr:
-                for ex in exgr.exceptions:
+                for ex in exgr.exceptions:  # pragma: no branch
                     raise ex from None
 
             for j in custom_to_solve:

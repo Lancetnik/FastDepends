@@ -37,19 +37,10 @@ def test_encode_v2(
     ("message", "expected_message"),
     (
         *parametrized,
-        pytest.param(
-            {"m": 1},
-            b'{"m": 1}',
-            id="dict",
-        ),
-        pytest.param(
-            [1, 2, 3],
-            b"[1, 2, 3]",
-            id="list",
-        ),
+        *comptex_params,
         pytest.param(
             SimpleModel(r="hello!"),
-            b'{"r": "hello!"}',
+            b'{"r":"hello!"}',
             id="model",
         ),
     ),
@@ -60,4 +51,6 @@ def test_encode_v1(
     expected_message: bytes,
 ) -> None:
     msg = PydanticSerializer.encode(message)
-    assert msg == expected_message
+    # Pydantic v1 encodes through orjson/ujson/stdlib json, whichever is
+    # installed, and they disagree on separator whitespace only.
+    assert msg.replace(b", ", b",").replace(b": ", b":") == expected_message

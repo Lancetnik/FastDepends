@@ -15,9 +15,9 @@ class CustomType:
 
 
 def msgspec_custom_type_decoder(t: type[T], obj: Any) -> T:
-    if not isinstance(obj, t):
-        return t(obj)
-    return obj
+    # msgspec only calls `dec_hook` for types it cannot handle itself, so `obj`
+    # is always the still-undecoded raw value here
+    return t(obj)
 
 
 def dep(a: CustomType) -> str:

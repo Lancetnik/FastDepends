@@ -20,13 +20,12 @@ from fast_depends.library.serializer import SerializerProto
 
 SerializerCls: Optional["SerializerProto"] = None
 
-if SerializerCls is None:
-    try:
-        from fast_depends.pydantic import PydanticSerializer
+try:
+    from fast_depends.pydantic import PydanticSerializer
 
-        SerializerCls = PydanticSerializer()
-    except ImportError:
-        pass
+    SerializerCls = PydanticSerializer()
+except ImportError:
+    pass
 
 if SerializerCls is None:
     try:

@@ -144,10 +144,12 @@ jobs:
 
       - run: ls -la coverage
       - run: coverage combine coverage
-      - run: coverage report
+      - run: coverage report --fail-under=100
       - run: coverage html --show-contexts --title "FastDepends coverage for ${{ github.sha }}"
+        if: always()
 
       - name: Store coverage html
+        if: always()
         uses: actions/upload-artifact@v7
         with:
           name: coverage-html

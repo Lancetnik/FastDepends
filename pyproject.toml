@@ -184,19 +184,19 @@ omit = [
 show_missing = true
 skip_empty = true
 exclude_also = [
-    "if __name__ == .__main__.:",
-    "self.logger",
+    # Never executed at runtime.
+    "if TYPE_CHECKING:",
+    'if __name__ == "__main__":',
     "def __repr__",
-    "lambda: None",
-    "from .*",
-    "import .*",
     '@(abc\.)?abstractmethod',
     "raise NotImplementedError",
     'raise AssertionError',
-    'raise ValueError',
-    'logger\..*',
-    "pass",
-    '\.\.\.',
+    # Stub bodies only: a bare `pass`/`...` on its own line or right after a colon.
+    # Do not relax these into unanchored patterns - `\.\.\.` alone also matches
+    # annotations such as `tuple[Any, ...]`, and coverage then drops the whole
+    # `def` (signature *and* body) from measurement.
+    '^\s*pass$',
+    '(^|:)\s*\.\.\.$',
 ]
 omit = [
     '*/__about__.py',

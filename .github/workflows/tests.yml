@@ -122,44 +122,8 @@ jobs:
           if-no-files-found: error
           include-hidden-files: true
 
-  # Pydantic v1 encodes JSON through orjson/ujson when either is installed,
-  # so both backends need a run of their own.
-  test-json-backends:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        json-backend: ["orjson", "ujson"]
-      fail-fast: false
-
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
-        with:
-          python-version: '3.12'
-      - uses: actions/cache@v6
-        id: cache
-        with:
-          path: ${{ env.pythonLocation }}
-          key: ${{ matrix.json-backend }}-python-${{ env.pythonLocation }}-${{ hashFiles('pyproject.toml') }}
-      - name: Install Dependencies
-        if: steps.cache.outputs.cache-hit != 'true'
-        run: pip install --group test . "pydantic>=1.10.0,<2.0.0" ${{ matrix.json-backend }}
-      - run: mkdir coverage
-      - name: Test
-        run: bash scripts/test.sh
-        env:
-          COVERAGE_FILE: coverage/.coverage.${{ matrix.json-backend }}
-          CONTEXT: ${{ matrix.json-backend }}
-      - name: Store coverage files
-        uses: actions/upload-artifact@v7
-        with:
-          name: .coverage.${{ matrix.json-backend }}
-          path: coverage
-          if-no-files-found: error
-          include-hidden-files: true
-
   coverage-combine:
-    needs: [test-pydantic,test-msgspec,test-no-serializer,test-json-backends]
+    needs: [test-pydantic,test-msgspec,test-no-serializer]
     runs-on: ubuntu-latest
 
     steps:

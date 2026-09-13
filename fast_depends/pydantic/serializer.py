@@ -116,7 +116,18 @@ class _PydanticSerializer(Serializer):
         return get_aliases(self.model)
 
     def get_schema(self) -> dict[str, Any]:
-        return model_schema(self.model)
+        if self._schema_options is None:
+            return model_schema(self.model)
+
+        model = create_model(  # type: ignore[call-overload]
+            self.name,
+            __config__=self.config,
+            **{
+                i.field_name: (i.field_type, i.default_value)
+                for i in self._schema_options()
+            },
+        )
+        return model_schema(model)
 
     def get_response_schema(self) -> dict[str, Any] | None:
         response_type = self.response_option["return"].field_type

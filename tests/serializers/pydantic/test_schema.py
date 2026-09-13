@@ -5,13 +5,18 @@ import pytest
 from dirty_equals import IsPartialDict
 from pydantic import BaseModel, Field, Json
 
-from fast_depends.library.serializer import OptionItem
+from fast_depends.library.serializer import OptionItem, Serializer
 from fast_depends.pydantic import PydanticSerializer
 from fast_depends.pydantic._compat import PYDANTIC_V2
 from tests.marks import pydanticV2
 from tests.serializers.test_schema import resolve_root
 
+if PYDANTIC_V2:
+    from pydantic import computed_field
+    from pydantic.errors import PydanticInvalidForJsonSchema
+
 REF_KEY = "$defs" if PYDANTIC_V2 else "definitions"
+SCHEMA_ERROR = PydanticInvalidForJsonSchema if PYDANTIC_V2 else ValueError
 
 
 class User(BaseModel):
@@ -22,15 +27,61 @@ class Group(BaseModel):
     users: list[User]
 
 
-@pytest.mark.parametrize("wrapped", (True, False))
-def test_nested_models(wrapped: bool) -> None:
-    serializer = PydanticSerializer(use_fastdepends_errors=wrapped)(
+class Custom:
+    pass
+
+
+@pytest.fixture(params=(True, False), ids=("wrapped", "unwrapped"))
+def nested_serializer(request: pytest.FixtureRequest) -> Serializer:
+    return PydanticSerializer(use_fastdepends_errors=request.param)(
         name="handler",
         options=[OptionItem("group", Group)],
         response_type=list[User],
     )
 
-    schema = serializer.get_schema()
+
+@pytest.fixture
+def json_serializer() -> Serializer:
+    return PydanticSerializer()(
+        name="handler",
+        options=[OptionItem("value", Json[int])],
+        response_type=Json[int],
+    )
+
+
+@pytest.fixture
+def computed_response_serializer() -> Serializer:
+    class Result(BaseModel):
+        value: int
+
+        @computed_field
+        @property
+        def twice(self) -> int:
+            return self.value * 2
+
+    return PydanticSerializer()(name="handler", options=[], response_type=Result)
+
+
+@pytest.fixture
+def aliased_serializer() -> Serializer:
+    return PydanticSerializer()(
+        name="handler",
+        options=[OptionItem("count", int, default_value=Field(..., alias="size"))],
+        response_type=Parameter.empty,
+    )
+
+
+@pytest.fixture
+def custom_serializer() -> Serializer:
+    return PydanticSerializer()(
+        name="handler",
+        options=[OptionItem("value", Custom)],
+        response_type=Parameter.empty,
+    )
+
+
+def test_nested_models(nested_serializer: Serializer) -> None:
+    schema = nested_serializer.get_schema()
 
     assert schema == IsPartialDict(
         {
@@ -48,9 +99,11 @@ def test_nested_models(wrapped: bool) -> None:
         }
     )
 
-    response = serializer.get_response_schema()
 
-    assert response == IsPartialDict(
+def test_list_of_models_response(nested_serializer: Serializer) -> None:
+    schema = nested_serializer.get_response_schema()
+
+    assert schema == IsPartialDict(
         {
             "type": "array",
             "items": {"$ref": f"#/{REF_KEY}/User"},
@@ -86,84 +139,85 @@ def test_dataclass_response() -> None:
 
 
 @pydanticV2
-def test_response_uses_serialization_schema() -> None:
-    serializer = PydanticSerializer()(
-        name="handler",
-        options=[OptionItem("value", Json[int])],
-        response_type=Json[int],
-    )
+def test_response_uses_serialization_schema(json_serializer: Serializer) -> None:
+    assert json_serializer.get_response_schema() == {"type": "integer"}
 
-    result = serializer.response("42")
 
-    assert PydanticSerializer.encode(result) == b"42"
-    assert serializer.get_response_schema() == {"type": "integer"}
-    assert serializer.get_schema() == IsPartialDict(
+@pydanticV2
+def test_arguments_use_validation_schema(json_serializer: Serializer) -> None:
+    assert json_serializer.get_schema() == IsPartialDict(
         properties={"value": IsPartialDict(type="string")}
     )
 
 
 @pydanticV2
-def test_response_includes_computed_fields() -> None:
-    from pydantic import computed_field
+def test_json_response_encoding(json_serializer: Serializer) -> None:
+    result = json_serializer.response("42")
 
-    class Result(BaseModel):
-        value: int
+    assert PydanticSerializer.encode(result) == b"42"
 
-        @computed_field
-        @property
-        def twice(self) -> int:
-            return self.value * 2
 
-    serializer = PydanticSerializer()(name="handler", options=[], response_type=Result)
+@pydanticV2
+def test_response_includes_computed_fields(
+    computed_response_serializer: Serializer,
+) -> None:
+    schema = computed_response_serializer.get_response_schema()
 
-    result = serializer.response({"value": 21})
-    schema = serializer.get_response_schema()
+    assert schema == IsPartialDict(
+        properties=IsPartialDict(twice=IsPartialDict(type="integer"))
+    )
+
+
+@pydanticV2
+def test_computed_fields_are_required(computed_response_serializer: Serializer) -> None:
+    schema = computed_response_serializer.get_response_schema()
+
+    assert schema == IsPartialDict(required=["value", "twice"])
+
+
+@pydanticV2
+def test_computed_fields_are_encoded(computed_response_serializer: Serializer) -> None:
+    result = computed_response_serializer.response({"value": 21})
 
     assert PydanticSerializer.encode(result) == b'{"value":21,"twice":42}'
-    assert schema == IsPartialDict(
-        properties={
-            "value": IsPartialDict(type="integer"),
-            "twice": IsPartialDict(type="integer"),
-        },
-        required=["value", "twice"],
+
+
+def test_argument_alias(aliased_serializer: Serializer) -> None:
+    assert aliased_serializer.get_schema() == IsPartialDict(
+        properties={"size": IsPartialDict(type="integer")}
     )
 
 
-def test_alias_constraints_and_config() -> None:
-    serializer = PydanticSerializer(pydantic_config={"extra": "forbid"})(
-        name="handler",
-        options=[OptionItem("count", int, default_value=Field(..., alias="size", gt=0))],
-        response_type=Parameter.empty,
-    )
-
-    schema = serializer.get_schema()
-
-    assert schema == IsPartialDict(
-        additionalProperties=False,
-        required=["size"],
-        properties={"size": IsPartialDict(type="integer", exclusiveMinimum=0)},
-    )
+def test_required_argument_uses_alias(aliased_serializer: Serializer) -> None:
+    assert aliased_serializer.get_schema() == IsPartialDict(required=["size"])
 
 
-def test_unsupported_schema_does_not_prevent_validation() -> None:
-    class Custom:
-        pass
-
+def test_argument_constraint() -> None:
     serializer = PydanticSerializer()(
         name="handler",
-        options=[OptionItem("value", Custom)],
+        options=[OptionItem("count", int, default_value=Field(..., gt=0))],
         response_type=Parameter.empty,
     )
+
+    assert serializer.get_schema() == IsPartialDict(
+        properties={"count": IsPartialDict(exclusiveMinimum=0)}
+    )
+
+
+def test_schema_preserves_config() -> None:
+    serializer = PydanticSerializer(pydantic_config={"extra": "forbid"})(
+        name="handler", options=[], response_type=Parameter.empty
+    )
+
+    assert serializer.get_schema() == IsPartialDict(additionalProperties=False)
+
+
+def test_custom_type_validation(custom_serializer: Serializer) -> None:
     value = Custom()
 
-    assert serializer({"value": value}) == {"value": value}
-    schema_error: type[Exception]
-    if PYDANTIC_V2:
-        from pydantic.errors import PydanticInvalidForJsonSchema
+    assert custom_serializer({"value": value}) == {"value": value}
 
-        schema_error = PydanticInvalidForJsonSchema
-    else:
-        schema_error = ValueError
 
-    with pytest.raises(schema_error):
-        serializer.get_schema()
+def test_unsupported_schema_type(custom_serializer: Serializer) -> None:
+    with pytest.raises(SCHEMA_ERROR):
+        custom_serializer.get_schema()

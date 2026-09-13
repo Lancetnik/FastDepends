@@ -53,11 +53,15 @@ def test_minimal_serializer_is_usable() -> None:
     assert func("1") == "1-b-1"
 
 
-def test_schema_is_optional_for_custom_serializers() -> None:
+def test_argument_schema_is_optional_for_custom_serializers() -> None:
     serializer = EchoSerializer(name="func", options=[], response_type=None)
 
     with pytest.raises(NotImplementedError):
         serializer.get_schema()
+
+
+def test_response_schema_is_optional_for_custom_serializers() -> None:
+    serializer = EchoSerializer(name="func", options=[], response_type=None)
 
     with pytest.raises(NotImplementedError):
         serializer.get_response_schema()

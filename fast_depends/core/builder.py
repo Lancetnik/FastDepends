@@ -270,7 +270,7 @@ def build_call_model(
 
         solved_extra_dependencies.append(key)
 
-    return CallModel(
+    call_model = CallModel(
         call=call,
         serializer=serializer,
         params=tuple(
@@ -291,6 +291,11 @@ def build_call_model(
         dependency_provider=dependency_provider,
         serializer_cls=serializer_cls,
     )
+
+    if serializer is not None:
+        serializer._schema_options = lambda: call_model.flat_params
+
+    return call_model
 
 
 def _rebuild_override_model(

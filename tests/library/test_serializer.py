@@ -1,5 +1,7 @@
 from typing import Any
 
+import pytest
+
 from fast_depends import Depends, Provider, inject
 from fast_depends.library.serializer import OptionItem, Serializer, SerializerProto
 
@@ -49,3 +51,13 @@ def test_minimal_serializer_is_usable() -> None:
 
     # nothing is casted - the serializer echoes its input back
     assert func("1") == "1-b-1"
+
+
+def test_schema_is_optional_for_custom_serializers() -> None:
+    serializer = EchoSerializer(name="func", options=[], response_type=None)
+
+    with pytest.raises(NotImplementedError):
+        serializer.get_schema()
+
+    with pytest.raises(NotImplementedError):
+        serializer.get_response_schema()

@@ -18,6 +18,7 @@ from typing import (
     cast,
     get_args,
     get_origin,
+    overload,
 )
 
 if sys.version_info >= (3, 12):
@@ -36,6 +37,22 @@ if TYPE_CHECKING:
 
 P = ParamSpec("P")
 T = TypeVar("T")
+
+
+@overload
+async def run_async(
+    func: Callable[P, Awaitable[T]],
+    *args: P.args,
+    **kwargs: P.kwargs,
+) -> T: ...
+
+
+@overload
+async def run_async(
+    func: Callable[P, T],
+    *args: P.args,
+    **kwargs: P.kwargs,
+) -> T: ...
 
 
 async def run_async(

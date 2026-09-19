@@ -70,7 +70,7 @@ def Depends(
 
 @overload
 def inject(
-    func: Callable[P, T] = ...,
+    func: Callable[P, T],
     *,
     cast: bool = True,
     cast_result: bool = True,

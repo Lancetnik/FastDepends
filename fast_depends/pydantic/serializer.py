@@ -19,6 +19,8 @@ from fast_depends.pydantic._compat import (
     get_aliases,
     get_config_base,
     get_model_fields,
+    model_schema,
+    type_schema,
 )
 
 
@@ -93,7 +95,7 @@ class _PydanticSerializer(Serializer):
         *,
         name: str,
         options: list[OptionItem],
-        response_type: Any = None,
+        response_type: Any = inspect.Parameter.empty,
         pydantic_config: ConfigDict | None = None,
     ):
         class_options: dict[str, Any] = {
@@ -112,6 +114,26 @@ class _PydanticSerializer(Serializer):
 
     def get_aliases(self) -> tuple[str, ...]:
         return get_aliases(self.model)
+
+    def get_schema(self) -> dict[str, Any]:
+        if self._schema_options is None:
+            return model_schema(self.model)
+
+        model = create_model(  # type: ignore[call-overload]
+            self.name,
+            __config__=self.config,
+            **{
+                i.field_name: (i.field_type, i.default_value)
+                for i in self._schema_options()
+            },
+        )
+        return model_schema(model)
+
+    def get_response_schema(self) -> dict[str, Any] | None:
+        response_type = self.response_option["return"].field_type
+        if response_type is inspect.Parameter.empty:
+            return None
+        return type_schema(response_type, self.config)
 
     def __call__(self, call_kwargs: dict[str, Any]) -> dict[str, Any]:
         casted_model = self.model(**call_kwargs)

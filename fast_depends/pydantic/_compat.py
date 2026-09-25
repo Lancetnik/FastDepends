@@ -67,6 +67,14 @@ if PYDANTIC_V2:
         schema: dict[str, Any] = model.model_json_schema()
         return schema
 
+    def type_schema(annotation: Any, config: ConfigDict) -> dict[str, Any]:
+        try:
+            adapter = TypeAdapter(annotation, config=config)
+        except PydanticUserError:
+            adapter = TypeAdapter(annotation)
+        schema: dict[str, Any] = adapter.json_schema(mode="serialization")
+        return schema
+
     def get_config_base(config_data: ConfigDict | None = None) -> ConfigDict:
         return config_data or ConfigDict(**default_pydantic_config)  # type: ignore[typeddict-item]
 
@@ -98,6 +106,14 @@ else:
         return get_config(config_data or ConfigDict(**default_pydantic_config))  # type: ignore[typeddict-item, no-any-return]
 
     def model_schema(model: type[BaseModel]) -> dict[str, Any]:
+        return model.schema()
+
+    def type_schema(annotation: Any, config: type[BaseConfig]) -> dict[str, Any]:  # type: ignore[misc]
+        model: type[BaseModel] = create_model(  # type: ignore[call-overload]
+            "ResponseModel",
+            __config__=config,
+            __root__=(type(None) if annotation is None else annotation, ...),
+        )
         return model.schema()
 
     def get_aliases(model: type[BaseModel]) -> tuple[str, ...]:

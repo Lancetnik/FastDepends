@@ -43,6 +43,7 @@ class CallModel:
         "serializer",
         "dependency_provider",
         "serializer_cls",
+        "_schema_custom_fields",
     )
 
     alias_arguments: tuple[str, ...]
@@ -110,6 +111,7 @@ class CallModel:
         self.params = params
         self.dependency_provider = dependency_provider
         self.serializer_cls = serializer_cls
+        self._schema_custom_fields: tuple[OptionItem, ...] = ()
 
     def _solve(
         self,

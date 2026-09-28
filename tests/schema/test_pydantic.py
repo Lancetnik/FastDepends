@@ -582,3 +582,46 @@ def test_embed_boolean_property_from_schema_extra(capture, provider, value):
     def handler(value: int): ...
 
     assert capture.serializer.get_schema(embed=True) == {"allOf": [value]}
+
+
+@pydanticV1
+@pytest.mark.parametrize("resolve_refs", [False, True])
+def test_embed_referenced_resource_keeps_local_definitions(
+    capture, provider, resolve_refs
+):
+    class Wrapper(BaseModel):
+        value: int
+
+        class Config:
+            schema_extra = {
+                "$id": "https://example.test/wrapper",
+                "properties": {"value": {"$ref": "#/definitions/Value"}},
+                "definitions": {"Value": {"type": "integer"}},
+            }
+
+    def use_wrapper_root(schema):
+        schema["$ref"] = schema.pop("properties")["wrapper"]["$ref"]
+        schema.pop("required", None)
+
+    @inject(
+        serializer_cls=PydanticSerializer(
+            pydantic_config={"schema_extra": use_wrapper_root}
+        ),
+        dependency_provider=provider,
+        wrap_model=capture,
+    )
+    def handler(wrapper: Wrapper): ...
+
+    original = capture.serializer.get_schema()
+    result = capture.serializer.get_schema(embed=True, resolve_refs=resolve_refs)
+    prefix = "#/definitions/__fast_depends_input"
+
+    assert result == {
+        "$ref": f"{prefix}/definitions/Wrapper/properties/value",
+        "definitions": {
+            "__fast_depends_input": {
+                **original,
+                "$ref": f"{prefix}/definitions/Wrapper",
+            }
+        },
+    }

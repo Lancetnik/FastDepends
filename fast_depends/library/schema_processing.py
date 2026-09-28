@@ -181,6 +181,10 @@ def _embed(document: dict[str, Any]) -> dict[str, Any]:
         if not isinstance(target, dict):
             break
         root, root_ref = target, ref
+        # This object starts a new reference scope. Do not follow its pointers
+        # against the outer document on the next iteration.
+        if "$id" in root:
+            break
     properties = root.get("properties", {})
     if len(properties) != 1:
         return document
@@ -199,19 +203,24 @@ def _embed(document: dict[str, Any]) -> dict[str, Any]:
             for ref in _references(document)
         )
         or any(
-            key in value or key in document
+            key in value or key in document or key in root
             for key in ("$id", "$anchor", "$dynamicAnchor")
         )
         or any(key in value for key in _DEFINITIONS)
     )
     if preserve_root:
-        prefix = "#/$defs/__fast_depends_input"
+        definitions_key = (
+            "definitions"
+            if "definitions" in document and "$defs" not in document
+            else "$defs"
+        )
+        prefix = f"#/{definitions_key}/__fast_depends_input"
         original = deepcopy(document)
         _rebase_references(original, prefix)
         token = quote(name.replace("~", "~0").replace("/", "~1"), safe="~")
         return {
             "$ref": f"{prefix}{root_ref[1:]}/properties/{token}",
-            "$defs": {"__fast_depends_input": original},
+            definitions_key: {"__fast_depends_input": original},
         }
     result: dict[str, Any] = deepcopy(value)
     for key in _DEFINITIONS:

@@ -174,3 +174,51 @@ def test_embed_boolean_schema_keeps_dict_api(value, resolve_refs):
     assert process_schema(schema, embed=True, resolve_refs=resolve_refs) == {
         "allOf": [value]
     }
+
+
+@pytest.mark.parametrize("definitions_key", ["definitions", "$defs"])
+@pytest.mark.parametrize("resolve_refs", [False, True])
+@pytest.mark.parametrize("collision", [False, True])
+def test_embedding_root_reference_preserves_resource_scope(
+    definitions_key, resolve_refs, collision
+):
+    resource = {
+        "$id": "https://example.test/resource",
+        "properties": {"value": {"$ref": f"#/{definitions_key}/Value"}},
+        definitions_key: {"Value": {"type": "integer"}},
+    }
+    schema = {
+        "$ref": f"#/{definitions_key}/Resource",
+        definitions_key: {"Resource": resource},
+    }
+    if collision:
+        schema[definitions_key]["Value"] = {"type": "string"}
+
+    result = process_schema(schema, embed=True, resolve_refs=resolve_refs)
+    prefix = f"#/{definitions_key}/__fast_depends_input"
+
+    assert result == {
+        "$ref": f"{prefix}/{definitions_key}/Resource/properties/value",
+        definitions_key: {
+            "__fast_depends_input": {
+                **schema,
+                "$ref": f"{prefix}/{definitions_key}/Resource",
+            }
+        },
+    }
+
+
+def test_embedding_does_not_follow_resource_local_reference_in_outer_document():
+    schema = {
+        "$ref": "#/$defs/Resource",
+        "$defs": {
+            "Resource": {
+                "$id": "https://example.test/resource",
+                "$ref": "#/$defs/Value",
+                "$defs": {"Value": {"type": "integer"}},
+            },
+            "Value": {"properties": {"wrong": {"type": "string"}}},
+        },
+    }
+
+    assert process_schema(schema, embed=True) == schema

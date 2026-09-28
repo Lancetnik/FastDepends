@@ -61,7 +61,34 @@ if PYDANTIC_V2:
     from pydantic import ConfigDict, TypeAdapter
     from pydantic.fields import FieldInfo
     from pydantic.errors import PydanticUserError
+    from pydantic.json_schema import GenerateJsonSchema, JsonSchemaValue
     from pydantic_core import to_json
+
+    class _ResponseSchema(GenerateJsonSchema):
+        """Describe generic encoding of validated values, without a TypeAdapter."""
+
+        _model_serializer = False
+
+        def generate_inner(self, schema: Any) -> JsonSchemaValue:
+            if self._model_serializer:
+                return super().generate_inner(schema)
+
+            cls = schema.get("cls")
+            if schema["type"] in ("model", "dataclass") and hasattr(
+                cls, "__pydantic_serializer__"
+            ):
+                # Models carry their own serializer into to_json(); an outer
+                # Annotated serializer belongs only to the discarded adapter.
+                self._model_serializer = True
+                try:
+                    return super().generate_inner(cls.__pydantic_core_schema__)
+                finally:
+                    self._model_serializer = False
+
+            if "serialization" in schema:
+                schema = schema.copy()
+                schema.pop("serialization")
+            return super().generate_inner(schema)
 
     def model_schema(model: type[BaseModel]) -> dict[str, Any]:
         schema: dict[str, Any] = model.model_json_schema()
@@ -72,7 +99,9 @@ if PYDANTIC_V2:
             adapter = TypeAdapter(annotation, config=config)
         except PydanticUserError:
             adapter = TypeAdapter(annotation)
-        schema: dict[str, Any] = adapter.json_schema(mode="serialization")
+        schema: dict[str, Any] = adapter.json_schema(
+            mode="serialization", schema_generator=_ResponseSchema
+        )
         return schema
 
     def get_config_base(config_data: ConfigDict | None = None) -> ConfigDict:
@@ -114,7 +143,8 @@ else:
             __config__=config,
             __root__=(type(None) if annotation is None else annotation, ...),
         )
-        return model.schema()
+        # pydantic_encoder uses field names when encoding model instances.
+        return model.schema(by_alias=False)
 
     def get_aliases(model: type[BaseModel]) -> tuple[str, ...]:
         return tuple(f.alias or name for name, f in model.__fields__.items())

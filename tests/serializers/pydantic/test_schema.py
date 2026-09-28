@@ -1,5 +1,7 @@
+import json
 from dataclasses import dataclass
 from inspect import Parameter
+from typing import Annotated
 
 import pytest
 from dirty_equals import IsPartialDict
@@ -12,7 +14,8 @@ from tests.marks import pydanticV2
 from tests.serializers.test_schema import resolve_root
 
 if PYDANTIC_V2:
-    from pydantic import computed_field
+    from pydantic import PlainSerializer, WrapSerializer, computed_field
+    from pydantic.dataclasses import dataclass as pydantic_dataclass
     from pydantic.errors import PydanticInvalidForJsonSchema
 
 REF_KEY = "$defs" if PYDANTIC_V2 else "definitions"
@@ -121,6 +124,81 @@ def test_model_response() -> None:
     assert resolve_root(schema) == IsPartialDict(
         properties={"name": IsPartialDict(type="string")}
     )
+
+
+@pytest.mark.parametrize("wrapped", (True, False))
+@pytest.mark.parametrize("nested", (True, False))
+def test_response_alias_matches_encoded_model(wrapped: bool, nested: bool) -> None:
+    class Result(BaseModel):
+        value: int = Field(alias="external")
+
+    serializer = PydanticSerializer(use_fastdepends_errors=wrapped)(
+        name="handler", options=[], response_type=list[Result] if nested else Result
+    )
+    value = [{"external": 1}] if nested else {"external": 1}
+    encoded = json.loads(PydanticSerializer.encode(serializer.response(value)))
+    schema = serializer.get_response_schema()
+    assert schema is not None
+    result_schema = schema[REF_KEY]["Result"] if nested else resolve_root(schema)
+    assert result_schema["required"] == list(encoded[0] if nested else encoded)
+
+
+@pydanticV2
+@pytest.mark.parametrize("wrapped", (True, False))
+@pytest.mark.parametrize("nested", (True, False))
+@pytest.mark.parametrize("when_used", ("always", "json"))
+@pytest.mark.parametrize("plain", (True, False))
+def test_response_annotation_serializer_matches_encoding(
+    wrapped: bool, nested: bool, when_used: str, plain: bool
+) -> None:
+    serializer_hook = (
+        PlainSerializer(str, return_type=str, when_used=when_used)
+        if plain
+        else WrapSerializer(lambda value, handler: str(handler(value)), return_type=str)
+    )
+    result_type = Annotated[int, serializer_hook]
+    serializer = PydanticSerializer(use_fastdepends_errors=wrapped)(
+        name="handler",
+        options=[],
+        response_type=list[result_type] if nested else result_type,
+    )
+    result = serializer.response([1] if nested else 1)
+    schema = serializer.get_response_schema()
+    assert schema == (
+        {"type": "array", "items": {"type": "integer"}} if nested else {"type": "integer"}
+    )
+    assert json.loads(PydanticSerializer.encode(result)) == ([1] if nested else 1)
+
+
+@pydanticV2
+@pytest.mark.parametrize("model_kind", ("model", "dataclass", "plain_dataclass"))
+@pytest.mark.parametrize("outer_serializer", (True, False))
+def test_response_preserves_serializer_carried_by_value(model_kind, outer_serializer):
+    class Result(BaseModel):
+        value: Annotated[int, PlainSerializer(str, return_type=str)]
+
+    if model_kind != "model":
+
+        @dataclass
+        class Record:
+            value: Annotated[int, PlainSerializer(str, return_type=str)]
+
+        Result = pydantic_dataclass(Record) if model_kind == "dataclass" else Record
+
+    annotation = (
+        Annotated[Result, PlainSerializer(lambda value: "ignored", return_type=str)]
+        if outer_serializer
+        else Result
+    )
+    serializer = PydanticSerializer()(
+        name="handler", options=[], response_type=annotation
+    )
+    schema = serializer.get_response_schema()
+    encoded = json.loads(PydanticSerializer.encode(serializer.response({"value": 1})))
+    assert schema is not None
+    expected_type = "integer" if model_kind == "plain_dataclass" else "string"
+    assert resolve_root(schema)["properties"]["value"]["type"] == expected_type
+    assert encoded == {"value": 1 if model_kind == "plain_dataclass" else "1"}
 
 
 def test_dataclass_response() -> None:

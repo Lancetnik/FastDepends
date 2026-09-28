@@ -129,10 +129,11 @@ def _prune_definitions(schema: dict[str, Any]) -> None:
     used: set[tuple[str, str]] = set()
     while pending:
         ref = pending.pop()
-        if ref.startswith("#") and not ref.startswith("#/"):
-            # Root references and anchors may reach definitions indirectly.
+        if not ref.startswith("#/"):
+            # URI references may address an embedded $id resource. Root references
+            # and anchors can also reach definitions without a JSON Pointer.
             return
-        tokens = unquote(ref[2:]).split("/") if ref.startswith("#/") else []
+        tokens = unquote(ref[2:]).split("/")
         if len(tokens) < 2 or tokens[0] not in _DEFINITIONS:
             continue
         key, name = tokens[0], tokens[1].replace("~1", "/").replace("~0", "~")
@@ -184,6 +185,9 @@ def _embed(document: dict[str, Any]) -> dict[str, Any]:
     if len(properties) != 1:
         return document
     name, value = next(iter(properties.items()))
+    if isinstance(value, bool):
+        # Keep the serializer's dict return type for both boolean schemas.
+        value = {"allOf": [value]}
     # Moving a property normally only needs the document's global definitions.
     # Other local pointers/anchors still address the ORIGINAL input object. Keep
     # that object in a definition and point to its property instead of changing

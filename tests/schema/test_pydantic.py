@@ -566,3 +566,19 @@ def test_boolean_source_group_preserves_native_schema(capture, provider, value):
     assert capture.serializer.get_schema() == IsPartialDict(
         properties={"headers": value}, required=["headers"]
     )
+
+
+@pytest.mark.parametrize("value", [False, True])
+def test_embed_boolean_property_from_schema_extra(capture, provider, value):
+    config_key = "json_schema_extra" if PYDANTIC_V2 else "schema_extra"
+
+    @inject(
+        serializer_cls=PydanticSerializer(
+            pydantic_config={config_key: {"properties": {"value": value}}}
+        ),
+        dependency_provider=provider,
+        wrap_model=capture,
+    )
+    def handler(value: int): ...
+
+    assert capture.serializer.get_schema(embed=True) == {"allOf": [value]}

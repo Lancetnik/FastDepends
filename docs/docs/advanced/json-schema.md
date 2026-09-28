@@ -46,7 +46,8 @@ Here the input schema contains `name` and the dependency's external `limit`
 parameter, with its default of `10`.
 
 The method uses the existing serializer's backend and configuration. Its optional
-keyword arguments control schema processing (see below); it does not accept `options`. It reads ordinary inputs and custom field descriptions each time, so overrides in the
+keyword arguments control schema processing (see below); it does not accept
+`options`. It reads ordinary inputs and custom field descriptions each time, so overrides in the
 call's `Provider`, including changes within `Provider.scope()`, appear in the
 next schema. For duplicate Python parameter names, the call's own parameter
 wins, followed by the first occurrence in a depth-first traversal of dependencies,
@@ -101,8 +102,10 @@ arguments = call.serializer.get_schema(
   references are inlined; recursive references and discriminator targets retain
   their definitions. Constraints beside a reference are preserved using `allOf`.
   External references are never fetched; references crossing a nested `$id`
-  boundary retain their scope and remain references. Defaults, examples, enum members and
-  constants are data and are not traversed as schemas.
+  boundary retain their scope and remain references. Definitions are retained
+  conservatively when URI or anchor references may target an embedded resource.
+  Defaults, examples, enum members and constants are data and are not traversed
+  as schemas.
 
 These options affect documentation only; they do not change validation or
 execution. Processing does not mutate the backend's cached schema or later calls.

@@ -150,3 +150,27 @@ def test_non_reference_discriminator_metadata_is_preserved():
     schema = {"type": "object", "discriminator": {"mapping": {"unknown": None}}}
 
     assert process_schema(schema, resolve_refs=True) == schema
+
+
+@pytest.mark.parametrize("reference", ["https://example.test/value", "value.json"])
+@pytest.mark.parametrize("resolve_refs", [False, True])
+def test_uri_reference_keeps_embedded_resource(reference, resolve_refs):
+    resource = {"$id": reference, "type": "integer"}
+    schema = {
+        "properties": {"value": {"$ref": reference}},
+        "$defs": {"Value": resource},
+    }
+
+    result = process_schema(schema, embed=True, resolve_refs=resolve_refs)
+
+    assert result == {"$ref": reference, "$defs": {"Value": resource}}
+
+
+@pytest.mark.parametrize("value", [False, True])
+@pytest.mark.parametrize("resolve_refs", [False, True])
+def test_embed_boolean_schema_keeps_dict_api(value, resolve_refs):
+    schema = {"properties": {"value": value}}
+
+    assert process_schema(schema, embed=True, resolve_refs=resolve_refs) == {
+        "allOf": [value]
+    }

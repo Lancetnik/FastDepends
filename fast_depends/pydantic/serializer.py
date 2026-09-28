@@ -4,9 +4,15 @@ from contextlib import contextmanager
 from itertools import chain
 from typing import Any
 
+from pydantic import Field
 from pydantic import ValidationError as PValidationError
 
 from fast_depends.exceptions import ValidationError
+from fast_depends.library.schema import (
+    SchemaField,
+    apply_schema_groups,
+    group_schema_fields,
+)
 from fast_depends.library.serializer import OptionItem, Serializer, SerializerProto
 from fast_depends.pydantic._compat import (
     PYDANTIC_V2,
@@ -19,6 +25,7 @@ from fast_depends.pydantic._compat import (
     get_aliases,
     get_config_base,
     get_model_fields,
+    get_schema_aliases,
     model_schema,
     type_schema,
 )
@@ -119,15 +126,36 @@ class _PydanticSerializer(Serializer):
         if self._schema_options is None:
             return model_schema(self.model)
 
-        model = create_model(  # type: ignore[call-overload]
-            self.name,
+        options = self._schema_options()
+        if not any(isinstance(i, SchemaField) for i in options):
+            return model_schema(self._schema_model(self.name, options))
+
+        groups = group_schema_fields(options)
+        root_options = list(groups[None])
+        aliases: dict[str | None, dict[str, str]] = {}
+        for index, (source, fields) in enumerate(groups.items()):
+            if source is None:
+                continue
+            model = self._schema_model(f"{self.name}__source_{index}", fields)
+            aliases[source] = get_schema_aliases(model)
+            field_name = f"source_{index}"
+            while field_name in {i.field_name for i in root_options}:
+                field_name += "_"
+            root_options.append(
+                OptionItem(field_name, model, default_value=Field(..., alias=source))
+            )
+
+        model = self._schema_model(self.name, root_options)
+        root_aliases = get_schema_aliases(model)
+        aliases[None] = {i.field_name: root_aliases[i.field_name] for i in groups[None]}
+        return apply_schema_groups(model_schema(model), groups, aliases)
+
+    def _schema_model(self, name: str, options: list[OptionItem]) -> type[BaseModel]:
+        return create_model(  # type: ignore[call-overload, no-any-return]
+            name,
             __config__=self.config,
-            **{
-                i.field_name: (i.field_type, i.default_value)
-                for i in self._schema_options()
-            },
+            **{i.field_name: (i.field_type, i.default_value) for i in options},
         )
-        return model_schema(model)
 
     def get_response_schema(self) -> dict[str, Any] | None:
         response_type = self.response_option["return"].field_type

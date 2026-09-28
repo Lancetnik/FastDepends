@@ -1,6 +1,6 @@
 import inspect
 import re
-from collections.abc import Callable, Iterator, Sequence
+from collections.abc import Callable, Iterable, Iterator, Sequence
 from contextlib import contextmanager
 from typing import Any, TypeVar
 
@@ -10,8 +10,10 @@ from fast_depends.exceptions import ValidationError
 from fast_depends.library.schema import (
     SchemaField,
     apply_schema_groups,
+    exclude_schema_fields,
     group_schema_fields,
 )
+from fast_depends.library.schema_processing import SchemaExclude, process_schema
 from fast_depends.library.serializer import OptionItem, Serializer, SerializerProto
 
 T = TypeVar("T")
@@ -124,12 +126,28 @@ class _MsgSpecSerializer(Serializer):
     def get_aliases(self) -> tuple[str, ...]:
         return tuple(self.aliases.values())
 
-    def get_schema(self) -> dict[str, Any]:
-        if self._schema_options is None:
+    def get_schema(
+        self,
+        *,
+        embed: bool = False,
+        exclude: Iterable[SchemaExclude] = (),
+        resolve_refs: bool = False,
+    ) -> dict[str, Any]:
+        return process_schema(
+            self._get_schema(tuple(exclude)), embed=embed, resolve_refs=resolve_refs
+        )
+
+    def _get_schema(self, exclude: tuple[SchemaExclude, ...]) -> dict[str, Any]:
+        if self._schema_options is None and not exclude:
             schema: dict[str, Any] = msgspec.json.schema(self.model)
             return schema
 
-        options = self._schema_options()
+        options = exclude_schema_fields(
+            self._schema_options()
+            if self._schema_options
+            else list(self.options.values()),
+            exclude,
+        )
         if not any(isinstance(i, SchemaField) for i in options):
             schema = msgspec.json.schema(self._schema_model(self.name, options))
             return schema

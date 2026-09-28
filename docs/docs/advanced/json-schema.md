@@ -45,8 +45,8 @@ Msgspec, including schemas for `msgspec.Struct` types.
 Here the input schema contains `name` and the dependency's external `limit`
 parameter, with its default of `10`.
 
-The method takes no arguments and uses the existing serializer's backend and
-configuration. It reads ordinary inputs and custom field descriptions each time, so overrides in the
+The method uses the existing serializer's backend and configuration. Its optional
+keyword arguments control schema processing (see below); it does not accept `options`. It reads ordinary inputs and custom field descriptions each time, so overrides in the
 call's `Provider`, including changes within `Provider.scope()`, appear in the
 next schema. For duplicate Python parameter names, the call's own parameter
 wins, followed by the first occurrence in a depth-first traversal of dependencies,
@@ -72,8 +72,46 @@ Pydantic v2 and Msgspec use `$defs`. A schema can have a
 recursive references remain valid. Backend-specific metadata and configuration
 are preserved; the methods do not make unsupported types schema-compatible.
 
-The existing `fast_depends.pydantic.schema.get_schema()` helper retains its
-`embed`, `resolve_refs`, and `exclude` options and its empty-payload behavior.
+## Processing input schemas
+
+Both backends support the same keyword-only options:
+
+```python
+arguments = call.serializer.get_schema(
+    exclude=("internal", ("headers", "debug")),
+    embed=True,
+    resolve_refs=True,
+)
+```
+
+* `exclude=()` removes inputs before schema generation. A string names a root
+  field or an entire source group. A pair `(source, field_name)` selects a field
+  inside that group; `(None, field_name)` explicitly selects a root field. Names
+  are Python parameter names, or the `SchemaField.field_name` returned by a hook,
+  **before backend aliases**. Unknown names have no effect. An empty group is
+  removed; remaining groups infer requiredness from their remaining fields.
+  Excluding every input produces an empty object schema.
+* `embed=False` leaves the input object intact. With `True`, exactly one remaining
+  root property is unwrapped. This removes only one level: a sole `headers` group
+  becomes an object of header fields, not the group's sole value. Zero or multiple
+  root properties are not unwrapped. Definitions required by the result remain
+  attached, including when reference resolution is disabled. References to the
+  original input root or its properties keep their original targets after embedding.
+* `resolve_refs=False` preserves native references. With `True`, local acyclic
+  references are inlined; recursive references and discriminator targets retain
+  their definitions. Constraints beside a reference are preserved using `allOf`.
+  External references are never fetched; references crossing a nested `$id`
+  boundary retain their scope and remain references. Defaults, examples, enum members and
+  constants are data and are not traversed as schemas.
+
+These options affect documentation only; they do not change validation or
+execution. Processing does not mutate the backend's cached schema or later calls.
+`get_response_schema()` keeps its original API and native reference layout.
+
+The existing `fast_depends.pydantic.schema.get_schema()` helper shares embedding
+and reference processing. It still selects Pydantic, works without a runtime
+serializer, excludes by Python name, ignores custom field hooks, and returns
+`{"title": ..., "type": "null"}` when no inputs remain.
 
 ## Describing custom fields
 

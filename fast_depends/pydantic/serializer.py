@@ -1,5 +1,5 @@
 import inspect
-from collections.abc import Callable, Iterator, Sequence
+from collections.abc import Callable, Iterable, Iterator, Sequence
 from contextlib import contextmanager
 from itertools import chain
 from typing import Any
@@ -11,8 +11,10 @@ from fast_depends.exceptions import ValidationError
 from fast_depends.library.schema import (
     SchemaField,
     apply_schema_groups,
+    exclude_schema_fields,
     group_schema_fields,
 )
+from fast_depends.library.schema_processing import SchemaExclude, process_schema
 from fast_depends.library.serializer import OptionItem, Serializer, SerializerProto
 from fast_depends.pydantic._compat import (
     PYDANTIC_V2,
@@ -122,11 +124,27 @@ class _PydanticSerializer(Serializer):
     def get_aliases(self) -> tuple[str, ...]:
         return get_aliases(self.model)
 
-    def get_schema(self) -> dict[str, Any]:
-        if self._schema_options is None:
+    def get_schema(
+        self,
+        *,
+        embed: bool = False,
+        exclude: Iterable[SchemaExclude] = (),
+        resolve_refs: bool = False,
+    ) -> dict[str, Any]:
+        return process_schema(
+            self._get_schema(tuple(exclude)), embed=embed, resolve_refs=resolve_refs
+        )
+
+    def _get_schema(self, exclude: tuple[SchemaExclude, ...]) -> dict[str, Any]:
+        if self._schema_options is None and not exclude:
             return model_schema(self.model)
 
-        options = self._schema_options()
+        options = exclude_schema_fields(
+            self._schema_options()
+            if self._schema_options
+            else list(self.options.values()),
+            exclude,
+        )
         if not any(isinstance(i, SchemaField) for i in options):
             return model_schema(self._schema_model(self.name, options))
 

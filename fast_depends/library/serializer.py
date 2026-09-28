@@ -1,8 +1,10 @@
 import inspect
 import json
 from abc import ABC, abstractmethod
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from typing import Any, Protocol
+
+from fast_depends.library.schema_processing import SchemaExclude
 
 
 class OptionItem:
@@ -57,7 +59,13 @@ class Serializer(ABC):
     def get_aliases(self) -> tuple[str, ...]:
         return ()
 
-    def get_schema(self) -> dict[str, Any]:
+    def get_schema(
+        self,
+        *,
+        embed: bool = False,
+        exclude: Iterable[SchemaExclude] = (),
+        resolve_refs: bool = False,
+    ) -> dict[str, Any]:
         """Describe external inputs, or configured fields when used standalone."""
         raise NotImplementedError
 

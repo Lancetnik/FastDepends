@@ -84,7 +84,7 @@ def apply_schema_groups(
 
         required = set(target.get("required", ()))
         for option in options:
-            name = field_aliases[option.field_name]
+            name = field_aliases.get(option.field_name)
             if name not in properties:
                 continue
             if isinstance(option, SchemaField) and option.required is not None:

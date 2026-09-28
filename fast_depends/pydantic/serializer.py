@@ -147,7 +147,11 @@ class _PydanticSerializer(Serializer):
 
         model = self._schema_model(self.name, root_options)
         root_aliases = get_schema_aliases(model)
-        aliases[None] = {i.field_name: root_aliases[i.field_name] for i in groups[None]}
+        aliases[None] = {
+            i.field_name: root_aliases[i.field_name]
+            for i in groups[None]
+            if i.field_name in root_aliases
+        }
         return apply_schema_groups(model_schema(model), groups, aliases)
 
     def _schema_model(self, name: str, options: list[OptionItem]) -> type[BaseModel]:

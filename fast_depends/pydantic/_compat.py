@@ -109,10 +109,15 @@ if PYDANTIC_V2:
 
     def get_schema_aliases(model: type[BaseModel]) -> dict[str, str]:
         aliases = {}
+        # Inspect names before aliasing: a hidden field can share its alias with
+        # a visible field or source, so aliased properties cannot identify it.
+        properties = model.model_json_schema(by_alias=False).get("properties", {})
         serialization = (
             model.model_config.get("json_schema_mode_override") == "serialization"
         )
         for name, field in get_model_fields(model).items():
+            if name not in properties:
+                continue
             alias = field.serialization_alias if serialization else field.validation_alias
             if isinstance(alias, AliasChoices):
                 alias = next(

@@ -320,6 +320,50 @@ def test_custom_field_allows_schema_hidden_fields(capture, provider, source):
 
 
 @pydanticV2
+def test_hidden_root_alias_does_not_conflict_with_source(capture, provider):
+    @inject(
+        serializer_cls=PydanticSerializer(),
+        dependency_provider=provider,
+        wrap_model=capture,
+    )
+    def handler(
+        value: Annotated[int, Input("headers")],
+        raw_headers: SkipJsonSchema[dict[str, int]] = Field(alias="headers"),
+    ):
+        return value
+
+    assert handler(headers={"value": 3}) == 3
+    assert source_schema(capture.serializer.get_schema(), "headers") == IsPartialDict(
+        properties={"value": IsPartialDict(type="integer")}, required=["value"]
+    )
+
+
+@pydanticV2
+@pytest.mark.parametrize("source", [None, "headers"])
+@pytest.mark.parametrize("hidden_first", [True, False])
+@pytest.mark.parametrize("required", [True, False])
+def test_hidden_alias_does_not_change_visible_requiredness(
+    capture, provider, source, hidden_first, required
+):
+    hidden = Annotated[SkipJsonSchema[int], Input(source, required=not required)]
+    visible = Annotated[int, Input(source, required=required)]
+
+    @inject(
+        serializer_cls=PydanticSerializer(),
+        dependency_provider=provider,
+        wrap_model=capture,
+    )
+    def handler(
+        first: hidden if hidden_first else visible = Field(alias="value"),
+        second: visible if hidden_first else hidden = Field(alias="value"),
+    ): ...
+
+    schema = capture.serializer.get_schema()
+    target = schema if source is None else source_schema(schema, source)
+    assert target.get("required", []) == (["value"] if required else [])
+
+
+@pydanticV2
 @pytest.mark.parametrize(
     "alias, expected",
     [

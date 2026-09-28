@@ -70,6 +70,8 @@ validation mode, while `get_response_schema()` uses serialization mode to descri
 output types and include computed fields. Response schemas describe the existing
 `PydanticSerializer.encode(serializer.response(value))` path: Pydantic v1 models
 use field names, and Pydantic v2 includes serializers carried by model instances.
+In Pydantic v2, plain dataclasses and `TypedDict` responses use Python field names;
+aliases apply when a containing Pydantic model's serializer encodes those structures.
 Serializers attached only to a return annotation (such as
 `Annotated[int, PlainSerializer(str, return_type=str)]`) do not survive validation
 into a plain Python value; its response schema therefore describes an integer.

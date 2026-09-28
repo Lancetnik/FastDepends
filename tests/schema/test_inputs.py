@@ -1,5 +1,4 @@
 from typing import Annotated, Any
-from unittest.mock import Mock
 
 from dirty_equals import IsPartialDict
 
@@ -199,43 +198,31 @@ def test_uncast_dependency_still_describes_inputs(schema_inject, capture):
 
 
 def test_schema_does_not_execute_handler(schema_inject, capture):
-    called = Mock()
-
     @schema_inject
     def handler(name: str):
-        called()
+        raise AssertionError("Schema generation executed handler")
 
     capture.serializer.get_schema()
 
-    called.assert_not_called()
-
 
 def test_schema_does_not_execute_dependency(schema_inject, capture):
-    called = Mock()
-
     def dependency(count: int):
-        called()
+        raise AssertionError("Schema generation executed dependency")
 
     @schema_inject
     def handler(value: Any = Depends(dependency)): ...
 
     capture.serializer.get_schema()
 
-    called.assert_not_called()
-
 
 def test_schema_does_not_execute_extra_dependency(schema_inject, capture):
-    called = Mock()
-
     def extra(token: str):
-        called()
+        raise AssertionError("Schema generation executed extra")
 
     @schema_inject(extra_dependencies=(Depends(extra),))
     def handler(): ...
 
     capture.serializer.get_schema()
-
-    called.assert_not_called()
 
 
 def test_schema_does_not_execute_custom_field(schema_inject, capture):

@@ -13,7 +13,7 @@ from tests.serializers.test_schema import resolve_root
 
 
 class Node(msgspec.Struct):
-    children: list["Node"] = msgspec.field(default_factory=list)
+    children: "list[Node]" = msgspec.field(default_factory=list)
 
 
 def test_bound_schema_preserves_dependency_alias(capture, provider):

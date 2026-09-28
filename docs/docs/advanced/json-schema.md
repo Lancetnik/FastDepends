@@ -67,7 +67,15 @@ serializer.
 
 Schemas retain the backend's native layout. With Pydantic v2, `get_schema()` uses
 validation mode, while `get_response_schema()` uses serialization mode to describe
-output types and include computed fields. Pydantic v1 uses `definitions`, while
+output types and include computed fields. Response schemas describe the existing
+`PydanticSerializer.encode(serializer.response(value))` path: Pydantic v1 models
+use field names, and Pydantic v2 includes serializers carried by model instances.
+Serializers attached only to a return annotation (such as
+`Annotated[int, PlainSerializer(str, return_type=str)]`) do not survive validation
+into a plain Python value; its response schema therefore describes an integer.
+Schema generation does not change the values returned by `@inject`.
+
+Pydantic v1 uses `definitions`, while
 Pydantic v2 and Msgspec use `$defs`. A schema can have a
 `$ref` at its root. Keep the definitions with the schema so that nested and
 recursive references remain valid. Backend-specific metadata and configuration

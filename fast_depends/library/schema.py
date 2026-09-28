@@ -58,25 +58,43 @@ def apply_schema_groups(
 ) -> dict[str, Any]:
     """Apply requiredness after the backend has generated aliases and references."""
 
-    def object_schema(value: dict[str, Any]) -> dict[str, Any]:
+    def object_schema(value: dict[str, Any] | bool) -> dict[str, Any] | bool:
+        if isinstance(value, bool):
+            return value
+        # Pydantic v1 decorates a reference with title/description by wrapping it.
+        all_of = value.get("allOf", [])
+        if len(all_of) == 1 and isinstance(all_of[0], dict) and "$ref" in all_of[0]:
+            value = all_of[0]
         if "$ref" in value:
             ref = value["$ref"]
-            value = schema
+            target: Any = schema
             for key in ref[2:].split("/"):
-                value = value[key.replace("~1", "/").replace("~0", "~")]
+                target = target[key.replace("~1", "/").replace("~0", "~")]
+            value = target
         return value
 
     root = object_schema(schema)
+    if isinstance(root, bool):
+        return schema
     sources = [source for source in groups if source is not None]
     root_properties = root.get("properties", {})
     root_names = list(aliases[None].values()) + sources
     if len(set(root_names)) != len(root_names):
         raise ValueError("Conflicting schema field aliases or source names at the root")
 
+    targets = {
+        source: object_schema(root_properties[source])
+        for source in sources
+        if source in root_properties
+    }
     for source, options in groups.items():
         if source is not None and source not in root_properties:
             continue
-        target = root if source is None else object_schema(root_properties[source])
+        target = root if source is None else targets[source]
+        # A schema hook may replace the entire group. Preserve that schema and
+        # its parent requiredness; there are no member properties to adjust.
+        if isinstance(target, bool):
+            continue
         properties = target.get("properties", {})
         field_aliases = aliases[source]
         if len(set(field_aliases.values())) != len(field_aliases):
@@ -94,7 +112,9 @@ def apply_schema_groups(
                     required.discard(name)
 
         if source is None:
-            required.difference_update(sources)
+            required.difference_update(
+                source for source in sources if not isinstance(targets.get(source), bool)
+            )
         if required:
             target["required"] = [name for name in properties if name in required]
         else:

@@ -11,7 +11,7 @@ from pydantic import BaseModel, Field, Json
 from fast_depends import Depends, inject
 from fast_depends.pydantic import PydanticSerializer
 from fast_depends.pydantic._compat import PYDANTIC_V2
-from tests.marks import pydanticV2
+from tests.marks import pydanticV1, pydanticV2
 from tests.schema.custom_fields import Input, source_schema
 
 if PYDANTIC_V2:
@@ -408,3 +408,62 @@ def test_schema_extra_can_hide_source_group(capture, provider):
     def handler(value: Annotated[int, Input("headers")]): ...
 
     assert capture.serializer.get_schema() == IsPartialDict(properties={})
+
+
+@pytest.fixture(params=["title", "description"])
+def decorated_group_schema(request, capture, provider):
+    def make_schema(required):
+        @inject(
+            serializer_cls=PydanticSerializer(
+                pydantic_config={"fields": {"source_1": {request.param: "Headers"}}}
+            ),
+            dependency_provider=provider,
+            wrap_model=capture,
+        )
+        def handler(token: Annotated[str, Input("headers", required=required)]): ...
+
+        return capture.serializer.get_schema()
+
+    return make_schema
+
+
+@pydanticV1
+@pytest.mark.parametrize("required", [True, False])
+def test_group_documentation_preserves_root_requiredness(
+    decorated_group_schema, required
+):
+    schema = decorated_group_schema(required)
+
+    assert schema.get("required", []) == (["headers"] if required else [])
+
+
+@pydanticV1
+@pytest.mark.parametrize("required", [True, False])
+def test_group_documentation_preserves_field_requiredness(
+    decorated_group_schema, required
+):
+    schema = decorated_group_schema(required)
+    ref = schema["properties"]["headers"]["allOf"][0]["$ref"]
+    target = schema["definitions"][ref.split("/")[-1]]
+
+    assert target.get("required", []) == (["token"] if required else [])
+
+
+@pytest.mark.parametrize("value", [True, False])
+def test_boolean_source_group_preserves_native_schema(capture, provider, value):
+    def replace_group(schema):
+        if "headers" in schema.get("properties", {}):
+            schema["properties"]["headers"] = value
+
+    config_key = "json_schema_extra" if PYDANTIC_V2 else "schema_extra"
+
+    @inject(
+        serializer_cls=PydanticSerializer(pydantic_config={config_key: replace_group}),
+        dependency_provider=provider,
+        wrap_model=capture,
+    )
+    def handler(token: Annotated[str, Input("headers")]): ...
+
+    assert capture.serializer.get_schema() == IsPartialDict(
+        properties={"headers": value}, required=["headers"]
+    )

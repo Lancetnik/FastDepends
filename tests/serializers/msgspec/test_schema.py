@@ -19,7 +19,7 @@ class Group(msgspec.Struct):
 
 
 class Node(msgspec.Struct):
-    children: list["Node"] = msgspec.field(default_factory=list)
+    children: "list[Node]" = msgspec.field(default_factory=list)
 
 
 class Custom:

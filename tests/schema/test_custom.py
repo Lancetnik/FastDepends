@@ -3,7 +3,7 @@ from typing import Annotated, Any
 from unittest.mock import Mock
 
 import pytest
-from dirty_equals import IsPartialDict
+from dirty_equals import IsPartialDict, IsStr
 
 from fast_depends import Depends, inject
 from fast_depends.library import CustomField, SchemaField
@@ -432,3 +432,23 @@ def test_invalid_hook_result_fails(schema_inject, capture):
 
     with pytest.raises(TypeError, match="must return SchemaField or None"):
         capture.serializer.get_schema()
+
+
+def test_generated_source_name_does_not_replace_input(schema_inject, capture):
+    @schema_inject
+    def handler(source_1: int, value: Annotated[str, Input("headers")]): ...
+
+    assert resolve_root(capture.serializer.get_schema())["properties"] == {
+        "source_1": IsPartialDict(type="integer"),
+        "headers": IsPartialDict({"$ref": IsStr}),
+    }
+
+
+def test_schema_preserves_default_when_custom_input_is_absent(schema_inject, capture):
+    @schema_inject
+    def handler(value: Annotated[int, Input(required=False)] = 3):
+        return value
+
+    capture.serializer.get_schema()
+
+    assert handler() == 3

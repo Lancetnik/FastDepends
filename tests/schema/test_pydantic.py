@@ -14,6 +14,10 @@ from fast_depends.pydantic._compat import PYDANTIC_V2
 from tests.marks import pydanticV2
 from tests.schema.custom_fields import Input, source_schema
 
+if PYDANTIC_V2:
+    from pydantic import AliasChoices, AliasPath
+    from pydantic.json_schema import SkipJsonSchema
+
 
 class Node(BaseModel):
     children: list["Node"] = Field(default_factory=list)
@@ -265,11 +269,6 @@ def test_custom_field_validation_alias(capture, provider):
     )
 
 
-if PYDANTIC_V2:
-    from pydantic import AliasChoices, AliasPath
-    from pydantic.json_schema import SkipJsonSchema
-
-
 def sort_schema_properties(schema):
     schema["properties"] = dict(sorted(schema["properties"].items()))
 
@@ -348,3 +347,20 @@ def test_custom_requiredness_uses_validation_alias(capture, provider, alias, exp
         IsPartialDict(properties={expected: IsPartialDict(type="integer")})
         & ~IsPartialDict(required=[expected])
     )
+
+
+def hide_headers(schema):
+    schema.get("properties", {}).pop("headers", None)
+
+
+def test_schema_extra_can_hide_source_group(capture, provider):
+    config_key = "json_schema_extra" if PYDANTIC_V2 else "schema_extra"
+
+    @inject(
+        serializer_cls=PydanticSerializer(pydantic_config={config_key: hide_headers}),
+        dependency_provider=provider,
+        wrap_model=capture,
+    )
+    def handler(value: Annotated[int, Input("headers")]): ...
+
+    assert capture.serializer.get_schema() == IsPartialDict(properties={})

@@ -116,7 +116,11 @@ if PYDANTIC_V2:
             alias = field.serialization_alias if serialization else field.validation_alias
             if isinstance(alias, AliasChoices):
                 alias = next(
-                    (path[0] for path in alias.convert_to_aliases() if len(path) == 1),
+                    (
+                        path[0]
+                        for path in alias.convert_to_aliases()
+                        if len(path) == 1 and isinstance(path[0], str)
+                    ),
                     None,
                 )
             # AliasPath cannot name a single JSON Schema property.

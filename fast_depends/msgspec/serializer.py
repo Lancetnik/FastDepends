@@ -1,12 +1,19 @@
 import inspect
 import re
-from collections.abc import Callable, Iterator, Sequence
+from collections.abc import Callable, Iterable, Iterator, Sequence
 from contextlib import contextmanager
 from typing import Any, TypeVar
 
 import msgspec
 
 from fast_depends.exceptions import ValidationError
+from fast_depends.library.schema import (
+    SchemaField,
+    apply_schema_groups,
+    exclude_schema_fields,
+    group_schema_fields,
+)
+from fast_depends.library.schema_processing import SchemaExclude, process_schema
 from fast_depends.library.serializer import OptionItem, Serializer, SerializerProto
 
 T = TypeVar("T")
@@ -82,7 +89,7 @@ class _MsgSpecSerializer(Serializer):
         *,
         name: str,
         options: list[OptionItem],
-        response_type: Any = None,
+        response_type: Any = inspect.Parameter.empty,
         dec_hook: Callable[[type[T], Any], T] | None = None,
     ):
         model_options: list[str | tuple[str, type] | tuple[str, type, Any]] = []
@@ -118,6 +125,74 @@ class _MsgSpecSerializer(Serializer):
 
     def get_aliases(self) -> tuple[str, ...]:
         return tuple(self.aliases.values())
+
+    def get_schema(
+        self,
+        *,
+        embed: bool = False,
+        exclude: Iterable[SchemaExclude] = (),
+        resolve_refs: bool = False,
+    ) -> dict[str, Any]:
+        return process_schema(
+            self._get_schema(tuple(exclude)), embed=embed, resolve_refs=resolve_refs
+        )
+
+    def _get_schema(self, exclude: tuple[SchemaExclude, ...]) -> dict[str, Any]:
+        if self._schema_options is None and not exclude:
+            schema: dict[str, Any] = msgspec.json.schema(self.model)
+            return schema
+
+        options = exclude_schema_fields(
+            self._schema_options()
+            if self._schema_options
+            else list(self.options.values()),
+            exclude,
+        )
+        if not any(isinstance(i, SchemaField) for i in options):
+            schema = msgspec.json.schema(self._schema_model(self.name, options))
+            return schema
+
+        groups = group_schema_fields(options)
+        root_options = list(groups[None])
+        aliases: dict[str | None, dict[str, str]] = {}
+        for index, (source, fields) in enumerate(groups.items()):
+            if source is None:
+                continue
+            model = self._schema_model(f"{self.name}__source_{index}", fields)
+            aliases[source] = {
+                f.name: f.encode_name for f in msgspec.structs.fields(model)
+            }
+            field_name = f"source_{index}"
+            while field_name in {i.field_name for i in root_options}:
+                field_name += "_"
+            root_options.append(
+                OptionItem(field_name, model, default_value=msgspec.field(name=source))
+            )
+
+        model = self._schema_model(self.name, root_options)
+        root_aliases = {f.name: f.encode_name for f in msgspec.structs.fields(model)}
+        aliases[None] = {i.field_name: root_aliases[i.field_name] for i in groups[None]}
+        return apply_schema_groups(msgspec.json.schema(model), groups, aliases)
+
+    @staticmethod
+    def _schema_model(name: str, options: list[OptionItem]) -> type[msgspec.Struct]:
+        return msgspec.defstruct(
+            name,
+            [
+                (i.field_name, i.field_type)
+                if i.default_value is Ellipsis
+                else (i.field_name, i.field_type, i.default_value)
+                for i in options
+            ],
+            kw_only=True,
+        )
+
+    def get_response_schema(self) -> dict[str, Any] | None:
+        response_type = self.response_option["return"].field_type
+        if response_type is inspect.Parameter.empty:
+            return None
+        schema: dict[str, Any] = msgspec.json.schema(response_type)
+        return schema
 
     def __call__(self, call_kwargs: dict[str, Any]) -> dict[str, Any]:
         casted_model = msgspec.convert(

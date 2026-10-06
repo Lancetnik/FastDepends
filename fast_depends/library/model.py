@@ -1,6 +1,9 @@
 from abc import ABC
 from typing import Any, TypeVar
 
+from fast_depends.library.schema import SchemaField
+from fast_depends.library.serializer import OptionItem
+
 Cls = TypeVar("Cls", bound="CustomField")
 
 
@@ -37,6 +40,14 @@ class CustomField(ABC):
 
     def use_field(self, kwargs: dict[str, Any]) -> None:
         raise NotImplementedError
+
+    def get_schema(self, parameter: OptionItem) -> SchemaField | None:
+        """Describe an external input, or return None to hide this injected field.
+
+        The parameter retains its declared type, metadata and default before
+        runtime cast/required transformations. This hook must not execute the field.
+        """
+        return None
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(required={self.required}, cast={self.cast})"

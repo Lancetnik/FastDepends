@@ -58,17 +58,114 @@ default_pydantic_config = {"arbitrary_types_allowed": True}
 
 # isort: off
 if PYDANTIC_V2:
-    from pydantic import ConfigDict, TypeAdapter
+    from pydantic import AliasChoices, ConfigDict, TypeAdapter
     from pydantic.fields import FieldInfo
     from pydantic.errors import PydanticUserError
+    from pydantic.json_schema import GenerateJsonSchema, JsonSchemaValue
     from pydantic_core import to_json
+
+    class _ResponseSchema(GenerateJsonSchema):
+        """Describe generic encoding of validated values, without a TypeAdapter."""
+
+        _model_serializer = False
+        _generic_refs: frozenset[str] = frozenset()
+
+        def _get_alias_name(self, field: Any, name: str) -> str:
+            if self._model_serializer:
+                return super()._get_alias_name(field, name)
+            # Plain dicts/dataclasses retain Python names after validation.
+            return name
+
+        @staticmethod
+        def _generic_ref(ref: str) -> str:
+            name, separator, identifier = ref.partition(":")
+            return f"{name}__fast_depends_generic{separator}{identifier}"
+
+        def generate_inner(self, schema: Any) -> JsonSchemaValue:
+            if self._model_serializer:
+                return super().generate_inner(schema)
+
+            cls = schema.get("cls")
+            if schema["type"] in ("model", "dataclass") and hasattr(
+                cls, "__pydantic_serializer__"
+            ):
+                # Models carry their own serializer into to_json(); an outer
+                # Annotated serializer belongs only to the discarded adapter.
+                self._model_serializer = True
+                try:
+                    return super().generate_inner(cls.__pydantic_core_schema__)
+                finally:
+                    self._model_serializer = False
+
+            if schema["type"] == "definitions":
+                # Mutually recursive definitions may refer to a later entry.
+                self._generic_refs |= {
+                    definition["ref"]
+                    for definition in schema["definitions"]
+                    if definition["type"] in ("typed-dict", "dataclass")
+                    and not hasattr(definition.get("cls"), "__pydantic_serializer__")
+                }
+
+            if schema["type"] in ("typed-dict", "dataclass") and "ref" in schema:
+                schema = schema.copy()
+                ref = schema["ref"]
+                self._generic_refs |= {ref}
+                # The same type can also occur inside a model, whose serializer
+                # does apply aliases. Those schemas need distinct definitions.
+                schema["ref"] = self._generic_ref(ref)
+            elif (
+                schema["type"] == "definition-ref"
+                and schema["schema_ref"] in self._generic_refs
+            ):
+                schema = schema.copy()
+                schema["schema_ref"] = self._generic_ref(schema["schema_ref"])
+
+            if "serialization" in schema:
+                schema = schema.copy()
+                schema.pop("serialization")
+            return super().generate_inner(schema)
 
     def model_schema(model: type[BaseModel]) -> dict[str, Any]:
         schema: dict[str, Any] = model.model_json_schema()
         return schema
 
+    def type_schema(annotation: Any, config: ConfigDict) -> dict[str, Any]:
+        try:
+            adapter = TypeAdapter(annotation, config=config)
+        except PydanticUserError:
+            adapter = TypeAdapter(annotation)
+        schema: dict[str, Any] = adapter.json_schema(
+            mode="serialization", schema_generator=_ResponseSchema
+        )
+        return schema
+
     def get_config_base(config_data: ConfigDict | None = None) -> ConfigDict:
         return config_data or ConfigDict(**default_pydantic_config)  # type: ignore[typeddict-item]
+
+    def get_schema_aliases(model: type[BaseModel]) -> dict[str, str]:
+        aliases = {}
+        # Inspect names before aliasing: a hidden field can share its alias with
+        # a visible field or source, so aliased properties cannot identify it.
+        properties = model.model_json_schema(by_alias=False).get("properties", {})
+        serialization = (
+            model.model_config.get("json_schema_mode_override") == "serialization"
+        )
+        for name, field in get_model_fields(model).items():
+            if name not in properties:
+                continue
+            alias = field.serialization_alias if serialization else field.validation_alias
+            if isinstance(alias, AliasChoices):
+                alias = next(
+                    (
+                        path[0]
+                        for path in alias.convert_to_aliases()
+                        if len(path) == 1 and isinstance(path[0], str)
+                    ),
+                    None,
+                )
+            # AliasPath cannot name a single JSON Schema property.
+            aliases[name] = alias if isinstance(alias, str) else name
+        return aliases
 
     def get_aliases(model: type[BaseModel]) -> tuple[str, ...]:
         return tuple(f.alias or name for name, f in get_model_fields(model).items())
@@ -99,6 +196,18 @@ else:
 
     def model_schema(model: type[BaseModel]) -> dict[str, Any]:
         return model.schema()
+
+    def type_schema(annotation: Any, config: type[BaseConfig]) -> dict[str, Any]:  # type: ignore[misc]
+        model: type[BaseModel] = create_model(  # type: ignore[call-overload]
+            "ResponseModel",
+            __config__=config,
+            __root__=(type(None) if annotation is None else annotation, ...),
+        )
+        # pydantic_encoder uses field names when encoding model instances.
+        return model.schema(by_alias=False)
+
+    def get_schema_aliases(model: type[BaseModel]) -> dict[str, str]:
+        return {name: field.alias for name, field in model.__fields__.items()}
 
     def get_aliases(model: type[BaseModel]) -> tuple[str, ...]:
         return tuple(f.alias or name for name, f in model.__fields__.items())

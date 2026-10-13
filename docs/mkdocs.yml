@@ -102,6 +102,7 @@ nav:
     - Override Dependencies: tutorial/overrides.md
   - Advanced:
     - advanced/index.md
+    - JSON Schema: advanced/json-schema.md
     - More Complex Example: advanced/starlette.md
   - Alternatives: alternatives.md
   - Contributing: contributing.md

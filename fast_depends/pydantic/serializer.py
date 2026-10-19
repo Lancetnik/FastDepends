@@ -1,12 +1,20 @@
 import inspect
-from collections.abc import Callable, Iterator, Sequence
+from collections.abc import Callable, Iterable, Iterator, Sequence
 from contextlib import contextmanager
 from itertools import chain
 from typing import Any
 
+from pydantic import Field
 from pydantic import ValidationError as PValidationError
 
 from fast_depends.exceptions import ValidationError
+from fast_depends.library.schema import (
+    SchemaField,
+    apply_schema_groups,
+    exclude_schema_fields,
+    group_schema_fields,
+)
+from fast_depends.library.schema_processing import SchemaExclude, process_schema
 from fast_depends.library.serializer import OptionItem, Serializer, SerializerProto
 from fast_depends.pydantic._compat import (
     PYDANTIC_V2,
@@ -19,6 +27,9 @@ from fast_depends.pydantic._compat import (
     get_aliases,
     get_config_base,
     get_model_fields,
+    get_schema_aliases,
+    model_schema,
+    type_schema,
 )
 
 
@@ -93,7 +104,7 @@ class _PydanticSerializer(Serializer):
         *,
         name: str,
         options: list[OptionItem],
-        response_type: Any = None,
+        response_type: Any = inspect.Parameter.empty,
         pydantic_config: ConfigDict | None = None,
     ):
         class_options: dict[str, Any] = {
@@ -112,6 +123,67 @@ class _PydanticSerializer(Serializer):
 
     def get_aliases(self) -> tuple[str, ...]:
         return get_aliases(self.model)
+
+    def get_schema(
+        self,
+        *,
+        embed: bool = False,
+        exclude: Iterable[SchemaExclude] = (),
+        resolve_refs: bool = False,
+    ) -> dict[str, Any]:
+        return process_schema(
+            self._get_schema(tuple(exclude)), embed=embed, resolve_refs=resolve_refs
+        )
+
+    def _get_schema(self, exclude: tuple[SchemaExclude, ...]) -> dict[str, Any]:
+        if self._schema_options is None and not exclude:
+            return model_schema(self.model)
+
+        options = exclude_schema_fields(
+            self._schema_options()
+            if self._schema_options
+            else list(self.options.values()),
+            exclude,
+        )
+        if not any(isinstance(i, SchemaField) for i in options):
+            return model_schema(self._schema_model(self.name, options))
+
+        groups = group_schema_fields(options)
+        root_options = list(groups[None])
+        aliases: dict[str | None, dict[str, str]] = {}
+        for index, (source, fields) in enumerate(groups.items()):
+            if source is None:
+                continue
+            model = self._schema_model(f"{self.name}__source_{index}", fields)
+            aliases[source] = get_schema_aliases(model)
+            field_name = f"source_{index}"
+            while field_name in {i.field_name for i in root_options}:
+                field_name += "_"
+            root_options.append(
+                OptionItem(field_name, model, default_value=Field(..., alias=source))
+            )
+
+        model = self._schema_model(self.name, root_options)
+        root_aliases = get_schema_aliases(model)
+        aliases[None] = {
+            i.field_name: root_aliases[i.field_name]
+            for i in groups[None]
+            if i.field_name in root_aliases
+        }
+        return apply_schema_groups(model_schema(model), groups, aliases)
+
+    def _schema_model(self, name: str, options: list[OptionItem]) -> type[BaseModel]:
+        return create_model(  # type: ignore[call-overload, no-any-return]
+            name,
+            __config__=self.config,
+            **{i.field_name: (i.field_type, i.default_value) for i in options},
+        )
+
+    def get_response_schema(self) -> dict[str, Any] | None:
+        response_type = self.response_option["return"].field_type
+        if response_type is inspect.Parameter.empty:
+            return None
+        return type_schema(response_type, self.config)
 
     def __call__(self, call_kwargs: dict[str, Any]) -> dict[str, Any]:
         casted_model = self.model(**call_kwargs)

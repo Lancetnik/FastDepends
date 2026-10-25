@@ -7,7 +7,6 @@ from fast_depends import Depends, inject
 
 @pytest.mark.anyio
 async def test_typealiastype_depends_async() -> None:
-
     async def dep_func(b):
         return b
 

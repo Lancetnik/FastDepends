@@ -14,12 +14,14 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14", "3.14t"]
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14", "3.14t", "3.15"]
         pydantic-version: ["pydantic-v1", "pydantic-v2"]
         exclude:
           - python-version: "3.14"
             pydantic-version: "pydantic-v1"
           - python-version: "3.14t"
+            pydantic-version: "pydantic-v1"
+          - python-version: "3.15"
             pydantic-version: "pydantic-v1"
       fail-fast: false
 
@@ -61,7 +63,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14", "3.14t"]
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14", "3.14t", "3.15"]
       fail-fast: false
 
     steps:
@@ -94,12 +96,16 @@ jobs:
 
   test-no-serializer:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.12", "3.15"]
+      fail-fast: false
 
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
         with:
-          python-version: '3.12'
+          python-version: ${{ matrix.python-version }}
       - uses: actions/cache@v6
         id: cache
         with:
@@ -112,12 +118,12 @@ jobs:
       - name: Test
         run: bash scripts/test.sh
         env:
-          COVERAGE_FILE: coverage/.coverage.no-serializer
-          CONTEXT: no-serializer
+          COVERAGE_FILE: coverage/.coverage.no-serializer-${{ matrix.python-version }}
+          CONTEXT: no-serializer-${{ matrix.python-version }}
       - name: Store coverage files
         uses: actions/upload-artifact@v7
         with:
-          name: .coverage.no-serializer
+          name: .coverage.no-serializer-${{ matrix.python-version }}
           path: coverage
           if-no-files-found: error
           include-hidden-files: true

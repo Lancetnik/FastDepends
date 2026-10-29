@@ -4,6 +4,7 @@ from inspect import Parameter, unwrap
 from typing import (
     TYPE_CHECKING,
     Any,
+    cast,
 )
 
 import anyio
@@ -336,7 +337,10 @@ class CallModel:
                     raise ex from None
 
             for j in custom_to_solve:
-                kwargs = await run_async(j.use, **kwargs)
+                if is_coroutine_callable(j.use):
+                    kwargs = await cast(Callable[..., Any], j.use)(**kwargs)
+                else:
+                    kwargs = j.use(**kwargs)
 
         final_args, final_kwargs = cast_gen.send(kwargs)
 

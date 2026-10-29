@@ -1,4 +1,5 @@
 import logging
+import threading
 from time import monotonic_ns
 from typing import Annotated, Any
 
@@ -52,6 +53,66 @@ class FailingAsyncFieldHeader(Header):
 
     async def use_field(self, kwargs: Any) -> None:
         raise ValueError("failed to resolve field")
+
+
+@pytest.mark.anyio
+async def test_async_header_does_not_add_checkpoint():
+    ready = anyio.Event()
+    order: list[str] = []
+
+    async def observer(*, task_status: anyio.abc.TaskStatus[None]) -> None:
+        task_status.started()
+        await ready.wait()
+        order.append("observer")
+
+    @inject
+    async def async_catch(key: int = AsyncHeader(cast=False)):
+        return key
+
+    async with anyio.create_task_group() as tg:
+        await tg.start(observer)
+        ready.set()
+        assert await async_catch(headers={"key": 1}) == 1
+        order.append("handler")
+
+    assert order == ["handler", "observer"]
+
+
+@pytest.mark.anyio
+async def test_mixed_fields_are_resolved_before_sequential_customs():
+    class DependentHeader(AsyncHeader):
+        async def use(self, /, **kwargs: Any) -> dict[str, Any]:
+            kwargs = await super().use(**kwargs)
+            kwargs[self.param_name] += kwargs["field_key"]
+            return kwargs
+
+    @inject
+    async def async_catch(
+        key: int = DependentHeader(cast=False),
+        field_key: int = AsyncFieldHeader(cast=False),
+    ):
+        return key, field_key
+
+    assert await async_catch(headers={"key": 1, "field_key": 2}) == (3, 2)
+
+
+@pytest.mark.anyio
+async def test_sync_custom_still_runs_in_worker_thread():
+    observed_thread: int | None = None
+
+    class ThreadHeader(Header):
+        def use(self, /, **kwargs: Any) -> dict[str, Any]:
+            nonlocal observed_thread
+            observed_thread = threading.get_ident()
+            return super().use(**kwargs)
+
+    @inject
+    async def async_catch(key: int = ThreadHeader(cast=False)):
+        return key
+
+    assert await async_catch(headers={"key": 1}) == 1
+    assert observed_thread is not None
+    assert observed_thread != threading.get_ident()
 
 
 def test_header():

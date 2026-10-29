@@ -310,9 +310,7 @@ class CallModel:
 
         for dep_arg, dep_key in self.dependencies.items():
             if dep_arg not in kwargs:
-                kwargs[dep_arg] = await provider.get_dependant(
-                    dep_key
-                ).asolve(
+                kwargs[dep_arg] = await provider.get_dependant(dep_key).asolve(
                     *args,
                     stack=stack,
                     cache_dependencies=cache_dependencies,
@@ -322,18 +320,23 @@ class CallModel:
 
         if self.custom_fields:
             custom_to_solve: list[CustomField] = []
+            custom_to_schedule: list[CustomField] = []
 
-            try:
-                async with anyio.create_task_group() as tg:
-                    for custom in self.custom_fields.values():
-                        if custom.field:
+            for custom in self.custom_fields.values():
+                if custom.field:
+                    custom_to_schedule.append(custom)
+                else:
+                    custom_to_solve.append(custom)
+
+            if custom_to_schedule:
+                try:
+                    async with anyio.create_task_group() as tg:
+                        for custom in custom_to_schedule:
                             tg.start_soon(run_async, custom.use_field, kwargs)
-                        else:
-                            custom_to_solve.append(custom)
 
-            except ExceptionGroup as exgr:
-                for ex in exgr.exceptions:  # pragma: no branch
-                    raise ex from None
+                except ExceptionGroup as exgr:
+                    for ex in exgr.exceptions:  # pragma: no branch
+                        raise ex from None
 
             for j in custom_to_solve:
                 kwargs = await run_async(j.use, **kwargs)

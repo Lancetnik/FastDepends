@@ -80,8 +80,10 @@ class Provider:
         override: Callable[..., Any],
     ) -> Iterator[None]:
         self.override(original, override)
-        yield
-        self.overrides.pop(self.__get_original_key(original), None)
+        try:
+            yield
+        finally:
+            self.overrides.pop(self.__get_original_key(original), None)
 
     def __get_original_key(self, original: Callable[..., Any]) -> Key:
         return original

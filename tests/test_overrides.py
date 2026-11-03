@@ -82,6 +82,25 @@ def test_override_context(provider: Provider) -> None:
     assert func() == 1
 
 
+def test_override_context_exception(provider: Provider) -> None:
+    def base_dep():
+        return 1
+
+    def override_dep():
+        return 2
+
+    @inject(dependency_provider=provider)
+    def func(d=Depends(base_dep)):
+        return d
+
+    with pytest.raises(ValueError):
+        with provider.scope(base_dep, override_dep):
+            assert func() == 2
+            raise ValueError
+
+    assert func() == 1
+
+
 def test_sync_by_async_override(provider: Provider) -> None:
     def base_dep():
         raise NotImplementedError

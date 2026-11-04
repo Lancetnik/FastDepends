@@ -1,4 +1,5 @@
 import logging
+import threading
 from time import monotonic_ns
 from typing import Annotated, Any
 
@@ -220,3 +221,22 @@ class TestSerializer:
             return key
 
         assert sync_catch(headers={"key": 1}) == 1
+
+
+@pytest.mark.anyio
+async def test_sync_custom_field_runs_on_event_loop_thread():
+    event_loop_thread = threading.get_ident()
+    observed_thread: int | None = None
+
+    class ThreadCheckingHeader(Header):
+        def use(self, /, **kwargs: Any) -> dict[str, Any]:
+            nonlocal observed_thread
+            observed_thread = threading.get_ident()
+            return super().use(**kwargs)
+
+    @inject
+    async def async_catch(key: int = ThreadCheckingHeader()):  # noqa: B008
+        return key
+
+    assert await async_catch(headers={"key": 1}) == 1
+    assert observed_thread == event_loop_thread

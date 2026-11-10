@@ -58,7 +58,7 @@ default_pydantic_config = {"arbitrary_types_allowed": True}
 
 # isort: off
 if PYDANTIC_V2:
-    from pydantic import ConfigDict, TypeAdapter
+    from pydantic import AliasChoices, ConfigDict, TypeAdapter
     from pydantic.fields import FieldInfo
     from pydantic.errors import PydanticUserError
     from pydantic.json_schema import GenerateJsonSchema, JsonSchemaValue
@@ -107,6 +107,31 @@ if PYDANTIC_V2:
     def get_config_base(config_data: ConfigDict | None = None) -> ConfigDict:
         return config_data or ConfigDict(**default_pydantic_config)  # type: ignore[typeddict-item]
 
+    def get_schema_aliases(model: type[BaseModel]) -> dict[str, str]:
+        aliases = {}
+        # Inspect names before aliasing: a hidden field can share its alias with
+        # a visible field or source, so aliased properties cannot identify it.
+        properties = model.model_json_schema(by_alias=False).get("properties", {})
+        serialization = (
+            model.model_config.get("json_schema_mode_override") == "serialization"
+        )
+        for name, field in get_model_fields(model).items():
+            if name not in properties:
+                continue
+            alias = field.serialization_alias if serialization else field.validation_alias
+            if isinstance(alias, AliasChoices):
+                alias = next(
+                    (
+                        path[0]
+                        for path in alias.convert_to_aliases()
+                        if len(path) == 1 and isinstance(path[0], str)
+                    ),
+                    None,
+                )
+            # AliasPath cannot name a single JSON Schema property.
+            aliases[name] = alias if isinstance(alias, str) else name
+        return aliases
+
     def get_aliases(model: type[BaseModel]) -> tuple[str, ...]:
         return tuple(f.alias or name for name, f in get_model_fields(model).items())
 
@@ -145,6 +170,9 @@ else:
         )
         # pydantic_encoder uses field names when encoding model instances.
         return model.schema(by_alias=False)
+
+    def get_schema_aliases(model: type[BaseModel]) -> dict[str, str]:
+        return {name: field.alias for name, field in model.__fields__.items()}
 
     def get_aliases(model: type[BaseModel]) -> tuple[str, ...]:
         return tuple(f.alias or name for name, f in model.__fields__.items())

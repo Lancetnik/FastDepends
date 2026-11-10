@@ -1,6 +1,6 @@
 import inspect
 from collections.abc import Callable, Sequence
-from copy import deepcopy
+from copy import copy, deepcopy
 from typing import (
     TYPE_CHECKING,
     Annotated,
@@ -16,7 +16,7 @@ from typing_extensions import (
 )
 
 from fast_depends.dependencies.model import Dependant
-from fast_depends.library import CustomField
+from fast_depends.library import CustomField, SchemaField
 from fast_depends.library.serializer import OptionItem, Serializer, SerializerProto
 from fast_depends.utils import (
     get_typed_signature,
@@ -76,6 +76,7 @@ def build_call_model(
     class_fields: list[OptionItem] = []
     dependencies: dict[str, Key] = {}
     custom_fields: dict[str, CustomField] = {}
+    schema_custom_fields: list[OptionItem] = []
     positional_args: list[str] = []
     keyword_args: list[str] = []
     args_name: str | None = None
@@ -201,6 +202,25 @@ def build_call_model(
             custom.set_param_name(param_name)
             custom_fields[param_name] = custom
 
+            schema_annotation = annotation
+            if get_origin(schema_annotation) is Annotated:
+                base_type, *metadata = get_args(schema_annotation)
+                metadata = [m for m in metadata if not isinstance(m, CustomField)]
+                schema_annotation = (
+                    Annotated[(base_type, *metadata)] if metadata else base_type
+                )
+            schema_custom_fields.append(
+                OptionItem(
+                    field_name=param_name,
+                    field_type=schema_annotation,
+                    default_value=Ellipsis
+                    if default is inspect.Parameter.empty
+                    else default,
+                    source=custom,
+                    kind=param.kind,
+                )
+            )
+
             if not custom.cast:
                 annotation = Any
 
@@ -292,10 +312,38 @@ def build_call_model(
         serializer_cls=serializer_cls,
     )
 
+    call_model._schema_custom_fields = tuple(schema_custom_fields)
     if serializer is not None:
-        serializer._schema_options = lambda: call_model.flat_params
+        serializer._schema_options = lambda: _get_schema_options(call_model)
 
     return call_model
+
+
+def _get_schema_options(call_model: CallModel) -> list[OptionItem]:
+    options = call_model.flat_params
+    visited: set[CallModel] = set()
+
+    def collect_custom_fields(model: CallModel) -> None:
+        if model in visited:
+            return
+        visited.add(model)
+        for parameter in model._schema_custom_fields:
+            custom: CustomField = parameter.source
+            description = custom.get_schema(copy(parameter))
+            if description is not None:
+                if not isinstance(description, SchemaField):
+                    raise TypeError(
+                        "CustomField.get_schema() must return SchemaField or None"
+                    )
+                description = copy(description)
+                if description.required is None and not custom.required:
+                    description.required = False
+                options.append(description)
+        for key in (*model.dependencies.values(), *model.extra_dependencies):
+            collect_custom_fields(model.dependency_provider.get_dependant(key))
+
+    collect_custom_fields(call_model)
+    return options
 
 
 def _rebuild_override_model(

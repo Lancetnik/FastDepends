@@ -81,6 +81,32 @@ if PYDANTIC_V2:
             name, separator, identifier = ref.partition(":")
             return f"{name}__fast_depends_generic{separator}{identifier}"
 
+        def bytes_schema(self, schema: Any) -> JsonSchemaValue:
+            result = super().bytes_schema(schema)
+            if not self._model_serializer:
+                result["format"] = "binary"
+            return result
+
+        def date_schema(self, schema: Any) -> JsonSchemaValue:
+            if self._model_serializer:
+                return super().date_schema(schema)
+            return {"type": "string", "format": "date"}
+
+        def time_schema(self, schema: Any) -> JsonSchemaValue:
+            if self._model_serializer:
+                return super().time_schema(schema)
+            return {"type": "string", "format": "time"}
+
+        def datetime_schema(self, schema: Any) -> JsonSchemaValue:
+            if self._model_serializer:
+                return super().datetime_schema(schema)
+            return {"type": "string", "format": "date-time"}
+
+        def timedelta_schema(self, schema: Any) -> JsonSchemaValue:
+            if self._model_serializer:
+                return super().timedelta_schema(schema)
+            return {"type": "string", "format": "duration"}
+
         def generate_inner(self, schema: Any) -> JsonSchemaValue:
             if self._model_serializer:
                 return super().generate_inner(schema)

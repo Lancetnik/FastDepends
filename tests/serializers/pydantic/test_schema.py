@@ -1,5 +1,6 @@
 import json
 from dataclasses import dataclass
+from datetime import date, datetime, time, timedelta
 from inspect import Parameter
 from typing import Annotated
 
@@ -407,3 +408,127 @@ def test_custom_type_validation(custom_serializer: Serializer) -> None:
 def test_unsupported_schema_type(custom_serializer: Serializer) -> None:
     with pytest.raises(SCHEMA_ERROR):
         custom_serializer.get_schema()
+
+
+@pydanticV2
+@pytest.mark.parametrize("wrapped", (True, False))
+@pytest.mark.parametrize("nested", (True, False))
+@pytest.mark.parametrize(
+    "config, annotation, value, encoded, format_",
+    [
+        ({}, timedelta, timedelta(seconds=90), "PT1M30S", "duration"),
+        (
+            {"ser_json_timedelta": "float"},
+            timedelta,
+            timedelta(seconds=90),
+            "PT1M30S",
+            "duration",
+        ),
+        (
+            {"ser_json_temporal": "seconds"},
+            datetime,
+            datetime(2026, 1, 1),
+            "2026-01-01T00:00:00",
+            "date-time",
+        ),
+        (
+            {"ser_json_temporal": "milliseconds"},
+            date,
+            date(2026, 1, 1),
+            "2026-01-01",
+            "date",
+        ),
+        ({"ser_json_temporal": "seconds"}, time, time(12, 30), "12:30:00", "time"),
+    ],
+)
+def test_temporal_response_describes_generic_encoding(
+    wrapped, nested, config, annotation, value, encoded, format_
+):
+    factory = PydanticSerializer(pydantic_config=config, use_fastdepends_errors=wrapped)
+    serializer = factory(
+        name="handler",
+        options=[],
+        response_type=list[annotation] if nested else annotation,
+    )
+    wire_value = json.loads(
+        factory.encode(serializer.response([value] if nested else value))
+    )
+    assert wire_value == ([encoded] if nested else encoded)
+    schema = serializer.get_response_schema()
+    value_schema = schema["items"] if nested else schema
+    assert value_schema == {"type": "string", "format": format_}
+
+
+@pydanticV2
+@pytest.mark.parametrize("wrapped", (True, False))
+def test_bytes_response_describes_generic_encoding(wrapped):
+    serializer = PydanticSerializer(
+        pydantic_config={"ser_json_bytes": "base64"}, use_fastdepends_errors=wrapped
+    )(name="handler", options=[], response_type=list[bytes])
+
+    assert PydanticSerializer.encode(serializer.response([b"ab"])) == b'["ab"]'
+    assert serializer.get_response_schema() == {
+        "type": "array",
+        "items": {"type": "string", "format": "binary"},
+    }
+
+
+@pydanticV2
+def test_bytes_response_preserves_constraints():
+    serializer = PydanticSerializer(pydantic_config={"ser_json_bytes": "base64"})(
+        name="handler",
+        options=[],
+        response_type=list[Annotated[bytes, Field(min_length=1, max_length=4)]],
+    )
+
+    assert serializer.get_response_schema()["items"] == {
+        "type": "string",
+        "format": "binary",
+        "minLength": 1,
+        "maxLength": 4,
+    }
+    assert PydanticSerializer.encode(serializer.response([b"ab"])) == b'["ab"]'
+
+
+@pydanticV2
+def test_bytes_response_preserves_model_encoding_config():
+    class Result(BaseModel):
+        model_config = {"ser_json_bytes": "base64"}
+        value: bytes
+
+    serializer = PydanticSerializer()(name="handler", options=[], response_type=Result)
+
+    assert PydanticSerializer.encode(serializer.response({"value": b"ab"})) == (
+        b'{"value":"YWI="}'
+    )
+    assert serializer.get_response_schema() == Result.model_json_schema(
+        mode="serialization"
+    )
+
+
+@pydanticV2
+@pytest.mark.parametrize(
+    "annotation, value, config",
+    [
+        (date, date(2026, 1, 1), {"ser_json_temporal": "seconds"}),
+        (time, time(12, 30), {"ser_json_temporal": "seconds"}),
+        (datetime, datetime(2026, 1, 1), {"ser_json_temporal": "seconds"}),
+        (timedelta, timedelta(seconds=90), {"ser_json_timedelta": "float"}),
+    ],
+)
+def test_temporal_response_preserves_model_encoding_config(annotation, value, config):
+    class Result(BaseModel):
+        model_config = config
+        value: annotation
+
+    serializer = PydanticSerializer()(name="handler", options=[], response_type=Result)
+    data = {"value": value}
+    result = serializer.response(data)
+
+    assert (
+        PydanticSerializer.encode(result)
+        == Result.model_validate(data).model_dump_json().encode()
+    )
+    assert serializer.get_response_schema() == Result.model_json_schema(
+        mode="serialization"
+    )

@@ -6,6 +6,7 @@ from typing import Annotated
 import pytest
 from dirty_equals import IsPartialDict
 from pydantic import BaseModel, Field, Json
+from typing_extensions import TypedDict
 
 from fast_depends.library.serializer import OptionItem, Serializer
 from fast_depends.pydantic import PydanticSerializer
@@ -32,6 +33,16 @@ class Group(BaseModel):
 
 class Custom:
     pass
+
+
+class FirstRecursiveResponse(TypedDict):
+    value: Annotated[int, Field(alias="external")]
+    child: "SecondRecursiveResponse | None"
+
+
+class SecondRecursiveResponse(TypedDict):
+    value: Annotated[int, Field(alias="external")]
+    child: "FirstRecursiveResponse | None"
 
 
 @pytest.fixture(params=(True, False), ids=("wrapped", "unwrapped"))
@@ -141,6 +152,103 @@ def test_response_alias_matches_encoded_model(wrapped: bool, nested: bool) -> No
     assert schema is not None
     result_schema = schema[REF_KEY]["Result"] if nested else resolve_root(schema)
     assert result_schema["required"] == list(encoded[0] if nested else encoded)
+
+
+@pytest.fixture(params=("typed_dict", "dataclass", "pydantic_dataclass"))
+def aliased_response_type(request):
+    if request.param == "typed_dict":
+
+        class Result(TypedDict):
+            value: Annotated[int, Field(alias="external")]
+
+        return Result
+
+    @dataclass
+    class Record:
+        value: Annotated[int, Field(alias="external")]
+
+    return pydantic_dataclass(Record) if request.param == "pydantic_dataclass" else Record
+
+
+@pydanticV2
+@pytest.mark.parametrize("wrapped", (True, False))
+@pytest.mark.parametrize("nested", (True, False))
+@pytest.mark.parametrize("keyword", ("properties", "required"))
+def test_response_alias_matches_encoded_structure(
+    aliased_response_type, wrapped, nested, keyword
+):
+    serializer = PydanticSerializer(use_fastdepends_errors=wrapped)(
+        name="handler",
+        options=[],
+        response_type=list[aliased_response_type] if nested else aliased_response_type,
+    )
+    value = [{"external": 1}] if nested else {"external": 1}
+    encoded = json.loads(PydanticSerializer.encode(serializer.response(value)))
+    schema = serializer.get_response_schema()
+    result_schema = (
+        resolve_root({**schema, **schema["items"]}) if nested else resolve_root(schema)
+    )
+
+    assert list(result_schema[keyword]) == list(encoded[0] if nested else encoded)
+
+
+@pydanticV2
+@pytest.mark.parametrize("model_first", (True, False))
+def test_response_alias_distinguishes_structure_inside_model(
+    aliased_response_type, model_first
+):
+    class Envelope(BaseModel):
+        result: aliased_response_type
+
+    result_type = (
+        tuple[Envelope, aliased_response_type]
+        if model_first
+        else tuple[aliased_response_type, Envelope]
+    )
+    serializer = PydanticSerializer()(
+        name="handler", options=[], response_type=result_type
+    )
+    values = ({"result": {"external": 1}}, {"external": 1})
+    encoded = json.loads(
+        PydanticSerializer.encode(
+            serializer.response(values if model_first else values[::-1])
+        )
+    )
+    schema = serializer.get_response_schema()
+    names = []
+    for index, item in enumerate(schema["prefixItems"]):
+        result_schema = resolve_root({**schema, **item})
+        if (index == 0) == model_first:
+            result_schema = resolve_root(
+                {**schema, **result_schema["properties"]["result"]}
+            )
+            encoded[index] = encoded[index]["result"]
+        names.append(list(result_schema["properties"]))
+
+    assert names == [list(value) for value in encoded]
+
+
+@pydanticV2
+@pytest.mark.parametrize("reverse", (True, False))
+def test_response_alias_preserves_mutually_recursive_references(reverse):
+    result_type = (
+        tuple[SecondRecursiveResponse, FirstRecursiveResponse]
+        if reverse
+        else tuple[FirstRecursiveResponse, SecondRecursiveResponse]
+    )
+    serializer = PydanticSerializer()(
+        name="handler", options=[], response_type=result_type
+    )
+    value = {"external": 1, "child": {"external": 2, "child": None}}
+    encoded = json.loads(PydanticSerializer.encode(serializer.response((value, value))))
+    schema = serializer.get_response_schema()
+    child_names = []
+    for item in schema["prefixItems"]:
+        result_schema = resolve_root({**schema, **item})
+        child = result_schema["properties"]["child"]["anyOf"][0]
+        child_names.append(list(resolve_root({**schema, **child})["properties"]))
+
+    assert child_names == [list(value["child"]) for value in encoded]
 
 
 @pydanticV2

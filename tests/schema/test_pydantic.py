@@ -1,4 +1,6 @@
-from typing import Annotated, Any
+from copy import deepcopy
+from inspect import Parameter
+from typing import Annotated, Any, Literal
 from unittest.mock import Mock
 
 import pytest
@@ -9,6 +11,7 @@ pytest.importorskip("pydantic")
 from pydantic import BaseModel, Field, Json
 
 from fast_depends import Depends, inject
+from fast_depends.library.serializer import OptionItem
 from fast_depends.pydantic import PydanticSerializer
 from fast_depends.pydantic._compat import PYDANTIC_V2
 from tests.marks import pydanticV1, pydanticV2
@@ -393,6 +396,102 @@ def test_custom_requiredness_uses_validation_alias(capture, provider, alias, exp
     )
 
 
+@pytest.mark.parametrize("embed", [False, True])
+def test_resolve_recursive_schema_keeps_definition(capture, provider, embed):
+    @inject(
+        serializer_cls=PydanticSerializer(),
+        dependency_provider=provider,
+        wrap_model=capture,
+    )
+    def handler(node: Node): ...
+
+    schema = capture.serializer.get_schema(embed=embed, resolve_refs=True)
+    key = "$defs" if PYDANTIC_V2 else "definitions"
+
+    assert schema[key]["Node"]["properties"]["children"]["items"] == {
+        "$ref": f"#/{key}/Node"
+    }
+
+
+def test_embed_keeps_unresolved_definition(capture, provider):
+    @inject(
+        serializer_cls=PydanticSerializer(),
+        dependency_provider=provider,
+        wrap_model=capture,
+    )
+    def handler(node: Node): ...
+
+    schema = capture.serializer.get_schema(embed=True)
+    key = "$defs" if PYDANTIC_V2 else "definitions"
+
+    assert schema["$ref"] == f"#/{key}/Node" and "Node" in schema[key]
+
+
+def test_exclusion_uses_python_name_before_alias(capture, provider):
+    @inject(
+        serializer_cls=PydanticSerializer(),
+        dependency_provider=provider,
+        wrap_model=capture,
+    )
+    def handler(value: int = Field(..., alias="external")): ...
+
+    assert capture.serializer.get_schema(exclude=("value",)) == IsPartialDict(
+        properties={}
+    )
+
+
+def test_exclusion_uses_described_name_before_alias(capture, provider):
+    @inject(
+        serializer_cls=PydanticSerializer(),
+        dependency_provider=provider,
+        wrap_model=capture,
+    )
+    def handler(
+        value: Annotated[int, Input("query", name="described")] = Field(
+            ..., alias="external"
+        ),
+    ): ...
+
+    assert capture.serializer.get_schema(
+        exclude=(("query", "described"),)
+    ) == IsPartialDict(properties={})
+
+
+def test_processing_preserves_standalone_schema_cache():
+    serializer = PydanticSerializer()(
+        name="handler", options=[OptionItem("node", Node)], response_type=Parameter.empty
+    )
+    original = deepcopy(serializer.get_schema())
+
+    serializer.get_schema(embed=True, resolve_refs=True)
+
+    assert serializer.get_schema() == original
+
+
+class Cat(BaseModel):
+    kind: Literal["cat"]
+
+
+class Dog(BaseModel):
+    kind: Literal["dog"]
+
+
+def test_resolve_preserves_discriminator_targets(capture, provider):
+    @inject(
+        serializer_cls=PydanticSerializer(),
+        dependency_provider=provider,
+        wrap_model=capture,
+    )
+    def handler(pet: Annotated[Cat | Dog, Field(discriminator="kind")]): ...
+
+    schema = capture.serializer.get_schema(resolve_refs=True, embed=True)
+    key = "$defs" if PYDANTIC_V2 else "definitions"
+
+    assert {
+        ref.rsplit("/", 1)[-1] for ref in schema["discriminator"]["mapping"].values()
+    } <= schema[key].keys()
+
+
 def hide_headers(schema):
     schema.get("properties", {}).pop("headers", None)
 
@@ -467,3 +566,62 @@ def test_boolean_source_group_preserves_native_schema(capture, provider, value):
     assert capture.serializer.get_schema() == IsPartialDict(
         properties={"headers": value}, required=["headers"]
     )
+
+
+@pytest.mark.parametrize("value", [False, True])
+def test_embed_boolean_property_from_schema_extra(capture, provider, value):
+    config_key = "json_schema_extra" if PYDANTIC_V2 else "schema_extra"
+
+    @inject(
+        serializer_cls=PydanticSerializer(
+            pydantic_config={config_key: {"properties": {"value": value}}}
+        ),
+        dependency_provider=provider,
+        wrap_model=capture,
+    )
+    def handler(value: int): ...
+
+    assert capture.serializer.get_schema(embed=True) == {"allOf": [value]}
+
+
+@pydanticV1
+@pytest.mark.parametrize("resolve_refs", [False, True])
+def test_embed_referenced_resource_keeps_local_definitions(
+    capture, provider, resolve_refs
+):
+    class Wrapper(BaseModel):
+        value: int
+
+        class Config:
+            schema_extra = {
+                "$id": "https://example.test/wrapper",
+                "properties": {"value": {"$ref": "#/definitions/Value"}},
+                "definitions": {"Value": {"type": "integer"}},
+            }
+
+    def use_wrapper_root(schema):
+        schema["$ref"] = schema.pop("properties")["wrapper"]["$ref"]
+        schema.pop("required", None)
+
+    @inject(
+        serializer_cls=PydanticSerializer(
+            pydantic_config={"schema_extra": use_wrapper_root}
+        ),
+        dependency_provider=provider,
+        wrap_model=capture,
+    )
+    def handler(wrapper: Wrapper): ...
+
+    original = capture.serializer.get_schema()
+    result = capture.serializer.get_schema(embed=True, resolve_refs=resolve_refs)
+    prefix = "#/definitions/__fast_depends_input"
+
+    assert result == {
+        "$ref": f"{prefix}/definitions/Wrapper/properties/value",
+        "definitions": {
+            "__fast_depends_input": {
+                **original,
+                "$ref": f"{prefix}/definitions/Wrapper",
+            }
+        },
+    }

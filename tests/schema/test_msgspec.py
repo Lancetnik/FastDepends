@@ -1,7 +1,7 @@
 from typing import Annotated, Any
 
 import pytest
-from dirty_equals import IsPartialDict
+from dirty_equals import IsPartialDict, IsStr
 
 pytest.importorskip("msgspec")
 
@@ -166,4 +166,153 @@ def test_custom_field_preserves_recursive_references(capture, provider):
         "node": IsPartialDict(
             properties={"children": IsPartialDict(items={"$ref": "#/$defs/Node"})}
         ),
+    }
+
+
+@pytest.mark.parametrize("embed", [False, True])
+def test_resolve_recursive_schema_keeps_definition(capture, provider, embed):
+    @inject(
+        serializer_cls=MsgSpecSerializer(),
+        dependency_provider=provider,
+        wrap_model=capture,
+    )
+    def handler(node: Node): ...
+
+    schema = capture.serializer.get_schema(embed=embed, resolve_refs=True)
+
+    assert schema["$defs"]["Node"]["properties"]["children"]["items"] == {
+        "$ref": "#/$defs/Node"
+    }
+
+
+def test_embed_keeps_unresolved_definition(capture, provider):
+    @inject(
+        serializer_cls=MsgSpecSerializer(),
+        dependency_provider=provider,
+        wrap_model=capture,
+    )
+    def handler(node: Node): ...
+
+    schema = capture.serializer.get_schema(embed=True)
+
+    assert schema["$ref"] == "#/$defs/Node" and "Node" in schema["$defs"]
+
+
+def test_exclusion_uses_python_name_before_alias(capture, provider):
+    @inject(
+        serializer_cls=MsgSpecSerializer(),
+        dependency_provider=provider,
+        wrap_model=capture,
+    )
+    def handler(value: int = msgspec.field(name="external")): ...
+
+    assert resolve_root(
+        capture.serializer.get_schema(exclude=("value",))
+    ) == IsPartialDict(properties={})
+
+
+@pytest.mark.parametrize("keyword", ["default", "examples", "enum", "const"])
+def test_resolve_preserves_schema_like_data(capture, provider, keyword):
+    data = {"$ref": "#/$defs/missing", "properties": {"$ref": {"const": "literal"}}}
+    value = [data] if keyword in ("examples", "enum") else data
+    annotation = Annotated[dict, msgspec.Meta(extra_json_schema={keyword: value})]
+
+    @inject(
+        serializer_cls=MsgSpecSerializer(),
+        dependency_provider=provider,
+        wrap_model=capture,
+    )
+    def handler(payload: annotation): ...
+
+    assert capture.serializer.get_schema(embed=True, resolve_refs=True)[keyword] == value
+
+
+def test_resolve_keeps_external_reference(capture, provider):
+    annotation = Annotated[
+        int,
+        msgspec.Meta(
+            extra_json_schema={"$ref": "https://example.test/schema", "minimum": 1}
+        ),
+    ]
+
+    @inject(
+        serializer_cls=MsgSpecSerializer(),
+        dependency_provider=provider,
+        wrap_model=capture,
+    )
+    def handler(value: annotation): ...
+
+    assert capture.serializer.get_schema(embed=True, resolve_refs=True) == IsPartialDict(
+        {"$ref": "https://example.test/schema", "minimum": 1}
+    )
+
+
+def test_resolve_preserves_reference_sibling_constraints(capture, provider):
+    annotation = Annotated[Node, msgspec.Meta(extra_json_schema={"maxProperties": 1})]
+
+    @inject(
+        serializer_cls=MsgSpecSerializer(),
+        dependency_provider=provider,
+        wrap_model=capture,
+    )
+    def handler(node: annotation): ...
+
+    assert capture.serializer.get_schema(embed=True, resolve_refs=True) == IsPartialDict(
+        maxProperties=1, allOf=[IsPartialDict(type="object")]
+    )
+
+
+def test_embed_preserves_reference_to_original_root(capture, provider):
+    annotation = Annotated[
+        Any, msgspec.Meta(extra_json_schema={"anyOf": [{"type": "null"}, {"$ref": "#"}]})
+    ]
+
+    @inject(
+        serializer_cls=MsgSpecSerializer(),
+        dependency_provider=provider,
+        wrap_model=capture,
+    )
+    def handler(payload: annotation): ...
+
+    schema = capture.serializer.get_schema(embed=True, resolve_refs=True)
+
+    assert schema["anyOf"][1]["allOf"][0] == IsPartialDict(
+        type="object",
+        required=["payload"],
+        properties=IsPartialDict(
+            payload=IsPartialDict(
+                anyOf=[{"type": "null"}, IsPartialDict({"$ref": IsStr})]
+            )
+        ),
+    )
+
+
+@pytest.mark.parametrize("resolve_refs", [False, True])
+def test_embed_preserves_reference_to_original_property(capture, provider, resolve_refs):
+    annotation = Annotated[
+        Any,
+        msgspec.Meta(
+            extra_json_schema={
+                "type": "array",
+                "items": {"$ref": "#/$defs/handler/properties/payload"},
+            }
+        ),
+    ]
+
+    @inject(
+        serializer_cls=MsgSpecSerializer(),
+        dependency_provider=provider,
+        wrap_model=capture,
+    )
+    def handler(payload: annotation): ...
+
+    schema = capture.serializer.get_schema(embed=True, resolve_refs=resolve_refs)
+    reference = schema["items"]["items"] if resolve_refs else schema["items"]
+
+    assert {
+        "reference": reference,
+        "target": schema["$defs"]["handler"]["properties"]["payload"],
+    } == {
+        "reference": {"$ref": "#/$defs/handler/properties/payload"},
+        "target": IsPartialDict(type="array"),
     }

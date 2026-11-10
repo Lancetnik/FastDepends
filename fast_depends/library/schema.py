@@ -1,5 +1,7 @@
+from collections.abc import Iterable
 from typing import Any
 
+from fast_depends.library.schema_processing import SchemaExclude
 from fast_depends.library.serializer import OptionItem
 
 
@@ -124,3 +126,27 @@ def apply_schema_groups(
             root.setdefault("required", []).append(source)
 
     return schema
+
+
+def exclude_schema_fields(
+    options: list[OptionItem], exclude: Iterable[SchemaExclude]
+) -> list[OptionItem]:
+    """Exclude Python/description names before backend aliases are applied."""
+    excluded = set(exclude)
+    for item in excluded:
+        if not isinstance(item, str) and not (
+            isinstance(item, tuple)
+            and len(item) == 2
+            and (item[0] is None or isinstance(item[0], str))
+            and isinstance(item[1], str)
+        ):
+            raise ValueError("Schema exclusions must be names or (source, field) pairs")
+    result = []
+    for option in options:
+        source = option.source if isinstance(option, SchemaField) else None
+        if (source, option.field_name) in excluded:
+            continue
+        if (option.field_name if source is None else source) in excluded:
+            continue
+        result.append(option)
+    return result

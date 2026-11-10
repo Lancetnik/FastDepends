@@ -68,6 +68,18 @@ if PYDANTIC_V2:
         """Describe generic encoding of validated values, without a TypeAdapter."""
 
         _model_serializer = False
+        _generic_refs: frozenset[str] = frozenset()
+
+        def _get_alias_name(self, field: Any, name: str) -> str:
+            if self._model_serializer:
+                return super()._get_alias_name(field, name)
+            # Plain dicts/dataclasses retain Python names after validation.
+            return name
+
+        @staticmethod
+        def _generic_ref(ref: str) -> str:
+            name, separator, identifier = ref.partition(":")
+            return f"{name}__fast_depends_generic{separator}{identifier}"
 
         def generate_inner(self, schema: Any) -> JsonSchemaValue:
             if self._model_serializer:
@@ -84,6 +96,29 @@ if PYDANTIC_V2:
                     return super().generate_inner(cls.__pydantic_core_schema__)
                 finally:
                     self._model_serializer = False
+
+            if schema["type"] == "definitions":
+                # Mutually recursive definitions may refer to a later entry.
+                self._generic_refs |= {
+                    definition["ref"]
+                    for definition in schema["definitions"]
+                    if definition["type"] in ("typed-dict", "dataclass")
+                    and not hasattr(definition.get("cls"), "__pydantic_serializer__")
+                }
+
+            if schema["type"] in ("typed-dict", "dataclass") and "ref" in schema:
+                schema = schema.copy()
+                ref = schema["ref"]
+                self._generic_refs |= {ref}
+                # The same type can also occur inside a model, whose serializer
+                # does apply aliases. Those schemas need distinct definitions.
+                schema["ref"] = self._generic_ref(ref)
+            elif (
+                schema["type"] == "definition-ref"
+                and schema["schema_ref"] in self._generic_refs
+            ):
+                schema = schema.copy()
+                schema["schema_ref"] = self._generic_ref(schema["schema_ref"])
 
             if "serialization" in schema:
                 schema = schema.copy()

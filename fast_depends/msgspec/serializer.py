@@ -120,7 +120,19 @@ class _MsgSpecSerializer(Serializer):
         return tuple(self.aliases.values())
 
     def get_schema(self) -> dict[str, Any]:
-        schema: dict[str, Any] = msgspec.json.schema(self.model)
+        model = self.model
+        if self._schema_options is not None:
+            model = msgspec.defstruct(
+                self.name,
+                [
+                    (i.field_name, i.field_type)
+                    if i.default_value is Ellipsis
+                    else (i.field_name, i.field_type, i.default_value)
+                    for i in self._schema_options()
+                ],
+                kw_only=True,
+            )
+        schema: dict[str, Any] = msgspec.json.schema(model)
         return schema
 
     def get_response_schema(self) -> dict[str, Any] | None:

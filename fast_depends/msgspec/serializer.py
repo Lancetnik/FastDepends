@@ -82,7 +82,7 @@ class _MsgSpecSerializer(Serializer):
         *,
         name: str,
         options: list[OptionItem],
-        response_type: Any = None,
+        response_type: Any = inspect.Parameter.empty,
         dec_hook: Callable[[type[T], Any], T] | None = None,
     ):
         model_options: list[str | tuple[str, type] | tuple[str, type, Any]] = []
@@ -118,6 +118,17 @@ class _MsgSpecSerializer(Serializer):
 
     def get_aliases(self) -> tuple[str, ...]:
         return tuple(self.aliases.values())
+
+    def get_schema(self) -> dict[str, Any]:
+        schema: dict[str, Any] = msgspec.json.schema(self.model)
+        return schema
+
+    def get_response_schema(self) -> dict[str, Any] | None:
+        response_type = self.response_option["return"].field_type
+        if response_type is inspect.Parameter.empty:
+            return None
+        schema: dict[str, Any] = msgspec.json.schema(response_type)
+        return schema
 
     def __call__(self, call_kwargs: dict[str, Any]) -> dict[str, Any]:
         casted_model = msgspec.convert(

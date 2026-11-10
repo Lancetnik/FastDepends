@@ -1,8 +1,10 @@
 from collections.abc import Iterable
+from inspect import Parameter
 from typing import Any
 
 from fast_depends.core import CallModel
-from fast_depends.pydantic._compat import PYDANTIC_V2, create_model, model_schema
+from fast_depends.pydantic._compat import PYDANTIC_V2
+from fast_depends.pydantic.serializer import PydanticSerializer
 
 
 def get_schema(
@@ -12,20 +14,20 @@ def get_schema(
     resolve_refs: bool = False,
     exclude: Iterable[str] = (),
 ) -> dict[str, Any]:
-    class_options: dict[str, Any] = {
-        i.field_name: (i.field_type, i.default_value)
-        for i in call.flat_params
-        if i.field_name not in exclude
-    }
+    excluded = set(exclude)
+    options = [i for i in call.flat_params if i.field_name not in excluded]
 
     name = getattr(call.serializer, "name", "Undefined")
 
-    if not class_options:
+    if not options:
         return {"title": name, "type": "null"}
 
-    params_model = create_model(name, **class_options)
-
-    body = model_schema(params_model)
+    serializer = PydanticSerializer()(
+        name=name,
+        options=options,
+        response_type=Parameter.empty,
+    )
+    body = serializer.get_schema()
 
     if resolve_refs:
         pydantic_key = "$defs" if PYDANTIC_V2 else "definitions"

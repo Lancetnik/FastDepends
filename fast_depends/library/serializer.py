@@ -54,6 +54,18 @@ class Serializer(ABC):
     def get_aliases(self) -> tuple[str, ...]:
         return ()
 
+    def get_schema(self) -> dict[str, Any]:
+        """Describe this serializer's arguments in the backend's native JSON Schema format."""
+        raise NotImplementedError
+
+    def get_response_schema(self) -> dict[str, Any] | None:
+        """Describe the return type, or return None when it is not configured.
+
+        An explicit ``None`` annotation produces a JSON Schema for null.
+        Schema generation is optional for custom serializers.
+        """
+        raise NotImplementedError
+
     @abstractmethod
     def __call__(self, call_kwargs: dict[str, Any]) -> dict[str, Any]:
         raise NotImplementedError

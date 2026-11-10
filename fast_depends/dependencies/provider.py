@@ -3,6 +3,7 @@ from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any, TypeAlias
 
 from fast_depends.core import build_call_model
+from fast_depends.library import CustomField
 
 if TYPE_CHECKING:
     from fast_depends.core import CallModel
@@ -41,7 +42,7 @@ class Provider:
 
     def override(
         self,
-        original: Callable[..., Any],
+        original: "Callable[..., Any] | CustomField",
         override: Callable[..., Any],
     ) -> None:
         key = self.__get_original_key(original)
@@ -51,7 +52,7 @@ class Provider:
         if original_dependant := self.dependencies.get(key):
             serializer_cls = original_dependant.serializer_cls
 
-        else:
+        elif not isinstance(original, CustomField):
             self.dependencies[key] = build_call_model(
                 original,
                 dependency_provider=self,
@@ -67,7 +68,7 @@ class Provider:
 
     def __setitem__(
         self,
-        key: Callable[..., Any],
+        key: "Callable[..., Any] | CustomField",
         value: Callable[..., Any],
     ) -> None:
         """Alias for `provider[key] = value` syntax"""
@@ -76,7 +77,7 @@ class Provider:
     @contextmanager
     def scope(
         self,
-        original: Callable[..., Any],
+        original: "Callable[..., Any] | CustomField",
         override: Callable[..., Any],
     ) -> Iterator[None]:
         self.override(original, override)
@@ -85,5 +86,5 @@ class Provider:
         finally:
             self.overrides.pop(self.__get_original_key(original), None)
 
-    def __get_original_key(self, original: Callable[..., Any]) -> Key:
+    def __get_original_key(self, original: "Callable[..., Any] | CustomField") -> Key:
         return original

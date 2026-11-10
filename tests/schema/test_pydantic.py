@@ -514,7 +514,13 @@ def test_schema_extra_can_hide_source_group(capture, provider):
     [
         {"$ref": "https://example.test/Headers"},
         {"$ref": "https://example.test/Headers", "properties": {}},
+        {
+            "$ref": "https://example.test/Headers",
+            "properties": {},
+            "required": ["value"],
+        },
         {"type": "object", "minProperties": 1},
+        {"type": "object", "required": ["value"]},
         True,
         False,
     ],
@@ -524,7 +530,7 @@ def test_schema_extra_group_replacement_preserves_requiredness(
 ):
     def replace_headers(schema):
         if "headers" in schema.get("properties", {}):
-            schema["properties"]["headers"] = replacement
+            schema["properties"]["headers"] = deepcopy(replacement)
 
     config_key = "json_schema_extra" if PYDANTIC_V2 else "schema_extra"
 

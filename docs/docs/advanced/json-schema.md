@@ -67,8 +67,8 @@ serializer.
 
 Schemas retain the backend's native layout. With Pydantic v2, `get_schema()` uses
 validation mode, while `get_response_schema()` uses serialization mode to describe
-output types and include computed fields. Response schemas describe the existing
-`PydanticSerializer.encode(serializer.response(value))` path: Pydantic v1 models
+output types and include computed fields. Response schemas describe the configured
+factory's `factory.encode(serializer.response(value))` path: Pydantic v1 models
 use field names, and Pydantic v2 includes serializers carried by model instances.
 In Pydantic v2, plain dataclasses and `TypedDict` responses use Python field names;
 aliases apply when a containing Pydantic model's serializer encodes those structures.
@@ -76,6 +76,37 @@ Serializers attached only to a return annotation (such as
 `Annotated[int, PlainSerializer(str, return_type=str)]`) do not survive validation
 into a plain Python value; its response schema therefore describes an integer.
 Schema generation does not change the values returned by `@inject`.
+
+In Pydantic v2, calling `encode()` on a `PydanticSerializer` instance applies its
+JSON encoding configuration to ordinary values, including nested dates, intervals
+and bytes. For example, `ser_json_timedelta="float"` produces a number of seconds,
+and `ser_json_bytes="base64"` encodes nested bytes as base64 strings. The response
+schema describes those configured formats. Pydantic model instances keep their
+own serializers and encoding configuration.
+
+```python
+from datetime import timedelta
+
+from fast_depends import inject
+from fast_depends.pydantic import PydanticSerializer
+
+factory = PydanticSerializer(pydantic_config={"ser_json_timedelta": "float"})
+
+
+@inject(serializer_cls=factory)
+def handler() -> timedelta:
+    return timedelta(seconds=90)
+
+
+value = handler()
+assert value == timedelta(seconds=90)
+assert factory.encode(value) == b"90.0"
+```
+
+This changes the JSON representation when an instance explicitly configures a
+different format; dependency injection and Python return values are unchanged.
+The class-level `PydanticSerializer.encode(value)` call retains default encoding.
+Top-level `bytes` are passed through unchanged. Pydantic v1 encoding is unchanged.
 
 Pydantic v1 uses `definitions`, while
 Pydantic v2 and Msgspec use `$defs`. A schema can have a

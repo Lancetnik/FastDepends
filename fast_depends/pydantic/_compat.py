@@ -1,6 +1,7 @@
 import json
 from collections.abc import Callable
-from typing import Any
+from functools import partial
+from typing import Any, cast
 
 from pydantic import BaseModel, create_model
 from pydantic.version import VERSION as PYDANTIC_VERSION
@@ -14,6 +15,7 @@ __all__ = (
     "TypeAdapter",
     "PydanticUserError",
     "dump_json",
+    "get_json_encoder",
 )
 
 
@@ -59,16 +61,43 @@ default_pydantic_config = {"arbitrary_types_allowed": True}
 # isort: off
 if PYDANTIC_V2:
     from pydantic import AliasChoices, ConfigDict, TypeAdapter
+    from pydantic._internal._config import ConfigWrapper
     from pydantic.fields import FieldInfo
     from pydantic.errors import PydanticUserError
     from pydantic.json_schema import GenerateJsonSchema, JsonSchemaValue
-    from pydantic_core import to_json
+    from pydantic_core import CoreConfig, SchemaSerializer, to_json
+    from pydantic_core.core_schema import any_schema
 
     class _ResponseSchema(GenerateJsonSchema):
         """Describe generic encoding of validated values, without a TypeAdapter."""
 
         _model_serializer = False
         _generic_refs: frozenset[str] = frozenset()
+
+        def __init__(self, config: ConfigDict) -> None:
+            self._json_config = {
+                key: value for key, value in config.items() if key.startswith("ser_json_")
+            }
+            super().__init__()
+
+        @property
+        def _config(self) -> ConfigWrapper:
+            config = super()._config
+            if self._model_serializer:
+                return config
+            # Plain structures do not carry their adapter's encoding config.
+            # Their JSON formats come from the factory, including when the type
+            # itself declares __pydantic_config__.
+            return ConfigWrapper(
+                {
+                    **{
+                        key: value
+                        for key, value in config.config_dict.items()
+                        if not key.startswith("ser_json_")
+                    },
+                    **self._json_config,
+                }
+            )
 
         def _get_alias_name(self, field: Any, name: str) -> str:
             if self._model_serializer:
@@ -81,31 +110,28 @@ if PYDANTIC_V2:
             name, separator, identifier = ref.partition(":")
             return f"{name}__fast_depends_generic{separator}{identifier}"
 
-        def bytes_schema(self, schema: Any) -> JsonSchemaValue:
-            result = super().bytes_schema(schema)
-            if not self._model_serializer:
-                result["format"] = "binary"
-            return result
+        if not hasattr(GenerateJsonSchema, "_common_temporal_schema"):
+            # Pydantic 2.12/2.13 encode numeric temporal values, but their schema
+            # generator predates support for ser_json_temporal.
+            def _temporal_schema(self, schema: Any) -> JsonSchemaValue:
+                result: JsonSchemaValue = getattr(super(), f"{schema['type']}_schema")(
+                    schema
+                )
+                if (
+                    not self._model_serializer
+                    and "ser_json_temporal" in CoreConfig.__annotations__
+                ):
+                    temporal = self._config.config_dict.get("ser_json_temporal")
+                    if temporal in ("seconds", "milliseconds"):
+                        result["type"] = "number"
+                        result.pop("format", None)
+                    elif temporal == "iso8601" and schema["type"] == "timedelta":
+                        result = {"type": "string", "format": "duration"}
+                return result
 
-        def date_schema(self, schema: Any) -> JsonSchemaValue:
-            if self._model_serializer:
-                return super().date_schema(schema)
-            return {"type": "string", "format": "date"}
-
-        def time_schema(self, schema: Any) -> JsonSchemaValue:
-            if self._model_serializer:
-                return super().time_schema(schema)
-            return {"type": "string", "format": "time"}
-
-        def datetime_schema(self, schema: Any) -> JsonSchemaValue:
-            if self._model_serializer:
-                return super().datetime_schema(schema)
-            return {"type": "string", "format": "date-time"}
-
-        def timedelta_schema(self, schema: Any) -> JsonSchemaValue:
-            if self._model_serializer:
-                return super().timedelta_schema(schema)
-            return {"type": "string", "format": "duration"}
+            date_schema = time_schema = datetime_schema = timedelta_schema = (
+                _temporal_schema
+            )
 
         def generate_inner(self, schema: Any) -> JsonSchemaValue:
             if self._model_serializer:
@@ -128,16 +154,18 @@ if PYDANTIC_V2:
                 self._generic_refs |= {
                     definition["ref"]
                     for definition in schema["definitions"]
-                    if definition["type"] in ("typed-dict", "dataclass")
-                    and not hasattr(definition.get("cls"), "__pydantic_serializer__")
+                    if not (
+                        definition["type"] in ("model", "dataclass")
+                        and hasattr(definition.get("cls"), "__pydantic_serializer__")
+                    )
                 }
 
-            if schema["type"] in ("typed-dict", "dataclass") and "ref" in schema:
+            if "ref" in schema:
                 schema = schema.copy()
                 ref = schema["ref"]
                 self._generic_refs |= {ref}
-                # The same type can also occur inside a model, whose serializer
-                # does apply aliases. Those schemas need distinct definitions.
+                # Model serializers may apply different aliases and JSON formats
+                # to the same type, including named scalar aliases.
                 schema["ref"] = self._generic_ref(ref)
             elif (
                 schema["type"] == "definition-ref"
@@ -160,9 +188,13 @@ if PYDANTIC_V2:
             adapter = TypeAdapter(annotation, config=config)
         except PydanticUserError:
             adapter = TypeAdapter(annotation)
-        schema: dict[str, Any] = adapter.json_schema(
-            mode="serialization", schema_generator=_ResponseSchema
-        )
+        generator = _ResponseSchema(config)
+        # Before Pydantic 2.14, TypeAdapter.json_schema() does not forward its
+        # config to the generator. Match the configured generic JSON encoder.
+        with generator._config_wrapper_stack.push(config):
+            schema: dict[str, Any] = generator.generate(
+                adapter.core_schema, mode="serialization"
+            )
         return schema
 
     def get_config_base(config_data: ConfigDict | None = None) -> ConfigDict:
@@ -209,6 +241,14 @@ if PYDANTIC_V2:
     def dump_json(data: Any) -> bytes:
         return to_json(data)
 
+    def get_json_encoder(config: ConfigDict | None = None) -> Callable[[Any], bytes]:
+        if not config:
+            return dump_json
+        # Match to_json() defaults unless a JSON encoding option is explicit.
+        core_config = cast(CoreConfig, {"ser_json_inf_nan": "constants", **config})
+        serializer = SchemaSerializer(any_schema(), config=core_config)
+        return partial(serializer.to_json, by_alias=True)
+
 else:
     from pydantic.config import get_config, ConfigDict, BaseConfig
     from pydantic.fields import ModelField, FieldInfo
@@ -243,3 +283,6 @@ else:
 
     def dump_json(data: Any) -> bytes:
         return json_dumps(data, default=pydantic_encoder)
+
+    def get_json_encoder(config: ConfigDict | None = None) -> Callable[[Any], bytes]:
+        return dump_json

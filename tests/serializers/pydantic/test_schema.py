@@ -7,7 +7,7 @@ from typing import Annotated
 import pytest
 from dirty_equals import IsPartialDict
 from pydantic import BaseModel, Field, Json
-from typing_extensions import TypedDict
+from typing_extensions import TypeAliasType, TypedDict
 
 from fast_depends.library.serializer import OptionItem, Serializer
 from fast_depends.pydantic import PydanticSerializer
@@ -34,6 +34,21 @@ class Group(BaseModel):
 
 class Custom:
     pass
+
+
+ResponseSpan = TypeAliasType("ResponseSpan", timedelta)
+ResponseBytes = TypeAliasType("ResponseBytes", bytes)
+
+
+if PYDANTIC_V2:
+
+    class TimedResponse(BaseModel):
+        model_config = {"ser_json_timedelta": "float"}
+        value: ResponseSpan
+
+    class BinaryResponse(BaseModel):
+        model_config = {"ser_json_bytes": "hex"}
+        value: ResponseBytes
 
 
 class FirstRecursiveResponse(TypedDict):
@@ -414,35 +429,61 @@ def test_unsupported_schema_type(custom_serializer: Serializer) -> None:
 @pytest.mark.parametrize("wrapped", (True, False))
 @pytest.mark.parametrize("nested", (True, False))
 @pytest.mark.parametrize(
-    "config, annotation, value, encoded, format_",
+    "config, annotation, value, encoded, value_schema",
     [
-        ({}, timedelta, timedelta(seconds=90), "PT1M30S", "duration"),
+        (
+            {},
+            timedelta,
+            timedelta(seconds=90),
+            "PT1M30S",
+            {"type": "string", "format": "duration"},
+        ),
         (
             {"ser_json_timedelta": "float"},
             timedelta,
             timedelta(seconds=90),
-            "PT1M30S",
-            "duration",
+            90.0,
+            {"type": "number"},
         ),
         (
             {"ser_json_temporal": "seconds"},
             datetime,
             datetime(2026, 1, 1),
-            "2026-01-01T00:00:00",
-            "date-time",
+            1767225600.0,
+            {"type": "number"},
         ),
         (
             {"ser_json_temporal": "milliseconds"},
             date,
             date(2026, 1, 1),
-            "2026-01-01",
-            "date",
+            1767225600000.0,
+            {"type": "number"},
         ),
-        ({"ser_json_temporal": "seconds"}, time, time(12, 30), "12:30:00", "time"),
+        (
+            {"ser_json_temporal": "seconds"},
+            time,
+            time(12, 30),
+            45000.0,
+            {"type": "number"},
+        ),
+        (
+            {"ser_json_temporal": "milliseconds"},
+            timedelta,
+            timedelta(seconds=90),
+            90000.0,
+            {"type": "number"},
+        ),
+        (
+            {"ser_json_temporal": "iso8601", "ser_json_timedelta": "float"},
+            timedelta,
+            timedelta(seconds=90),
+            "PT1M30S",
+            {"type": "string", "format": "duration"},
+        ),
     ],
 )
-def test_temporal_response_describes_generic_encoding(
-    wrapped, nested, config, annotation, value, encoded, format_
+def test_temporal_response_describes_configured_encoding(
+    wrapped, nested, config, annotation, value, encoded, value_schema
 ):
     factory = PydanticSerializer(pydantic_config=config, use_fastdepends_errors=wrapped)
     serializer = factory(
@@ -455,27 +496,104 @@ def test_temporal_response_describes_generic_encoding(
     )
     assert wire_value == ([encoded] if nested else encoded)
     schema = serializer.get_response_schema()
-    value_schema = schema["items"] if nested else schema
-    assert value_schema == {"type": "string", "format": format_}
+    assert (schema["items"] if nested else schema) == value_schema
+
+
+@pydanticV2
+@pytest.mark.parametrize("model_first", (True, False))
+def test_configured_response_alias_matches_model_encoding(model_first):
+    factory = PydanticSerializer(pydantic_config={"ser_json_timedelta": "float"})
+    response_type = (
+        tuple[TimedResponse, ResponseSpan]
+        if model_first
+        else tuple[ResponseSpan, TimedResponse]
+    )
+    serializer = factory(name="handler", options=[], response_type=response_type)
+    span = timedelta(seconds=90)
+    values = ({"value": span}, span) if model_first else (span, {"value": span})
+
+    assert json.loads(factory.encode(serializer.response(values))) == (
+        [{"value": 90.0}, 90.0] if model_first else [90.0, {"value": 90.0}]
+    )
+    schema = serializer.get_response_schema()
+    item = schema["prefixItems"][1 if model_first else 0]
+    assert resolve_root({**schema, **item}) == {"type": "number"}
+
+
+@pydanticV2
+@pytest.mark.parametrize("model_first", (True, False))
+def test_response_alias_keeps_distinct_model_encoding_config(model_first):
+    factory = PydanticSerializer(pydantic_config={"ser_json_bytes": "base64"})
+    response_type = (
+        tuple[BinaryResponse, ResponseBytes]
+        if model_first
+        else tuple[ResponseBytes, BinaryResponse]
+    )
+    serializer = factory(name="handler", options=[], response_type=response_type)
+    values = ({"value": b"ab"}, b"ab") if model_first else (b"ab", {"value": b"ab"})
+
+    assert json.loads(factory.encode(serializer.response(values))) == (
+        [{"value": "6162"}, "YWI="] if model_first else ["YWI=", {"value": "6162"}]
+    )
+    schema = serializer.get_response_schema()
+    generic = schema["prefixItems"][1 if model_first else 0]
+    model = schema["prefixItems"][0 if model_first else 1]
+    model_schema = resolve_root({**schema, **model})
+    assert resolve_root({**schema, **generic}) == {
+        "type": "string",
+        "format": "base64url",
+    }
+    assert resolve_root({**schema, **model_schema["properties"]["value"]}) == {
+        "type": "string",
+        "format": "binary",
+    }
+
+
+@pydanticV2
+@pytest.mark.parametrize("kind", ("typed_dict", "dataclass"))
+def test_plain_structure_uses_factory_json_config(kind):
+    if kind == "typed_dict":
+
+        class Record(TypedDict):
+            value: bytes
+    else:
+
+        @dataclass
+        class Record:
+            value: bytes
+
+    Record.__pydantic_config__ = {"ser_json_bytes": "hex"}
+    factory = PydanticSerializer(pydantic_config={"ser_json_bytes": "base64"})
+    serializer = factory(name="handler", options=[], response_type=Record)
+
+    assert factory.encode(serializer.response({"value": b"ab"})) == b'{"value":"YWI="}'
+    schema = serializer.get_response_schema()
+    assert resolve_root(schema)["properties"]["value"] == {
+        "type": "string",
+        "format": "base64url",
+        "title": "Value",
+    }
 
 
 @pydanticV2
 @pytest.mark.parametrize("wrapped", (True, False))
-def test_bytes_response_describes_generic_encoding(wrapped):
-    serializer = PydanticSerializer(
+def test_bytes_response_describes_configured_encoding(wrapped):
+    factory = PydanticSerializer(
         pydantic_config={"ser_json_bytes": "base64"}, use_fastdepends_errors=wrapped
-    )(name="handler", options=[], response_type=list[bytes])
+    )
+    serializer = factory(name="handler", options=[], response_type=list[bytes])
 
-    assert PydanticSerializer.encode(serializer.response([b"ab"])) == b'["ab"]'
+    assert factory.encode(serializer.response([b"ab"])) == b'["YWI="]'
     assert serializer.get_response_schema() == {
         "type": "array",
-        "items": {"type": "string", "format": "binary"},
+        "items": {"type": "string", "format": "base64url"},
     }
 
 
 @pydanticV2
 def test_bytes_response_preserves_constraints():
-    serializer = PydanticSerializer(pydantic_config={"ser_json_bytes": "base64"})(
+    factory = PydanticSerializer(pydantic_config={"ser_json_bytes": "base64"})
+    serializer = factory(
         name="handler",
         options=[],
         response_type=list[Annotated[bytes, Field(min_length=1, max_length=4)]],
@@ -483,11 +601,11 @@ def test_bytes_response_preserves_constraints():
 
     assert serializer.get_response_schema()["items"] == {
         "type": "string",
-        "format": "binary",
+        "format": "base64url",
         "minLength": 1,
         "maxLength": 4,
     }
-    assert PydanticSerializer.encode(serializer.response([b"ab"])) == b'["ab"]'
+    assert factory.encode(serializer.response([b"ab"])) == b'["YWI="]'
 
 
 @pydanticV2

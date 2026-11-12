@@ -1,6 +1,7 @@
 import inspect
 from collections.abc import Callable, Iterable, Iterator, Sequence
 from contextlib import contextmanager
+from functools import partial
 from itertools import chain
 from typing import Any
 
@@ -26,11 +27,18 @@ from fast_depends.pydantic._compat import (
     dump_json,
     get_aliases,
     get_config_base,
+    get_json_encoder,
     get_model_fields,
     get_schema_aliases,
     model_schema,
     type_schema,
 )
+
+
+def _encode(message: Any, *, encoder: Callable[[Any], bytes] = dump_json) -> bytes:
+    if isinstance(message, bytes):
+        return message
+    return encoder(message)
 
 
 class PydanticSerializer(SerializerProto):
@@ -39,6 +47,9 @@ class PydanticSerializer(SerializerProto):
         "use_fastdepends_errors",
     )
 
+    # Keep class-level calls as the default encoder; instances bind their config.
+    encode: Callable[[Any], bytes] = staticmethod(_encode)
+
     def __init__(
         self,
         pydantic_config: ConfigDict | None = None,
@@ -46,6 +57,8 @@ class PydanticSerializer(SerializerProto):
     ) -> None:
         self.config = pydantic_config
         self.use_fastdepends_errors = use_fastdepends_errors
+        if type(self).encode is PydanticSerializer.encode:
+            self.encode = partial(_encode, encoder=get_json_encoder(pydantic_config))
 
     def __call__(
         self,
@@ -82,12 +95,6 @@ class PydanticSerializer(SerializerProto):
             options=options,
             pydantic_config=self.config,
         )
-
-    @staticmethod
-    def encode(message: Any) -> bytes:
-        if isinstance(message, bytes):
-            return message
-        return dump_json(message)
 
 
 class _PydanticSerializer(Serializer):

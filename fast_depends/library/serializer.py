@@ -85,7 +85,14 @@ class Serializer(ABC):
         return value
 
 
+def _encode_json(message: Any) -> bytes:
+    return json.dumps(message).encode("utf-8")
+
+
 class SerializerProto(Protocol):
+    # Encoders may be bound to a factory's configuration.
+    encode: Callable[[Any], bytes] = staticmethod(_encode_json)
+
     def __call__(
         self,
         *,
@@ -93,7 +100,3 @@ class SerializerProto(Protocol):
         options: list[OptionItem],
         response_type: Any,
     ) -> Serializer: ...
-
-    @staticmethod
-    def encode(message: Any) -> bytes:
-        return json.dumps(message).encode("utf-8")

@@ -106,7 +106,10 @@ assert factory.encode(value) == b"90.0"
 This changes the JSON representation when an instance explicitly configures a
 different format; dependency injection and Python return values are unchanged.
 The class-level `PydanticSerializer.encode(value)` call retains default encoding.
-Top-level `bytes` are passed through unchanged. Pydantic v1 encoding is unchanged.
+Top-level `bytes` are passed through unchanged and use the `binary` schema format,
+including bytes returned through a union or named alias. Bytes nested in a JSON
+container use the configured encoding and schema format. Pydantic v1 encoding is
+unchanged.
 
 Pydantic v1 uses `definitions`, while
 Pydantic v2 and Msgspec use `$defs`. A schema can have a

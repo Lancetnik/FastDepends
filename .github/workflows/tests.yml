@@ -59,6 +59,37 @@ jobs:
           if-no-files-found: error
           include-hidden-files: true
 
+  test-pydantic-compat:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - pydantic-version: "2.0.3"
+            tests: tests/serializers/pydantic/test_schema_compat.py
+          - pydantic-version: "2.12.5"
+            tests: tests/serializers/pydantic
+          - pydantic-version: "2.13.5"
+            tests: tests/serializers/pydantic
+      fail-fast: false
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.10"
+      - run: pip install --group test ".[pydantic]" "pydantic==${{ matrix.pydantic-version }}"
+      - run: mkdir coverage
+      - name: Test response encoding and schemas
+        run: coverage run -m pytest ${{ matrix.tests }}
+        env:
+          COVERAGE_FILE: coverage/.coverage.pydantic-${{ matrix.pydantic-version }}
+          CONTEXT: pydantic-${{ matrix.pydantic-version }}
+      - uses: actions/upload-artifact@v7
+        with:
+          name: .coverage.pydantic-${{ matrix.pydantic-version }}
+          path: coverage
+          if-no-files-found: error
+          include-hidden-files: true
+
   test-msgspec:
     runs-on: ubuntu-latest
     strategy:
@@ -129,7 +160,7 @@ jobs:
           include-hidden-files: true
 
   coverage-combine:
-    needs: [test-pydantic,test-msgspec,test-no-serializer]
+    needs: [test-pydantic,test-pydantic-compat,test-msgspec,test-no-serializer]
     runs-on: ubuntu-latest
 
     steps:

@@ -73,8 +73,10 @@ Getting a schema does not change argument validation or Python return values.
 ## Encoding typed responses
 
 The serializer attached to a call exposes `encode_response(value) -> bytes`.
-Pass it an already validated return value. With Pydantic, it uses the same
-cached `TypeAdapter` for response validation, JSON encoding, and response schemas.
+Pass it an already validated return value. With Pydantic, JSON encoding and
+response schemas use a cached `TypeAdapter`. Response validation uses the adapter
+except for direct `BaseModel` annotations, which preserve `model_validate()`
+overrides.
 `PlainSerializer` and `WrapSerializer` on return annotations are honored, including
 serializers wrapping an entire model. Aliases apply to models, dataclasses and
 `TypedDict` responses. Model subclasses are encoded using the declared return
@@ -215,24 +217,6 @@ These options affect documentation only; they do not change validation or
 execution. Processing does not mutate the backend's cached schema or later calls.
 `get_response_schema()` keeps its original API and native reference layout.
 
-The backend-independent `fast_depends.schema.get_schema(call, ...)` helper delegates
-to `call.serializer.get_schema(...)` with the same processing options. The old
-`fast_depends.pydantic.schema.get_schema` import is an alias for this helper; it
-uses the call's actual backend, configuration, dependency overrides and CustomField
-hooks. It does not create another serializer or select Pydantic implicitly.
-
-```python
-from fast_depends.schema import get_schema
-
-arguments = get_schema(call, embed=True, exclude=(("headers", "debug"),))
-```
-
-In FastDepends 4, both entry points describe a call without external inputs as an
-object with no declared properties, including when all inputs are excluded. This
-replaces the old helper's `null` schema. A call with `serializer=None` raises
-`ValueError`; configure a serializer when building the call to request schemas.
-A custom serializer without schema support still raises `NotImplementedError`.
-
 ## Describing custom fields
 
 Override `CustomField.get_schema(parameter: OptionItem) -> SchemaField | None`
@@ -345,4 +329,3 @@ Grouping is a schema representation. Runtime extraction remains the custom
 field's responsibility. Getting a schema does not change `cast`, `required`,
 argument validation, response schemas, or the existing serializer. Standalone
 serializers continue to describe their configured options without calling hooks.
-Both helper import paths delegate to the bound serializer and use this hook.

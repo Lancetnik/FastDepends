@@ -65,3 +65,9 @@ def test_response_schema_is_optional_for_custom_serializers() -> None:
 
     with pytest.raises(NotImplementedError):
         serializer.get_response_schema()
+
+
+def test_response_encoding_is_optional_for_custom_serializers() -> None:
+    serializer = EchoSerializer(name="func", options=[], response_type=None)
+    with pytest.raises(NotImplementedError):
+        serializer.encode_response(None)

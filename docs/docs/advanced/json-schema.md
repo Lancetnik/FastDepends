@@ -65,50 +65,112 @@ those configured fields. With `inject(cast=False)`, `serializer_cls=None`, or no
 installed backend, `call.serializer` can be `None`; the methods require an existing
 serializer.
 
-Schemas retain the backend's native layout. With Pydantic v2, `get_schema()` uses
-validation mode, while `get_response_schema()` uses serialization mode to describe
-output types and include computed fields. Response schemas describe the configured
-factory's `factory.encode(serializer.response(value))` path and include serializers
-carried by Pydantic model instances.
-In Pydantic v2, plain dataclasses and `TypedDict` responses use Python field names;
-aliases apply when a containing Pydantic model's serializer encodes those structures.
-Serializers attached only to a return annotation (such as
-`Annotated[int, PlainSerializer(str, return_type=str)]`) do not survive validation
-into a plain Python value; its response schema therefore describes an integer.
-Schema generation does not change the values returned by `@inject`.
+Schemas retain the backend's native layout. Pydantic input schemas use validation
+mode. Response schemas describe `call.serializer.encode_response(value)` in
+serialization mode, including computed fields and annotation serializers.
+Getting a schema does not change argument validation or Python return values.
 
-In Pydantic v2, calling `encode()` on a `PydanticSerializer` instance applies its
-JSON encoding configuration to ordinary values, including nested dates, intervals
-and bytes. For example, `ser_json_timedelta="float"` produces a number of seconds,
-and `ser_json_bytes="base64"` encodes nested bytes as base64 strings. The response
-schema describes those configured formats. Pydantic model instances keep their
-own serializers and encoding configuration.
+## Encoding typed responses
+
+The serializer attached to a call exposes `encode_response(value) -> bytes`.
+Pass it an already validated return value. With Pydantic, it uses the same
+cached `TypeAdapter` for response validation, JSON encoding, and response schemas.
+`PlainSerializer` and `WrapSerializer` on return annotations are honored, including
+serializers wrapping an entire model. Aliases apply to models, dataclasses and
+`TypedDict` responses. Model subclasses are encoded using the declared return
+type's fields, following Pydantic's normal rules.
 
 ```python
-from datetime import timedelta
+from typing import Annotated
 
-from fast_depends import inject
+from pydantic import PlainSerializer
+
+from fast_depends import Provider, inject
+from fast_depends.core import build_call_model
 from fast_depends.pydantic import PydanticSerializer
 
-factory = PydanticSerializer(pydantic_config={"ser_json_timedelta": "float"})
+factory = PydanticSerializer()
+TextInt = Annotated[int, PlainSerializer(str, return_type=str)]
 
 
-@inject(serializer_cls=factory)
-def handler() -> timedelta:
-    return timedelta(seconds=90)
+def answer() -> TextInt:
+    return 42
 
 
-value = handler()
-assert value == timedelta(seconds=90)
-assert factory.encode(value) == b"90.0"
+call = build_call_model(
+    answer, dependency_provider=Provider(), serializer_cls=factory
+)
+answer = inject(serializer_cls=factory)(answer, model=call)
+assert call.serializer is not None
+
+value = answer()
+assert type(value) is int
+assert factory.encode(value) == b"42"
+assert call.serializer.encode_response(value) == b'"42"'
+assert call.serializer.get_response_schema() == {"type": "string"}
 ```
 
-This changes the JSON representation when an instance explicitly configures a
-different format; dependency injection and Python return values are unchanged.
-The class-level `PydanticSerializer.encode(value)` call retains default encoding.
-Top-level `bytes` are passed through unchanged and use the `binary` schema format,
-including bytes returned through a union or named alias. Bytes nested in a JSON
-container use the configured encoding and schema format.
+`@inject` still returns the validated Python value. It does not implicitly encode
+JSON. Each call retains its own adapter, so a factory shared by handlers with
+different return annotations keeps their encoding contracts independent.
+Encoding errors come from Pydantic's serializer; response validation errors keep
+the existing FastDepends/Pydantic error handling.
+
+Pydantic configuration follows the adapter's normal precedence. Ordinary typed
+values and containers use the factory configuration. Models and dataclasses use
+their own configuration. A directly annotated model, dataclass or `TypedDict`
+rejects an adapter-level config in Pydantic, so FastDepends creates its adapter
+without the factory config. A `TypedDict`'s own `ser_json_*` settings are ignored
+by Pydantic's encoder: nested dictionaries inherit the surrounding serializer's
+JSON options, and a root `TypedDict` uses defaults. Response schemas account for
+this behavior, including shared named aliases under different configurations and
+numeric temporal encoding on Pydantic 2.12/2.13.
+
+The existing factory-level `encode(value)` remains a generic encoder. It has no
+return annotation and applies the factory's JSON encoding settings to ordinary
+values. Model instances keep their own serializers and configuration. Class-level
+`PydanticSerializer.encode(value)` retains default encoding. Custom factory
+`encode` overrides also apply to untyped bound responses.
+
+Typed Pydantic `encode_response()` always produces JSON, including for root
+`bytes`: with `ser_json_bytes="base64"`, `b"ab"` becomes `b'"YWI="'`, and the
+response schema has `format: base64url`. Use `factory.encode(b"ab")` for raw
+transport bytes; it continues to return `b"ab"` unchanged. This distinction also
+allows serializers attached to `Annotated[bytes, ...]` to run.
+
+Without a return annotation, or with `cast_result=False` / `serialize_result=False`,
+`encode_response()` uses the factory's generic encoder and
+`get_response_schema()` returns `None`. Msgspec exposes `encode_response()` using
+its existing encoder. Custom serializers can omit this optional method; its base
+implementation raises `NotImplementedError`.
+
+### FastStream
+
+FastStream's regular publication path receives the factory and calls its generic
+encoder. To publish using a handler's return annotation, explicitly encode through
+its bound serializer and set the JSON content type:
+
+```python
+from faststream.rabbit import RabbitBroker, RabbitResponse
+
+broker = RabbitBroker(serializer=factory)
+
+
+@broker.publisher("answers")
+@broker.subscriber("requests")
+async def publish_answer():
+    value = answer()
+    return RabbitResponse(
+        call.serializer.encode_response(value), content_type="application/json"
+    )
+```
+
+Here `answer`, `call`, and `factory` are from the preceding example. The published
+JSON value is `"42"`. Direct `await broker.publish(42, "answers")` still publishes
+a number. Existing subscriber return annotations are not automatically forwarded
+to the factory's encoder; integrations must select the bound serializer explicitly.
+The same rule applies to AG2 integrations that use `serialize_result=False` and
+encode tool results separately.
 
 Pydantic and Msgspec use `$defs`. A schema can have a
 `$ref` at its root. Keep the definitions with the schema so that nested and

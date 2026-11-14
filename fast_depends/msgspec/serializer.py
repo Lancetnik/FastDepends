@@ -187,6 +187,9 @@ class _MsgSpecSerializer(Serializer):
             kw_only=True,
         )
 
+    def encode_response(self, value: Any) -> bytes:
+        return MsgSpecSerializer.encode(value)
+
     def get_response_schema(self) -> dict[str, Any] | None:
         response_type = self.response_option["return"].field_type
         if response_type is inspect.Parameter.empty:

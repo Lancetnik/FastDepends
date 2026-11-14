@@ -176,7 +176,7 @@ def test_response_alias_matches_encoded_model(wrapped: bool, nested: bool) -> No
         name="handler", options=[], response_type=list[Result] if nested else Result
     )
     value = [{"external": 1}] if nested else {"external": 1}
-    encoded = json.loads(PydanticSerializer.encode(serializer.response(value)))
+    encoded = json.loads(serializer.encode_response(serializer.response(value)))
     schema = serializer.get_response_schema()
     assert schema is not None
     result_schema = schema[REF_KEY]["Result"] if nested else resolve_root(schema)
@@ -211,7 +211,7 @@ def test_response_alias_matches_encoded_structure(
         response_type=list[aliased_response_type] if nested else aliased_response_type,
     )
     value = [{"external": 1}] if nested else {"external": 1}
-    encoded = json.loads(PydanticSerializer.encode(serializer.response(value)))
+    encoded = json.loads(serializer.encode_response(serializer.response(value)))
     schema = serializer.get_response_schema()
     result_schema = (
         resolve_root({**schema, **schema["items"]}) if nested else resolve_root(schema)
@@ -237,7 +237,7 @@ def test_response_alias_distinguishes_structure_inside_model(
     )
     values = ({"result": {"external": 1}}, {"external": 1})
     encoded = json.loads(
-        PydanticSerializer.encode(
+        serializer.encode_response(
             serializer.response(values if model_first else values[::-1])
         )
     )
@@ -266,7 +266,7 @@ def test_response_alias_preserves_mutually_recursive_references(reverse):
         name="handler", options=[], response_type=result_type
     )
     value = {"external": 1, "child": {"external": 2, "child": None}}
-    encoded = json.loads(PydanticSerializer.encode(serializer.response((value, value))))
+    encoded = json.loads(serializer.encode_response(serializer.response((value, value))))
     schema = serializer.get_response_schema()
     child_names = []
     for item in schema["prefixItems"]:
@@ -298,9 +298,10 @@ def test_response_annotation_serializer_matches_encoding(
     result = serializer.response([1] if nested else 1)
     schema = serializer.get_response_schema()
     assert schema == (
-        {"type": "array", "items": {"type": "integer"}} if nested else {"type": "integer"}
+        {"type": "array", "items": {"type": "string"}} if nested else {"type": "string"}
     )
-    assert json.loads(PydanticSerializer.encode(result)) == ([1] if nested else 1)
+    assert result == ([1] if nested else 1)
+    assert json.loads(serializer.encode_response(result)) == (["1"] if nested else "1")
 
 
 @pytest.mark.parametrize("model_kind", ("model", "dataclass", "plain_dataclass"))
@@ -318,7 +319,7 @@ def test_response_preserves_serializer_carried_by_value(model_kind, outer_serial
         Result = pydantic_dataclass(Record) if model_kind == "dataclass" else Record
 
     annotation = (
-        Annotated[Result, PlainSerializer(lambda value: "ignored", return_type=str)]
+        Annotated[Result, PlainSerializer(lambda value: "replaced", return_type=str)]
         if outer_serializer
         else Result
     )
@@ -326,11 +327,14 @@ def test_response_preserves_serializer_carried_by_value(model_kind, outer_serial
         name="handler", options=[], response_type=annotation
     )
     schema = serializer.get_response_schema()
-    encoded = json.loads(PydanticSerializer.encode(serializer.response({"value": 1})))
+    encoded = json.loads(serializer.encode_response(serializer.response({"value": 1})))
     assert schema is not None
-    expected_type = "integer" if model_kind == "plain_dataclass" else "string"
-    assert resolve_root(schema)["properties"]["value"]["type"] == expected_type
-    assert encoded == {"value": 1 if model_kind == "plain_dataclass" else "1"}
+    if outer_serializer:
+        assert resolve_root(schema) == {"type": "string"}
+        assert encoded == "replaced"
+    else:
+        assert resolve_root(schema)["properties"]["value"]["type"] == "string"
+        assert encoded == {"value": "1"}
 
 
 def test_dataclass_response() -> None:
@@ -361,7 +365,7 @@ def test_arguments_use_validation_schema(json_serializer: Serializer) -> None:
 def test_json_response_encoding(json_serializer: Serializer) -> None:
     result = json_serializer.response("42")
 
-    assert PydanticSerializer.encode(result) == b"42"
+    assert json_serializer.encode_response(result) == b"42"
 
 
 def test_response_includes_computed_fields(
@@ -383,7 +387,9 @@ def test_computed_fields_are_required(computed_response_serializer: Serializer) 
 def test_computed_fields_are_encoded(computed_response_serializer: Serializer) -> None:
     result = computed_response_serializer.response({"value": 21})
 
-    assert PydanticSerializer.encode(result) == b'{"value":21,"twice":42}'
+    assert (
+        computed_response_serializer.encode_response(result) == b'{"value":21,"twice":42}'
+    )
 
 
 def test_argument_alias(aliased_serializer: Serializer) -> None:
@@ -493,7 +499,7 @@ def test_temporal_response_describes_configured_encoding(
         response_type=list[annotation] if nested else annotation,
     )
     wire_value = json.loads(
-        factory.encode(serializer.response([value] if nested else value))
+        serializer.encode_response(serializer.response([value] if nested else value))
     )
     assert wire_value == ([encoded] if nested else encoded)
     schema = serializer.get_response_schema()
@@ -512,7 +518,7 @@ def test_configured_response_alias_matches_model_encoding(model_first):
     span = timedelta(seconds=90)
     values = ({"value": span}, span) if model_first else (span, {"value": span})
 
-    assert json.loads(factory.encode(serializer.response(values))) == (
+    assert json.loads(serializer.encode_response(serializer.response(values))) == (
         [{"value": 90.0}, 90.0] if model_first else [90.0, {"value": 90.0}]
     )
     schema = serializer.get_response_schema()
@@ -531,7 +537,7 @@ def test_response_alias_keeps_distinct_model_encoding_config(model_first):
     serializer = factory(name="handler", options=[], response_type=response_type)
     values = ({"value": b"ab"}, b"ab") if model_first else (b"ab", {"value": b"ab"})
 
-    assert json.loads(factory.encode(serializer.response(values))) == (
+    assert json.loads(serializer.encode_response(serializer.response(values))) == (
         [{"value": "6162"}, "YWI="] if model_first else ["YWI=", {"value": "6162"}]
     )
     schema = serializer.get_response_schema()
@@ -549,7 +555,7 @@ def test_response_alias_keeps_distinct_model_encoding_config(model_first):
 
 
 @pytest.mark.parametrize("kind", ("typed_dict", "dataclass"))
-def test_plain_structure_uses_factory_json_config(kind):
+def test_plain_structure_follows_typeadapter_config(kind):
     if kind == "typed_dict":
 
         class Record(TypedDict):
@@ -564,11 +570,14 @@ def test_plain_structure_uses_factory_json_config(kind):
     factory = PydanticSerializer(pydantic_config={"ser_json_bytes": "base64"})
     serializer = factory(name="handler", options=[], response_type=Record)
 
-    assert factory.encode(serializer.response({"value": b"ab"})) == b'{"value":"YWI="}'
+    expected = "ab" if kind == "typed_dict" else "6162"
+    assert json.loads(
+        serializer.encode_response(serializer.response({"value": b"ab"}))
+    ) == {"value": expected}
     schema = serializer.get_response_schema()
     assert resolve_root(schema)["properties"]["value"] == {
         "type": "string",
-        "format": "base64url",
+        "format": "binary",
         "title": "Value",
     }
 
@@ -580,7 +589,7 @@ def test_bytes_response_describes_configured_encoding(wrapped):
     )
     serializer = factory(name="handler", options=[], response_type=list[bytes])
 
-    assert factory.encode(serializer.response([b"ab"])) == b'["YWI="]'
+    assert serializer.encode_response(serializer.response([b"ab"])) == b'["YWI="]'
     assert serializer.get_response_schema() == {
         "type": "array",
         "items": {"type": "string", "format": "base64url"},
@@ -590,26 +599,26 @@ def test_bytes_response_describes_configured_encoding(wrapped):
 @pytest.mark.parametrize(
     "annotation", (bytes, ResponseBytes, bytes | None, ResponseBytes | None)
 )
-def test_root_bytes_response_preserves_raw_encoding(annotation):
+def test_root_bytes_response_uses_typed_json_encoding(annotation):
     factory = PydanticSerializer(pydantic_config={"ser_json_bytes": "base64"})
     serializer = factory(name="handler", options=[], response_type=annotation)
 
-    assert factory.encode(serializer.response(b"\xff")) == b"\xff"
+    assert serializer.encode_response(serializer.response(b"\xff")) == b'"_w=="'
     schema = serializer.get_response_schema()
     root = resolve_root(schema)
     if "anyOf" in root:
         assert root["anyOf"][1] == {"type": "null"}
         root = root["anyOf"][0]
-        assert factory.encode(serializer.response(None)) == b"null"
+        assert serializer.encode_response(serializer.response(None)) == b"null"
     root = resolve_part(schema, root)
     assert root == {
         "type": "string",
-        "format": "binary",
+        "format": "base64url",
     }
 
 
 @pytest.mark.parametrize("nested_first", (True, False))
-def test_bytes_alias_has_distinct_root_and_nested_formats(nested_first):
+def test_bytes_alias_uses_same_root_and_nested_formats(nested_first):
     annotation = (
         list[ResponseBytes] | ResponseBytes
         if nested_first
@@ -618,13 +627,13 @@ def test_bytes_alias_has_distinct_root_and_nested_formats(nested_first):
     factory = PydanticSerializer(pydantic_config={"ser_json_bytes": "base64"})
     serializer = factory(name="handler", options=[], response_type=annotation)
 
-    assert factory.encode(serializer.response(b"\xff")) == b"\xff"
-    assert factory.encode(serializer.response([b"\xff"])) == b'["_w=="]'
+    assert serializer.encode_response(serializer.response(b"\xff")) == b'"_w=="'
+    assert serializer.encode_response(serializer.response([b"\xff"])) == b'["_w=="]'
     schema = serializer.get_response_schema()
     root = schema["anyOf"][1 if nested_first else 0]
     nested = schema["anyOf"][0 if nested_first else 1]["items"]
     root = resolve_part(schema, root)
-    assert root == {"type": "string", "format": "binary"}
+    assert root == {"type": "string", "format": "base64url"}
     assert resolve_root({**schema, **nested}) == {
         "type": "string",
         "format": "base64url",
@@ -635,34 +644,37 @@ def test_recursive_bytes_alias_preserves_nested_json_encoding():
     factory = PydanticSerializer(pydantic_config={"ser_json_bytes": "base64"})
     serializer = factory(name="handler", options=[], response_type=ByteTree)
 
-    assert factory.encode(serializer.response(b"\xff")) == b"\xff"
-    assert factory.encode(serializer.response([b"\xff", [b"ab"]])) == b'["_w==",["YWI="]]'
+    assert serializer.encode_response(serializer.response(b"\xff")) == b'"_w=="'
+    assert (
+        serializer.encode_response(serializer.response([b"\xff", [b"ab"]]))
+        == b'["_w==",["YWI="]]'
+    )
     schema = serializer.get_response_schema()
     root = resolve_root(schema)
     raw = root["anyOf"][0]
     raw = resolve_part(schema, raw)
-    assert raw == {"type": "string", "format": "binary"}
+    assert raw == {"type": "string", "format": "base64url"}
     nested = resolve_root({**schema, **root["anyOf"][1]["items"]})
     assert nested["anyOf"][0] == {"type": "string", "format": "base64url"}
     assert resolve_root({**schema, **nested["anyOf"][1]["items"]}) == nested
 
 
-def test_recursive_root_bytes_alias_keeps_raw_format():
+def test_recursive_root_bytes_alias_uses_json_format():
     factory = PydanticSerializer(pydantic_config={"ser_json_bytes": "base64"})
     serializer = factory(name="handler", options=[], response_type=ByteCycle)
 
-    assert factory.encode(serializer.response(b"\xff")) == b"\xff"
+    assert serializer.encode_response(serializer.response(b"\xff")) == b'"_w=="'
     schema = serializer.get_response_schema()
     root = resolve_root(schema)
     assert root == {
         "anyOf": [
-            {"type": "string", "format": "binary"},
+            {"type": "string", "format": "base64url"},
             {"$ref": schema["$ref"]},
         ],
     }
 
 
-def test_root_bytes_response_preserves_constraints():
+def test_root_bytes_json_response_preserves_constraints():
     factory = PydanticSerializer(pydantic_config={"ser_json_bytes": "base64"})
     serializer = factory(
         name="handler",
@@ -670,10 +682,10 @@ def test_root_bytes_response_preserves_constraints():
         response_type=Annotated[bytes, Field(min_length=1, max_length=4)],
     )
 
-    assert factory.encode(serializer.response(b"\xff")) == b"\xff"
+    assert serializer.encode_response(serializer.response(b"\xff")) == b'"_w=="'
     assert serializer.get_response_schema() == {
         "type": "string",
-        "format": "binary",
+        "format": "base64url",
         "minLength": 1,
         "maxLength": 4,
     }
@@ -693,7 +705,7 @@ def test_root_bytes_response_preserves_constraints():
         "lax_or_strict",
     ),
 )
-def test_wrapped_bytes_response_preserves_root_and_nested_formats(wrapper):
+def test_wrapped_bytes_response_uses_root_and_nested_json_formats(wrapper):
     value = b"ab"
     if wrapper == "before":
         annotation = Annotated[bytes, BeforeValidator(lambda value: value)]
@@ -730,9 +742,9 @@ def test_wrapped_bytes_response_preserves_root_and_nested_formats(wrapper):
     root = factory(name="handler", options=[], response_type=annotation)
     nested = factory(name="handler", options=[], response_type=list[annotation])
 
-    assert factory.encode(root.response(value)) == b"ab"
-    assert factory.encode(nested.response([value])) == b'["YWI="]'
-    assert root.get_response_schema() == IsPartialDict(type="string", format="binary")
+    assert root.encode_response(root.response(value)) == b'"YWI="'
+    assert nested.encode_response(nested.response([value])) == b'["YWI="]'
+    assert root.get_response_schema() == IsPartialDict(type="string", format="base64url")
     assert nested.get_response_schema()["items"] == IsPartialDict(
         type="string", format="base64url"
     )
@@ -743,11 +755,13 @@ def test_untyped_json_response_schema(annotation):
     factory = PydanticSerializer(pydantic_config={"ser_json_bytes": "base64"})
     serializer = factory(name="handler", options=[], response_type=annotation)
 
-    assert factory.encode(serializer.response('{"value":12}')) == b'{"value":12}'
+    assert (
+        serializer.encode_response(serializer.response('{"value":12}')) == b'{"value":12}'
+    )
     assert serializer.get_response_schema() == {}
 
 
-def test_tagged_union_bytes_response_preserves_root_format():
+def test_tagged_union_bytes_response_uses_json_format():
     annotation = Annotated[
         Annotated[bytes, Tag("raw")] | Annotated[list[bytes], Tag("nested")],
         Discriminator(lambda value: "raw" if isinstance(value, bytes) else "nested"),
@@ -755,17 +769,17 @@ def test_tagged_union_bytes_response_preserves_root_format():
     factory = PydanticSerializer(pydantic_config={"ser_json_bytes": "base64"})
     serializer = factory(name="handler", options=[], response_type=annotation)
 
-    assert factory.encode(serializer.response(b"\xff")) == b"\xff"
-    assert factory.encode(serializer.response([b"\xff"])) == b'["_w=="]'
+    assert serializer.encode_response(serializer.response(b"\xff")) == b'"_w=="'
+    assert serializer.encode_response(serializer.response([b"\xff"])) == b'["_w=="]'
     assert serializer.get_response_schema() == {
         "oneOf": [
-            {"type": "string", "format": "binary"},
+            {"type": "string", "format": "base64url"},
             {"type": "array", "items": {"type": "string", "format": "base64url"}},
         ],
     }
 
 
-def test_labeled_union_bytes_response_preserves_root_format():
+def test_labeled_union_bytes_response_uses_json_format():
     class BytesOrList:
         @classmethod
         def __get_pydantic_core_schema__(cls, source, handler):
@@ -779,11 +793,11 @@ def test_labeled_union_bytes_response_preserves_root_format():
     factory = PydanticSerializer(pydantic_config={"ser_json_bytes": "base64"})
     serializer = factory(name="handler", options=[], response_type=BytesOrList)
 
-    assert factory.encode(serializer.response(b"\xff")) == b"\xff"
-    assert factory.encode(serializer.response([b"\xff"])) == b'["_w=="]'
+    assert serializer.encode_response(serializer.response(b"\xff")) == b'"_w=="'
+    assert serializer.encode_response(serializer.response([b"\xff"])) == b'["_w=="]'
     assert serializer.get_response_schema() == {
         "anyOf": [
-            {"type": "string", "format": "binary"},
+            {"type": "string", "format": "base64url"},
             {"type": "array", "items": {"type": "string", "format": "base64url"}},
         ],
     }
@@ -801,7 +815,7 @@ def test_chained_text_response_schema_is_unchanged():
     serializer = factory(name="handler", options=[], response_type=Text)
 
     assert serializer.response("ab") == "ab"
-    assert factory.encode(serializer.response("ab")) == b'"ab"'
+    assert serializer.encode_response(serializer.response("ab")) == b'"ab"'
     assert serializer.get_response_schema() == {"type": "string"}
 
 
@@ -814,8 +828,8 @@ def test_response_preserves_explicit_json_schema_format(annotation):
     factory = PydanticSerializer(pydantic_config={"ser_json_bytes": "base64"})
     serializer = factory(name="handler", options=[], response_type=response_type)
 
-    assert factory.encode(serializer.response("ab")) == (
-        b"ab" if annotation is bytes else b'"ab"'
+    assert serializer.encode_response(serializer.response("ab")) == (
+        b'"YWI="' if annotation is bytes else b'"ab"'
     )
     assert serializer.get_response_schema() == {
         "type": "string",
@@ -838,7 +852,7 @@ def test_bytes_response_preserves_constraints():
         "minLength": 1,
         "maxLength": 4,
     }
-    assert factory.encode(serializer.response([b"ab"])) == b'["YWI="]'
+    assert serializer.encode_response(serializer.response([b"ab"])) == b'["YWI="]'
 
 
 def test_bytes_response_preserves_model_encoding_config():
@@ -848,7 +862,7 @@ def test_bytes_response_preserves_model_encoding_config():
 
     serializer = PydanticSerializer()(name="handler", options=[], response_type=Result)
 
-    assert PydanticSerializer.encode(serializer.response({"value": b"ab"})) == (
+    assert serializer.encode_response(serializer.response({"value": b"ab"})) == (
         b'{"value":"YWI="}'
     )
     assert serializer.get_response_schema() == Result.model_json_schema(
@@ -875,9 +889,11 @@ def test_temporal_response_preserves_model_encoding_config(annotation, value, co
     result = serializer.response(data)
 
     assert (
-        PydanticSerializer.encode(result)
+        serializer.encode_response(result)
         == Result.model_validate(data).model_dump_json().encode()
     )
-    assert serializer.get_response_schema() == Result.model_json_schema(
-        mode="serialization"
-    )
+    schema = serializer.get_response_schema()
+    expected = Result.model_json_schema(mode="serialization")
+    if config.get("ser_json_temporal") == "seconds":
+        expected["properties"]["value"] = {"type": "number", "title": "Value"}
+    assert schema == expected

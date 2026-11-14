@@ -20,8 +20,8 @@ from fast_depends.pydantic import PydanticSerializer
             {"ser_json_bytes": "base64"},
             bytes,
             b"\xff",
-            b"\xff",
-            {"type": "string", "format": "binary"},
+            b'"_w=="',
+            {"type": "string", "format": "base64url"},
         ),
         (
             {"ser_json_bytes": "base64"},
@@ -45,5 +45,5 @@ def test_response_schema_encoding_compatibility(
     factory = PydanticSerializer(pydantic_config=config)
     serializer = factory(name="handler", options=[], response_type=annotation)
 
-    assert factory.encode(serializer.response(value)) == encoded
+    assert serializer.encode_response(serializer.response(value)) == encoded
     assert serializer.get_response_schema() == schema

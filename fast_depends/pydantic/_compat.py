@@ -24,206 +24,109 @@ __all__ = (
 default_pydantic_config = {"arbitrary_types_allowed": True}
 
 
-def _raw_response_ref(ref: str) -> str:
-    name, separator, identifier = ref.partition(":")
-    return f"{name}__fast_depends_raw{separator}{identifier}"
-
-
-def _raw_response_bytes(
-    schema: Any,
-    definitions: dict[str, Any] | None = None,
-    seen: frozenset[str] = frozenset(),
-) -> Any:
-    """Mark bytes reachable without entering a JSON container or model."""
-    definitions = definitions or {}
-    kind = schema["type"]
-    if kind == "definitions":
-        definitions = {
-            **definitions,
-            **{item["ref"]: item for item in schema["definitions"]},
-        }
-    elif kind == "definition-ref":
-        ref = schema["schema_ref"]
-        if ref in seen:
-            return {**schema, "schema_ref": _raw_response_ref(ref)}
-        target = definitions[ref]
-        result = _raw_response_bytes(target, definitions, seen | {ref})
-        return schema if result is target else result
-    elif kind == "bytes":
-        result = {
-            **schema,
-            "metadata": {
-                **schema.get("metadata", {}),
-                "fast_depends_raw_bytes": True,
-            },
-        }
-        if "ref" in result:
-            result["ref"] = _raw_response_ref(result["ref"])
-        return result
-
-    fields = {
-        "definitions": ("schema",),
-        "nullable": ("schema",),
-        "default": ("schema",),
-        "function-before": ("schema",),
-        "function-after": ("schema",),
-        "function-wrap": ("schema",),
-        "custom-error": ("schema",),
-        "json": ("schema",),
-        "json-or-python": ("json_schema", "python_schema"),
-        "lax-or-strict": ("lax_schema", "strict_schema"),
-    }.get(kind, ())
-    changes = {}
-    for field in fields:
-        original = schema.get(field)
-        if original is None:
-            continue
-        child = _raw_response_bytes(original, definitions, seen)
-        if child is not original:
-            changes[field] = child
-    if kind == "union":
-        choices = []
-        for choice in schema["choices"]:
-            child = choice[0] if isinstance(choice, tuple) else choice
-            result = _raw_response_bytes(child, definitions, seen)
-            choices.append((result, choice[1]) if isinstance(choice, tuple) else result)
-            if result is not child:
-                changes["choices"] = choices
-    elif kind == "tagged-union":
-        tagged_choices = {}
-        for tag, choice in schema["choices"].items():
-            result = _raw_response_bytes(choice, definitions, seen)
-            tagged_choices[tag] = result
-            if result is not choice:
-                changes["choices"] = tagged_choices
-    elif kind == "chain":
-        child = _raw_response_bytes(schema["steps"][-1], definitions, seen)
-        if child is not schema["steps"][-1]:
-            changes["steps"] = [*schema["steps"][:-1], child]
-    if not changes:
-        return schema
-    result = {**schema, **changes}
-    # Nested uses of an alias retain their configured JSON representation.
-    if "ref" in result:
-        result["ref"] = _raw_response_ref(result["ref"])
-    return result
-
-
 class _ResponseSchema(GenerateJsonSchema):
-    """Describe generic encoding of validated values, without a TypeAdapter."""
-
-    _model_serializer = False
-    _generic_refs: frozenset[str] = frozenset()
+    """TypeAdapter serialization schemas with configuration compatibility."""
 
     def __init__(self, config: ConfigDict) -> None:
-        self._json_config = {
-            key: value for key, value in config.items() if key.startswith("ser_json_")
-        }
         super().__init__()
+        self._json_configs = [config]
+        self._definitions: dict[str, Any] = {}
+        self._contexts: dict[str, int] = {}
+        self._scoped_definitions: dict[str, Any] = {}
+        self._generating: set[str] = set()
 
     @property
     def _config(self) -> ConfigWrapper:
-        config = super()._config
-        if self._model_serializer:
-            return config
-        # Plain structures do not carry their adapter's encoding config.
-        # Their JSON formats come from the factory, including when the type
-        # itself declares __pydantic_config__.
+        config = super()._config.config_dict
+        # Core TypedDict serializers inherit JSON options from the enclosing
+        # serializer; their own ser_json_* settings are ignored by Pydantic.
         return ConfigWrapper(
             {
                 **{
                     key: value
-                    for key, value in config.config_dict.items()
+                    for key, value in config.items()
                     if not key.startswith("ser_json_")
                 },
-                **self._json_config,
+                **{
+                    key: value
+                    for key, value in self._json_configs[-1].items()
+                    if key.startswith("ser_json_")
+                },
             }
         )
 
-    def _get_alias_name(self, field: Any, name: str) -> str:
-        if self._model_serializer:
-            return super()._get_alias_name(field, name)
-        # Plain dicts/dataclasses retain Python names after validation.
-        return name
+    def model_schema(self, schema: Any) -> JsonSchemaValue:
+        self._json_configs.append(schema.get("config", {}))
+        try:
+            return super().model_schema(schema)
+        finally:
+            self._json_configs.pop()
 
-    @staticmethod
-    def _generic_ref(ref: str) -> str:
-        name, separator, identifier = ref.partition(":")
-        return f"{name}__fast_depends_generic{separator}{identifier}"
+    def dataclass_schema(self, schema: Any) -> JsonSchemaValue:
+        self._json_configs.append(schema.get("config", {}))
+        try:
+            return super().dataclass_schema(schema)
+        finally:
+            self._json_configs.pop()
 
-    def bytes_schema(self, schema: Any) -> JsonSchemaValue:
-        result = super().bytes_schema(schema)
-        if not self._model_serializer:
-            if schema.get("metadata", {}).get("fast_depends_raw_bytes"):
-                result["format"] = "binary"
-        return result
+    def _scoped_ref(self, schema: Any) -> str:
+        if schema["type"] in ("model", "dataclass"):
+            ref: str = schema["ref"]
+            return ref
+        config = self._config.config_dict
+        # Named aliases can occur under several model/adapter configurations.
+        # Pydantic otherwise reuses the first generated definition for all of them.
+        key = repr(sorted((k, v) for k, v in config.items() if k.startswith("ser_json_")))
+        context = self._contexts.setdefault(key, len(self._contexts))
+        name, separator, identifier = schema["ref"].partition(":")
+        return f"{name}__fast_depends_{context}{separator}{identifier}"
+
+    def generate_inner(self, schema: Any) -> JsonSchemaValue:
+        if schema["type"] == "definitions":
+            # Register mutually recursive targets before generating any of them.
+            self._definitions.update(
+                {item["ref"]: item for item in schema["definitions"]}
+            )
+        elif "ref" in schema:
+            self._definitions[schema["ref"]] = schema
+
+        if schema["type"] == "definition-ref":
+            target = self._definitions[schema["schema_ref"]]
+            ref = self._scoped_ref(target)
+            self._scoped_definitions[ref] = target
+            schema = {**schema, "schema_ref": ref}
+        elif "ref" in schema:
+            ref = self._scoped_ref(schema)
+            schema = {**schema, "ref": ref}
+            self._generating.add(ref)
+            try:
+                return super().generate_inner(schema)
+            finally:
+                self._generating.remove(ref)
+        return super().generate_inner(schema)
+
+    def definition_ref_schema(self, schema: Any) -> JsonSchemaValue:
+        ref = schema["schema_ref"]
+        defs_ref = self.core_to_defs_refs.get((ref, self.mode))
+        if ref not in self._generating and defs_ref not in self.definitions:
+            self.generate_inner(self._scoped_definitions[ref])
+        return super().definition_ref_schema(schema)
 
     if not hasattr(GenerateJsonSchema, "_common_temporal_schema"):
         # Pydantic 2.12/2.13 encode numeric temporal values, but their schema
         # generator predates support for ser_json_temporal.
         def _temporal_schema(self, schema: Any) -> JsonSchemaValue:
             result: JsonSchemaValue = getattr(super(), f"{schema['type']}_schema")(schema)
-            if not self._model_serializer:
-                temporal = self._json_config.get("ser_json_temporal")
-                if temporal in ("seconds", "milliseconds"):
-                    result["type"] = "number"
-                    result.pop("format", None)
-                elif temporal == "iso8601" and schema["type"] == "timedelta":
-                    result = {"type": "string", "format": "duration"}
-                elif (
-                    schema["type"] == "timedelta"
-                    and self._json_config.get("ser_json_timedelta") == "float"
-                ):
-                    result = {"type": "number"}
+            config = self._config.config_dict
+            temporal = config.get("ser_json_temporal")
+            if temporal in ("seconds", "milliseconds"):
+                result["type"] = "number"
+                result.pop("format", None)
+            elif temporal == "iso8601" and schema["type"] == "timedelta":
+                result = {"type": "string", "format": "duration"}
             return result
 
         date_schema = time_schema = datetime_schema = timedelta_schema = _temporal_schema
-
-    def generate_inner(self, schema: Any) -> JsonSchemaValue:
-        if self._model_serializer:
-            return super().generate_inner(schema)
-
-        cls = schema.get("cls")
-        if schema["type"] in ("model", "dataclass") and hasattr(
-            cls, "__pydantic_serializer__"
-        ):
-            # Models carry their own serializer into to_json(); an outer
-            # Annotated serializer belongs only to the discarded adapter.
-            self._model_serializer = True
-            try:
-                return super().generate_inner(cls.__pydantic_core_schema__)
-            finally:
-                self._model_serializer = False
-
-        if schema["type"] == "definitions":
-            # Mutually recursive definitions may refer to a later entry.
-            self._generic_refs |= {
-                definition["ref"]
-                for definition in schema["definitions"]
-                if not (
-                    definition["type"] in ("model", "dataclass")
-                    and hasattr(definition.get("cls"), "__pydantic_serializer__")
-                )
-            }
-
-        if "ref" in schema:
-            schema = schema.copy()
-            ref = schema["ref"]
-            self._generic_refs |= {ref}
-            # Model serializers may apply different aliases and JSON formats
-            # to the same type, including named scalar aliases.
-            schema["ref"] = self._generic_ref(ref)
-        elif (
-            schema["type"] == "definition-ref"
-            and schema["schema_ref"] in self._generic_refs
-        ):
-            schema = schema.copy()
-            schema["schema_ref"] = self._generic_ref(schema["schema_ref"])
-
-        if "serialization" in schema:
-            schema = schema.copy()
-            schema.pop("serialization")
-        return super().generate_inner(schema)
 
 
 def model_schema(model: type[BaseModel]) -> dict[str, Any]:
@@ -231,18 +134,37 @@ def model_schema(model: type[BaseModel]) -> dict[str, Any]:
     return schema
 
 
-def type_schema(annotation: Any, config: ConfigDict) -> dict[str, Any]:
+def response_adapter(
+    annotation: Any, config: ConfigDict
+) -> tuple[TypeAdapter[Any], ConfigDict]:
     try:
-        adapter = TypeAdapter(annotation, config=config)
-    except PydanticUserError:
+        return TypeAdapter(annotation, config=config), config
+    except PydanticUserError as error:
+        if error.code != "type-adapter-config-unused":
+            raise
+        # Root models and Pydantic dataclasses can reuse their own serializer.
+        # Its return serializers also use the class's JSON configuration.
         adapter = TypeAdapter(annotation)
+        if adapter.serializer is getattr(annotation, "__pydantic_serializer__", None):
+            config = cast(
+                ConfigDict,
+                getattr(
+                    annotation,
+                    "model_config",
+                    getattr(annotation, "__pydantic_config__", {}),
+                ),
+            )
+        else:
+            config = ConfigDict()
+        return adapter, config
+
+
+def type_schema(adapter: TypeAdapter[Any], config: ConfigDict) -> dict[str, Any]:
+    core_schema = adapter.core_schema
     generator = _ResponseSchema(config)
-    # Before Pydantic 2.14, TypeAdapter.json_schema() does not forward its
-    # config to the generator. Match the configured generic JSON encoder.
+    # Before Pydantic 2.14, TypeAdapter.json_schema() does not forward config.
     with generator._config_wrapper_stack.push(config):
-        schema: dict[str, Any] = generator.generate(
-            _raw_response_bytes(adapter.core_schema), mode="serialization"
-        )
+        schema: dict[str, Any] = generator.generate(core_schema, mode="serialization")
     return schema
 
 

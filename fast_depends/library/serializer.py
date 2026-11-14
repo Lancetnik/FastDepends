@@ -77,6 +77,13 @@ class Serializer(ABC):
         """
         raise NotImplementedError
 
+    def encode_response(self, value: Any) -> bytes:
+        """Encode a validated return value using this call's response contract.
+
+        Custom serializers may implement this independently of validation.
+        """
+        raise NotImplementedError
+
     @abstractmethod
     def __call__(self, call_kwargs: dict[str, Any]) -> dict[str, Any]:
         raise NotImplementedError

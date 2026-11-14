@@ -77,7 +77,7 @@ class Serializer(ABC):
         """
         raise NotImplementedError
 
-    def encode_response(self, value: Any) -> bytes:
+    def encode(self, value: Any) -> bytes:
         """Encode a validated return value using this call's response contract.
 
         Custom serializers may implement this independently of validation.

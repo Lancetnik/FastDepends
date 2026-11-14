@@ -66,13 +66,13 @@ installed backend, `call.serializer` can be `None`; the methods require an exist
 serializer.
 
 Schemas retain the backend's native layout. Pydantic input schemas use validation
-mode. Response schemas describe `call.serializer.encode_response(value)` in
+mode. Response schemas describe `call.serializer.encode(value)` in
 serialization mode, including computed fields and annotation serializers.
 Getting a schema does not change argument validation or Python return values.
 
 ## Encoding typed responses
 
-The serializer attached to a call exposes `encode_response(value) -> bytes`.
+The serializer attached to a call exposes `encode(value) -> bytes`.
 Pass it an already validated return value. With Pydantic, JSON encoding and
 response schemas use a cached `TypeAdapter`. Response validation uses the adapter
 except for direct `BaseModel` annotations, which preserve `model_validate()`
@@ -108,7 +108,7 @@ assert call.serializer is not None
 value = answer()
 assert type(value) is int
 assert factory.encode(value) == b"42"
-assert call.serializer.encode_response(value) == b'"42"'
+assert call.serializer.encode(value) == b'"42"'
 assert call.serializer.get_response_schema() == {"type": "string"}
 ```
 
@@ -134,15 +134,15 @@ values. Model instances keep their own serializers and configuration. Class-leve
 `PydanticSerializer.encode(value)` retains default encoding. Custom factory
 `encode` overrides also apply to untyped bound responses.
 
-Typed Pydantic `encode_response()` always produces JSON, including for root
+Typed Pydantic `encode()` always produces JSON, including for root
 `bytes`: with `ser_json_bytes="base64"`, `b"ab"` becomes `b'"YWI="'`, and the
 response schema has `format: base64url`. Use `factory.encode(b"ab")` for raw
 transport bytes; it continues to return `b"ab"` unchanged. This distinction also
 allows serializers attached to `Annotated[bytes, ...]` to run.
 
 Without a return annotation, or with `cast_result=False` / `serialize_result=False`,
-`encode_response()` uses the factory's generic encoder and
-`get_response_schema()` returns `None`. Msgspec exposes `encode_response()` using
+`encode()` uses the factory's generic encoder and
+`get_response_schema()` returns `None`. Msgspec exposes `encode()` using
 its existing encoder. Custom serializers can omit this optional method; its base
 implementation raises `NotImplementedError`.
 
@@ -163,7 +163,7 @@ broker = RabbitBroker(serializer=factory)
 async def publish_answer():
     value = answer()
     return RabbitResponse(
-        call.serializer.encode_response(value), content_type="application/json"
+        call.serializer.encode(value), content_type="application/json"
     )
 ```
 

@@ -45,5 +45,5 @@ def test_response_schema_encoding_compatibility(
     factory = PydanticSerializer(pydantic_config=config)
     serializer = factory(name="handler", options=[], response_type=annotation)
 
-    assert serializer.encode_response(serializer.response(value)) == encoded
+    assert serializer.encode(serializer.response(value)) == encoded
     assert serializer.get_response_schema() == schema

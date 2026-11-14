@@ -50,7 +50,7 @@ def test_typed_response_public_api_preserves_python_values(wrapped, plain):
     assert type(value) is int
     assert value == 42
     assert factory.encode(value) == b"42"
-    assert call.serializer.encode_response(value) == b'"42"'
+    assert call.serializer.encode(value) == b'"42"'
     assert call.serializer.get_response_schema() == {"type": "string"}
 
 
@@ -76,8 +76,8 @@ async def test_async_response_uses_own_adapter():
     for _ in range(2):
         text_value, number_value = await handlers[0]("42"), await handlers[1]("42")
         assert text_value == number_value == 42
-        assert calls[0].serializer.encode_response(text_value) == b'"42"'
-        assert calls[1].serializer.encode_response(number_value) == b"42"
+        assert calls[0].serializer.encode(text_value) == b'"42"'
+        assert calls[1].serializer.encode(number_value) == b"42"
         assert factory.encode(text_value) == b"42"
 
 
@@ -97,13 +97,9 @@ def test_disabled_result_validation_keeps_generic_encoding(annotation):
     wrapped = inject(serializer_cls=factory)(handler, model=call)
     value = wrapped()
     assert value == {"duration": timedelta(seconds=90)}
-    assert (
-        call.serializer.encode_response(value)
-        == factory.encode(value)
-        == b'{"duration":90.0}'
-    )
+    assert call.serializer.encode(value) == factory.encode(value) == b'{"duration":90.0}'
     assert call.serializer.get_response_schema() is None
-    assert call.serializer.encode_response(b"raw") == b"raw"
+    assert call.serializer.encode(b"raw") == b"raw"
 
 
 def test_missing_annotation_keeps_generic_encoding():
@@ -115,7 +111,7 @@ def test_missing_annotation_keeps_generic_encoding():
     call = build_call_model(
         handler, dependency_provider=Provider(), serializer_cls=factory
     )
-    assert call.serializer.encode_response(handler()) == b"42"
+    assert call.serializer.encode(handler()) == b"42"
     assert call.serializer.get_response_schema() is None
 
 
@@ -132,7 +128,7 @@ def test_typed_bytes_honor_annotation_serializer(plain):
     factory = PydanticSerializer(pydantic_config={"ser_json_bytes": "base64"})
     serializer = factory(name="handler", options=[], response_type=annotation)
     assert factory.encode(b"ab") == b"ab"
-    assert serializer.encode_response(serializer.response(b"ab")) == (
+    assert serializer.encode(serializer.response(b"ab")) == (
         b'"6162"' if plain else b'"wrapped"'
     )
     assert serializer.get_response_schema() == {"type": "string"}
@@ -163,7 +159,7 @@ def test_structure_config_precedence_matches_typeadapter(kind, nested, own_forma
     adapter = (
         TypeAdapter(annotation, config=config) if nested else TypeAdapter(annotation)
     )
-    encoded = serializer.encode_response(serializer.response(data))
+    encoded = serializer.encode(serializer.response(data))
     assert encoded == adapter.dump_json(adapter.validate_python(data), by_alias=True)
     expected = (
         ("YWI=" if nested else "ab")
@@ -200,9 +196,7 @@ def test_shared_typed_dict_under_distinct_configs(reverse):
     serializer = factory(name="handler", options=[], response_type=annotation)
     values = ({"record": {"value": b"ab"}}, {"value": b"ab"})
     encoded = json.loads(
-        serializer.encode_response(
-            serializer.response(values if reverse else values[::-1])
-        )
+        serializer.encode(serializer.response(values if reverse else values[::-1]))
     )
     schema = serializer.get_response_schema()
     for index, part in enumerate(schema["prefixItems"]):
@@ -232,7 +226,7 @@ def test_outer_serializer_on_reused_model_reference(plain):
         name="handler", options=[], response_type=tuple[Model, annotation]
     )
     result = serializer.response(({"value": 1}, {"value": 2}))
-    assert json.loads(serializer.encode_response(result)) == [{"value": 1}, "replaced"]
+    assert json.loads(serializer.encode(result)) == [{"value": 1}, "replaced"]
     schema = serializer.get_response_schema()
     assert schema["prefixItems"][1] == {"type": "string"}
 
@@ -259,7 +253,7 @@ def test_untyped_response_preserves_custom_factory_encoder():
     serializer = factory(
         name="handler", options=[], response_type=inspect.Parameter.empty
     )
-    assert serializer.encode_response(b"raw") == factory.encode(b"raw") == b"custom"
+    assert serializer.encode(b"raw") == factory.encode(b"raw") == b"custom"
 
 
 def test_typed_model_response_uses_declared_fields():
@@ -274,7 +268,7 @@ def test_typed_model_response_uses_declared_fields():
     result = ExtendedResult(value=42, extra="extra")
     assert serializer.response(result) is result
     assert factory.encode(result) == b'{"value":42,"extra":"extra"}'
-    assert serializer.encode_response(result) == b'{"value":42}'
+    assert serializer.encode(result) == b'{"value":42}'
     assert list(serializer.get_response_schema()["properties"]) == ["value"]
 
 
@@ -297,7 +291,7 @@ def test_annotation_serializer_defines_otherwise_unsupported_schema(nested):
     )
     value = [Opaque()] if nested else Opaque()
     result = serializer.response(value)
-    assert serializer.encode_response(result) == (b'["ok"]' if nested else b'"ok"')
+    assert serializer.encode(result) == (b'["ok"]' if nested else b'"ok"')
     assert serializer.get_response_schema() == (
         {"type": "array", "items": {"type": "string"}} if nested else {"type": "string"}
     )
@@ -325,9 +319,7 @@ def test_model_serializer_return_encoding_matches_adapter(nested, outer):
     )
     result = serializer.response([{"value": 42}] if nested else {"value": 42})
     expected = "YWI=" if not nested and not outer else "ab"
-    assert json.loads(serializer.encode_response(result)) == (
-        [expected] if nested else expected
-    )
+    assert json.loads(serializer.encode(result)) == ([expected] if nested else expected)
     schema = serializer.get_response_schema()
     item = schema["items"] if nested else schema
     item = resolve_root({**item, "$defs": schema.get("$defs", {})})
@@ -357,7 +349,7 @@ def test_model_serializer_shared_under_different_json_configs(model_first):
     )
     values = ({"result": {"value": 42}}, {"value": 42})
     result = serializer.response(values if model_first else values[::-1])
-    assert json.loads(serializer.encode_response(result)) == (
+    assert json.loads(serializer.encode(result)) == (
         [{"result": "YWI="}, "ab"] if model_first else ["ab", {"result": "YWI="}]
     )
     schema = serializer.get_response_schema()

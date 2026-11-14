@@ -187,7 +187,7 @@ class _MsgSpecSerializer(Serializer):
             kw_only=True,
         )
 
-    def encode_response(self, value: Any) -> bytes:
+    def encode(self, value: Any) -> bytes:
         return MsgSpecSerializer.encode(value)
 
     def get_response_schema(self) -> dict[str, Any] | None:

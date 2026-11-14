@@ -181,7 +181,7 @@ class _PydanticSerializer(Serializer):
             **{i.field_name: (i.field_type, i.default_value) for i in options},
         )
 
-    def encode_response(self, value: Any) -> bytes:
+    def encode(self, value: Any) -> bytes:
         return self._response_encoder(value)
 
     def get_response_schema(self) -> dict[str, Any] | None:
@@ -227,7 +227,7 @@ class _PydanticSerializerWithResponse(_PydanticSerializer):
     def response(self, value: Any) -> Any:
         return self.response_callback(value)
 
-    def encode_response(self, value: Any) -> bytes:
+    def encode(self, value: Any) -> bytes:
         return self.response_adapter.dump_json(value, by_alias=True)
 
     def get_response_schema(self) -> dict[str, Any]:

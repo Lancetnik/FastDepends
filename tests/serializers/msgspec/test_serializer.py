@@ -104,5 +104,5 @@ def test_bound_response_encoder():
 
     factory = MsgSpecSerializer()
     serializer = factory(name="handler", options=[], response_type=int)
-    assert serializer.encode_response(serializer.response("42")) == b"42"
-    assert serializer.encode_response(b"raw") == b"raw"
+    assert serializer.encode(serializer.response("42")) == b"42"
+    assert serializer.encode(b"raw") == b"raw"

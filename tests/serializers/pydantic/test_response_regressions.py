@@ -36,7 +36,7 @@ def test_direct_model_keeps_custom_validation(provider, wrapped):
     value = handler()
     assert value.value == 42
     assert seen == [{"value": 41}]
-    assert models[0].serializer.encode_response(value) == b'{"value":42}'
+    assert models[0].serializer.encode(value) == b'{"value":42}'
     assert seen == [{"value": 41}]
 
 

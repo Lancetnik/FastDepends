@@ -196,7 +196,7 @@ class _PydanticSerializer(Serializer):
 
 
 class _PydanticSerializerWithResponse(_PydanticSerializer):
-    __slots__ = ("response_adapter", "response_config")
+    __slots__ = ("response_adapter", "response_config", "response_callback")
 
     response_adapter: TypeAdapter[Any]
 
@@ -218,9 +218,14 @@ class _PydanticSerializerWithResponse(_PydanticSerializer):
         self.response_adapter, self.response_config = response_adapter(
             response_type, self.config
         )
+        self.response_callback = (
+            response_type.model_validate
+            if isinstance(response_type, type) and issubclass(response_type, BaseModel)
+            else self.response_adapter.validate_python
+        )
 
     def response(self, value: Any) -> Any:
-        return self.response_adapter.validate_python(value)
+        return self.response_callback(value)
 
     def encode_response(self, value: Any) -> bytes:
         return self.response_adapter.dump_json(value, by_alias=True)

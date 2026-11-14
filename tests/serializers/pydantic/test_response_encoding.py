@@ -336,3 +336,33 @@ def test_model_serializer_return_encoding_matches_adapter(nested, outer):
         "type": "string",
         "format": "base64url" if expected == "YWI=" else "binary",
     }
+
+
+@pytest.mark.parametrize("model_first", (True, False))
+def test_model_serializer_shared_under_different_json_configs(model_first):
+    class Result(BaseModel):
+        value: int
+
+        @model_serializer
+        def serialize(self) -> bytes:
+            return b"ab"
+
+    class Envelope(BaseModel):
+        model_config = {"ser_json_bytes": "base64"}
+        result: Result
+
+    annotation = tuple[Envelope, Result] if model_first else tuple[Result, Envelope]
+    serializer = PydanticSerializer()(
+        name="handler", options=[], response_type=annotation
+    )
+    values = ({"result": {"value": 42}}, {"value": 42})
+    result = serializer.response(values if model_first else values[::-1])
+    assert json.loads(serializer.encode_response(result)) == (
+        [{"result": "YWI="}, "ab"] if model_first else ["ab", {"result": "YWI="}]
+    )
+    schema = serializer.get_response_schema()
+    ordinary = resolve_root({**schema, **schema["prefixItems"][1 if model_first else 0]})
+    envelope = resolve_root({**schema, **schema["prefixItems"][0 if model_first else 1]})
+    nested = resolve_root({**schema, **envelope["properties"]["result"]})
+    assert ordinary["format"] == "binary"
+    assert nested["format"] == "base64url"

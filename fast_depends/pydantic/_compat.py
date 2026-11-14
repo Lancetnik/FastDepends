@@ -70,11 +70,11 @@ class _ResponseSchema(GenerateJsonSchema):
             self._json_configs.pop()
 
     def _scoped_ref(self, schema: Any) -> str:
-        if schema["type"] in ("model", "dataclass"):
+        if schema["type"] in ("model", "dataclass") and "serialization" not in schema:
             ref: str = schema["ref"]
             return ref
         config = self._config.config_dict
-        # Named aliases can occur under several model/adapter configurations.
+        # Shared types and model serializers can use different JSON configurations.
         # Pydantic otherwise reuses the first generated definition for all of them.
         key = repr(sorted((k, v) for k, v in config.items() if k.startswith("ser_json_")))
         context = self._contexts.setdefault(key, len(self._contexts))

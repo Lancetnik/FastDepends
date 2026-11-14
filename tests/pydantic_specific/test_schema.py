@@ -20,7 +20,7 @@ def test_base() -> None:
             dependency_provider=Provider(),
         )
     )
-    assert schema == {"title": "handler", "type": "null"}, schema
+    assert schema == {"title": "handler", "type": "object", "properties": {}}, schema
 
 
 class TestExclude:
@@ -59,7 +59,7 @@ class TestExclude:
             ),
             exclude=("a", "b"),
         )
-        assert schema == {"title": "handler", "type": "null"}, schema
+        assert schema == {"title": "handler", "type": "object", "properties": {}}, schema
 
 
 class TestNoType:

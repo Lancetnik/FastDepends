@@ -215,10 +215,23 @@ These options affect documentation only; they do not change validation or
 execution. Processing does not mutate the backend's cached schema or later calls.
 `get_response_schema()` keeps its original API and native reference layout.
 
-The existing `fast_depends.pydantic.schema.get_schema()` helper shares embedding
-and reference processing. It still selects Pydantic, works without a runtime
-serializer, excludes by Python name, ignores custom field hooks, and returns
-`{"title": ..., "type": "null"}` when no inputs remain.
+The backend-independent `fast_depends.schema.get_schema(call, ...)` helper delegates
+to `call.serializer.get_schema(...)` with the same processing options. The old
+`fast_depends.pydantic.schema.get_schema` import is an alias for this helper; it
+uses the call's actual backend, configuration, dependency overrides and CustomField
+hooks. It does not create another serializer or select Pydantic implicitly.
+
+```python
+from fast_depends.schema import get_schema
+
+arguments = get_schema(call, embed=True, exclude=(("headers", "debug"),))
+```
+
+In FastDepends 4, both entry points describe a call without external inputs as an
+object with no declared properties, including when all inputs are excluded. This
+replaces the old helper's `null` schema. A call with `serializer=None` raises
+`ValueError`; configure a serializer when building the call to request schemas.
+A custom serializer without schema support still raises `NotImplementedError`.
 
 ## Describing custom fields
 
@@ -332,4 +345,4 @@ Grouping is a schema representation. Runtime extraction remains the custom
 field's responsibility. Getting a schema does not change `cast`, `required`,
 argument validation, response schemas, or the existing serializer. Standalone
 serializers continue to describe their configured options without calling hooks.
-The legacy Pydantic schema helper does not use this hook.
+Both helper import paths delegate to the bound serializer and use this hook.

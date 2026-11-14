@@ -49,9 +49,9 @@ Also the project can be a core of your own framework for anything. Actually, it 
 pip install fast-depends
 ```
 
-FastDepends 4 requires Pydantic 2 when using the Pydantic backend. Install
-`fast-depends[pydantic]` to include it. Projects that require Pydantic 1 should
-continue using FastDepends 3.x.
+The Pydantic backend in FastDepends 4 requires `pydantic>=2.12.5,<3.0.0`.
+Install `fast-depends[pydantic]` to include it. Projects that require Pydantic 1
+should continue using FastDepends 3.x.
 
 ## Usage
 

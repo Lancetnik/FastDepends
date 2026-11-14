@@ -578,7 +578,7 @@ test = [
 requires-dist = [
     { name = "anyio", specifier = ">=4.0.0,<5.0.0" },
     { name = "msgspec", marker = "extra == 'msgspec'" },
-    { name = "pydantic", marker = "extra == 'pydantic'", specifier = ">=2.0.0,<3.0.0" },
+    { name = "pydantic", marker = "extra == 'pydantic'", specifier = ">=2.12.5,<3.0.0" },
     { name = "typing-extensions", specifier = "!=4.12.1" },
 ]
 provides-extras = ["pydantic", "msgspec"]

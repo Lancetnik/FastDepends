@@ -49,13 +49,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        include:
-          - pydantic-version: "2.0.3"
-            tests: tests/serializers/pydantic/test_schema_compat.py
-          - pydantic-version: "2.12.5"
-            tests: tests/serializers/pydantic
-          - pydantic-version: "2.13.5"
-            tests: tests/serializers/pydantic
+        pydantic-version: ["2.12.5", "2.13.5"]
       fail-fast: false
     steps:
       - uses: actions/checkout@v7
@@ -64,8 +58,8 @@ jobs:
           python-version: "3.10"
       - run: pip install --group test ".[pydantic]" "pydantic==${{ matrix.pydantic-version }}"
       - run: mkdir coverage
-      - name: Test response encoding and schemas
-        run: coverage run -m pytest ${{ matrix.tests }}
+      - name: Test supported Pydantic versions
+        run: coverage run -m pytest
         env:
           COVERAGE_FILE: coverage/.coverage.pydantic-${{ matrix.pydantic-version }}
           CONTEXT: pydantic-${{ matrix.pydantic-version }}

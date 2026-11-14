@@ -1,5 +1,4 @@
 from collections.abc import Callable
-from contextlib import nullcontext
 from functools import partial
 from typing import Any, cast
 
@@ -157,12 +156,6 @@ class _ResponseSchema(GenerateJsonSchema):
         if not self._model_serializer:
             if schema.get("metadata", {}).get("fast_depends_raw_bytes"):
                 result["format"] = "binary"
-            elif "ser_json_bytes" in self._json_config:
-                result["format"] = (
-                    "base64url"
-                    if self._json_config["ser_json_bytes"] == "base64"
-                    else "binary"
-                )
         return result
 
     if not hasattr(GenerateJsonSchema, "_common_temporal_schema"):
@@ -171,11 +164,7 @@ class _ResponseSchema(GenerateJsonSchema):
         def _temporal_schema(self, schema: Any) -> JsonSchemaValue:
             result: JsonSchemaValue = getattr(super(), f"{schema['type']}_schema")(schema)
             if not self._model_serializer:
-                temporal = (
-                    self._json_config.get("ser_json_temporal")
-                    if "ser_json_temporal" in CoreConfig.__annotations__
-                    else None
-                )
+                temporal = self._json_config.get("ser_json_temporal")
                 if temporal in ("seconds", "milliseconds"):
                     result["type"] = "number"
                     result.pop("format", None)
@@ -250,8 +239,7 @@ def type_schema(annotation: Any, config: ConfigDict) -> dict[str, Any]:
     generator = _ResponseSchema(config)
     # Before Pydantic 2.14, TypeAdapter.json_schema() does not forward its
     # config to the generator. Match the configured generic JSON encoder.
-    stack = getattr(generator, "_config_wrapper_stack", None)
-    with stack.push(config) if stack is not None else nullcontext():
+    with generator._config_wrapper_stack.push(config):
         schema: dict[str, Any] = generator.generate(
             _raw_response_bytes(adapter.core_schema), mode="serialization"
         )

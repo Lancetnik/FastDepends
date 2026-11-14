@@ -2,16 +2,11 @@ from datetime import datetime, timedelta
 from typing import Annotated, Any
 
 import pytest
-from pydantic import BaseModel
+from pydantic import BaseModel, PlainSerializer
 
 from fast_depends import inject
-from fast_depends.pydantic._compat import PYDANTIC_V2
 from fast_depends.pydantic.serializer import PydanticSerializer
-from tests.marks import pydanticV1, pydanticV2
 from tests.serializers.params import comptex_params, parametrized
-
-if PYDANTIC_V2:
-    from pydantic import PlainSerializer
 
 
 class SimpleModel(BaseModel):
@@ -30,8 +25,7 @@ class SimpleModel(BaseModel):
         ),
     ),
 )
-@pydanticV2
-def test_encode_v2(
+def test_encode(
     message: Any,
     expected_message: bytes,
 ) -> None:
@@ -39,30 +33,6 @@ def test_encode_v2(
     assert msg == expected_message
 
 
-@pytest.mark.parametrize(
-    ("message", "expected_message"),
-    (
-        *parametrized,
-        *comptex_params,
-        pytest.param(
-            SimpleModel(r="hello!"),
-            b'{"r":"hello!"}',
-            id="model",
-        ),
-    ),
-)
-@pydanticV1
-def test_encode_v1(
-    message: Any,
-    expected_message: bytes,
-) -> None:
-    msg = PydanticSerializer.encode(message)
-    # Pydantic v1 encodes through orjson/ujson/stdlib json, whichever is
-    # installed, and they disagree on separator whitespace only.
-    assert msg.replace(b", ", b",").replace(b": ", b":") == expected_message
-
-
-@pydanticV2
 @pytest.mark.parametrize(
     "config, message, expected",
     [
@@ -83,7 +53,6 @@ def test_instance_encode_uses_json_config(config, message, expected):
     assert PydanticSerializer(pydantic_config=config).encode(message) == expected
 
 
-@pydanticV2
 def test_configured_encoder_preserves_raw_bytes_and_class_calls():
     configured = PydanticSerializer(pydantic_config={"ser_json_bytes": "base64"})
 
@@ -103,7 +72,6 @@ def test_factory_preserves_subclass_encoder():
     assert CustomSerializer().encode({"data": b"ab"}) == b"custom"
 
 
-@pydanticV2
 @pytest.mark.parametrize("wrapped", (True, False))
 def test_json_config_does_not_change_injected_python_result(provider, wrapped):
     factory = PydanticSerializer(
@@ -122,7 +90,6 @@ def test_json_config_does_not_change_injected_python_result(provider, wrapped):
     assert factory.encode(result) == b"90.0"
 
 
-@pydanticV2
 def test_json_config_does_not_enable_annotation_serializers(provider):
     factory = PydanticSerializer(pydantic_config={"ser_json_bytes": "base64"})
     annotation = Annotated[int, PlainSerializer(str, return_type=str)]
@@ -134,7 +101,6 @@ def test_json_config_does_not_enable_annotation_serializers(provider):
     assert factory.encode(handler()) == b"42"
 
 
-@pydanticV2
 def test_json_config_preserves_model_owned_encoder():
     class Result(BaseModel):
         model_config = {"ser_json_bytes": "hex", "ser_json_timedelta": "iso8601"}

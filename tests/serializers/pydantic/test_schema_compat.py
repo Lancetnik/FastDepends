@@ -3,10 +3,8 @@ from datetime import timedelta
 import pytest
 
 from fast_depends.pydantic import PydanticSerializer
-from tests.marks import pydanticV2
 
 
-@pydanticV2
 @pytest.mark.parametrize(
     "config, annotation, value, encoded, schema",
     [

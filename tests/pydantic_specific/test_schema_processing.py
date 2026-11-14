@@ -5,7 +5,6 @@ from pydantic import BaseModel, Field
 
 from fast_depends import Provider
 from fast_depends.core import build_call_model
-from fast_depends.pydantic._compat import PYDANTIC_V2
 from fast_depends.pydantic.schema import get_schema
 from tests.schema.custom_fields import Input
 
@@ -35,7 +34,7 @@ def test_legacy_resolve_keeps_recursive_definition():
 
     call = build_call_model(handler, dependency_provider=Provider(), serializer_cls=None)
     schema = get_schema(call, embed=True, resolve_refs=True)
-    key = "$defs" if PYDANTIC_V2 else "definitions"
+    key = "$defs"
 
     assert schema[key]["Recursive"]["properties"]["children"]["items"] == {
         "$ref": f"#/{key}/Recursive"
@@ -47,6 +46,6 @@ def test_legacy_embed_keeps_definition_without_resolution():
 
     call = build_call_model(handler, dependency_provider=Provider(), serializer_cls=None)
     schema = get_schema(call, embed=True)
-    key = "$defs" if PYDANTIC_V2 else "definitions"
+    key = "$defs"
 
     assert schema["$ref"] == f"#/{key}/Recursive" and "Recursive" in schema[key]

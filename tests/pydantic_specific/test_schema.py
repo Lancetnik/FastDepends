@@ -3,11 +3,10 @@ from pydantic import BaseModel, Field
 
 from fast_depends import Depends, Provider
 from fast_depends.core import build_call_model
-from fast_depends.pydantic._compat import PYDANTIC_V2
 from fast_depends.pydantic.schema import get_schema
 from fast_depends.pydantic.serializer import PydanticSerializer
 
-REF_KEY = "$defs" if PYDANTIC_V2 else "definitions"
+REF_KEY = "$defs"
 
 
 def test_base() -> None:

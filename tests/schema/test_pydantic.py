@@ -8,18 +8,13 @@ from dirty_equals import IsPartialDict
 
 pytest.importorskip("pydantic")
 
-from pydantic import BaseModel, Field, Json
+from pydantic import AliasChoices, AliasPath, BaseModel, Field, Json
+from pydantic.json_schema import SkipJsonSchema
 
 from fast_depends import Depends, inject
 from fast_depends.library.serializer import OptionItem
 from fast_depends.pydantic import PydanticSerializer
-from fast_depends.pydantic._compat import PYDANTIC_V2
-from tests.marks import pydanticV1, pydanticV2
 from tests.schema.custom_fields import Input, source_schema
-
-if PYDANTIC_V2:
-    from pydantic import AliasChoices, AliasPath
-    from pydantic.json_schema import SkipJsonSchema
 
 
 class Node(BaseModel):
@@ -80,7 +75,6 @@ def test_bound_schema_preserves_default_factory(capture, provider):
     assert not capture.serializer.get_schema().get("required")
 
 
-@pydanticV2
 def test_bound_schema_uses_validation_mode(capture, provider):
     def dependency(value: Json[int]): ...
 
@@ -106,7 +100,7 @@ def test_bound_schema_preserves_recursive_references(capture, provider):
     )
     def handler(value: Any = Depends(dependency)): ...
 
-    ref_key = "$defs" if PYDANTIC_V2 else "definitions"
+    ref_key = "$defs"
     assert capture.serializer.get_schema() == IsPartialDict(
         {
             "properties": {"node": {"$ref": f"#/{ref_key}/Node"}},
@@ -246,7 +240,7 @@ def test_custom_field_preserves_recursive_references(capture, provider):
     def handler(node: Annotated[Node, Input("query")]): ...
 
     schema = capture.serializer.get_schema()
-    ref_key = "$defs" if PYDANTIC_V2 else "definitions"
+    ref_key = "$defs"
 
     assert {"group": source_schema(schema, "query"), "node": schema[ref_key]["Node"]} == {
         "group": IsPartialDict(properties={"node": {"$ref": f"#/{ref_key}/Node"}}),
@@ -256,7 +250,6 @@ def test_custom_field_preserves_recursive_references(capture, provider):
     }
 
 
-@pydanticV2
 def test_custom_field_validation_alias(capture, provider):
     @inject(
         serializer_cls=PydanticSerializer(),
@@ -280,7 +273,7 @@ def sort_schema_properties(schema):
 def test_custom_requiredness_uses_aliases_after_property_reordering(
     capture, provider, source
 ):
-    config_key = "json_schema_extra" if PYDANTIC_V2 else "schema_extra"
+    config_key = "json_schema_extra"
 
     @inject(
         serializer_cls=PydanticSerializer(
@@ -302,7 +295,6 @@ def test_custom_requiredness_uses_aliases_after_property_reordering(
     assert target["required"] == ["a_required"]
 
 
-@pydanticV2
 @pytest.mark.parametrize("source", [None, "query"])
 def test_custom_field_allows_schema_hidden_fields(capture, provider, source):
     @inject(
@@ -322,7 +314,6 @@ def test_custom_field_allows_schema_hidden_fields(capture, provider, source):
     assert target == IsPartialDict(properties={"visible": IsPartialDict(type="integer")})
 
 
-@pydanticV2
 def test_hidden_root_alias_does_not_conflict_with_source(capture, provider):
     @inject(
         serializer_cls=PydanticSerializer(),
@@ -341,7 +332,6 @@ def test_hidden_root_alias_does_not_conflict_with_source(capture, provider):
     )
 
 
-@pydanticV2
 @pytest.mark.parametrize("source", [None, "headers"])
 @pytest.mark.parametrize("hidden_first", [True, False])
 @pytest.mark.parametrize("required", [True, False])
@@ -366,14 +356,13 @@ def test_hidden_alias_does_not_change_visible_requiredness(
     assert target.get("required", []) == (["value"] if required else [])
 
 
-@pydanticV2
 @pytest.mark.parametrize(
     "alias, expected",
     [
-        (AliasChoices("external", "fallback") if PYDANTIC_V2 else None, "external"),
-        (AliasPath("outer", "inner") if PYDANTIC_V2 else None, "value"),
+        (AliasChoices("external", "fallback"), "external"),
+        (AliasPath("outer", "inner"), "value"),
         (
-            AliasChoices(AliasPath("external"), "fallback") if PYDANTIC_V2 else None,
+            AliasChoices(AliasPath("external"), "fallback"),
             "external",
         ),
     ],
@@ -406,7 +395,7 @@ def test_resolve_recursive_schema_keeps_definition(capture, provider, embed):
     def handler(node: Node): ...
 
     schema = capture.serializer.get_schema(embed=embed, resolve_refs=True)
-    key = "$defs" if PYDANTIC_V2 else "definitions"
+    key = "$defs"
 
     assert schema[key]["Node"]["properties"]["children"]["items"] == {
         "$ref": f"#/{key}/Node"
@@ -422,7 +411,7 @@ def test_embed_keeps_unresolved_definition(capture, provider):
     def handler(node: Node): ...
 
     schema = capture.serializer.get_schema(embed=True)
-    key = "$defs" if PYDANTIC_V2 else "definitions"
+    key = "$defs"
 
     assert schema["$ref"] == f"#/{key}/Node" and "Node" in schema[key]
 
@@ -485,7 +474,7 @@ def test_resolve_preserves_discriminator_targets(capture, provider):
     def handler(pet: Annotated[Cat | Dog, Field(discriminator="kind")]): ...
 
     schema = capture.serializer.get_schema(resolve_refs=True, embed=True)
-    key = "$defs" if PYDANTIC_V2 else "definitions"
+    key = "$defs"
 
     assert {
         ref.rsplit("/", 1)[-1] for ref in schema["discriminator"]["mapping"].values()
@@ -497,7 +486,7 @@ def hide_headers(schema):
 
 
 def test_schema_extra_can_hide_source_group(capture, provider):
-    config_key = "json_schema_extra" if PYDANTIC_V2 else "schema_extra"
+    config_key = "json_schema_extra"
 
     @inject(
         serializer_cls=PydanticSerializer(pydantic_config={config_key: hide_headers}),
@@ -532,7 +521,7 @@ def test_schema_extra_group_replacement_preserves_requiredness(
         if "headers" in schema.get("properties", {}):
             schema["properties"]["headers"] = deepcopy(replacement)
 
-    config_key = "json_schema_extra" if PYDANTIC_V2 else "schema_extra"
+    config_key = "json_schema_extra"
 
     @inject(
         serializer_cls=PydanticSerializer(pydantic_config={config_key: replace_headers}),
@@ -552,9 +541,17 @@ def test_schema_extra_group_replacement_preserves_requiredness(
 @pytest.fixture(params=["title", "description"])
 def decorated_group_schema(request, capture, provider):
     def make_schema(required):
+        def decorate_headers(schema):
+            properties = schema.get("properties", {})
+            if "headers" in properties:
+                properties["headers"] = {
+                    request.param: "Headers",
+                    "allOf": [properties["headers"]],
+                }
+
         @inject(
             serializer_cls=PydanticSerializer(
-                pydantic_config={"fields": {"source_1": {request.param: "Headers"}}}
+                pydantic_config={"json_schema_extra": decorate_headers}
             ),
             dependency_provider=provider,
             wrap_model=capture,
@@ -566,7 +563,6 @@ def decorated_group_schema(request, capture, provider):
     return make_schema
 
 
-@pydanticV1
 @pytest.mark.parametrize("required", [True, False])
 def test_group_documentation_preserves_root_requiredness(
     decorated_group_schema, required
@@ -576,14 +572,13 @@ def test_group_documentation_preserves_root_requiredness(
     assert schema.get("required", []) == (["headers"] if required else [])
 
 
-@pydanticV1
 @pytest.mark.parametrize("required", [True, False])
 def test_group_documentation_preserves_field_requiredness(
     decorated_group_schema, required
 ):
     schema = decorated_group_schema(required)
     ref = schema["properties"]["headers"]["allOf"][0]["$ref"]
-    target = schema["definitions"][ref.split("/")[-1]]
+    target = schema["$defs"][ref.split("/")[-1]]
 
     assert target.get("required", []) == (["token"] if required else [])
 
@@ -594,7 +589,7 @@ def test_boolean_source_group_preserves_native_schema(capture, provider, value):
         if "headers" in schema.get("properties", {}):
             schema["properties"]["headers"] = value
 
-    config_key = "json_schema_extra" if PYDANTIC_V2 else "schema_extra"
+    config_key = "json_schema_extra"
 
     @inject(
         serializer_cls=PydanticSerializer(pydantic_config={config_key: replace_group}),
@@ -610,7 +605,7 @@ def test_boolean_source_group_preserves_native_schema(capture, provider, value):
 
 @pytest.mark.parametrize("value", [False, True])
 def test_embed_boolean_property_from_schema_extra(capture, provider, value):
-    config_key = "json_schema_extra" if PYDANTIC_V2 else "schema_extra"
+    config_key = "json_schema_extra"
 
     @inject(
         serializer_cls=PydanticSerializer(
@@ -622,46 +617,3 @@ def test_embed_boolean_property_from_schema_extra(capture, provider, value):
     def handler(value: int): ...
 
     assert capture.serializer.get_schema(embed=True) == {"allOf": [value]}
-
-
-@pydanticV1
-@pytest.mark.parametrize("resolve_refs", [False, True])
-def test_embed_referenced_resource_keeps_local_definitions(
-    capture, provider, resolve_refs
-):
-    class Wrapper(BaseModel):
-        value: int
-
-        class Config:
-            schema_extra = {
-                "$id": "https://example.test/wrapper",
-                "properties": {"value": {"$ref": "#/definitions/Value"}},
-                "definitions": {"Value": {"type": "integer"}},
-            }
-
-    def use_wrapper_root(schema):
-        schema["$ref"] = schema.pop("properties")["wrapper"]["$ref"]
-        schema.pop("required", None)
-
-    @inject(
-        serializer_cls=PydanticSerializer(
-            pydantic_config={"schema_extra": use_wrapper_root}
-        ),
-        dependency_provider=provider,
-        wrap_model=capture,
-    )
-    def handler(wrapper: Wrapper): ...
-
-    original = capture.serializer.get_schema()
-    result = capture.serializer.get_schema(embed=True, resolve_refs=resolve_refs)
-    prefix = "#/definitions/__fast_depends_input"
-
-    assert result == {
-        "$ref": f"{prefix}/definitions/Wrapper/properties/value",
-        "definitions": {
-            "__fast_depends_input": {
-                **original,
-                "$ref": f"{prefix}/definitions/Wrapper",
-            }
-        },
-    }

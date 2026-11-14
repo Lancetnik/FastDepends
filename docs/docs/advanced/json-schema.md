@@ -68,8 +68,8 @@ serializer.
 Schemas retain the backend's native layout. With Pydantic v2, `get_schema()` uses
 validation mode, while `get_response_schema()` uses serialization mode to describe
 output types and include computed fields. Response schemas describe the configured
-factory's `factory.encode(serializer.response(value))` path: Pydantic v1 models
-use field names, and Pydantic v2 includes serializers carried by model instances.
+factory's `factory.encode(serializer.response(value))` path and include serializers
+carried by Pydantic model instances.
 In Pydantic v2, plain dataclasses and `TypedDict` responses use Python field names;
 aliases apply when a containing Pydantic model's serializer encodes those structures.
 Serializers attached only to a return annotation (such as
@@ -108,11 +108,9 @@ different format; dependency injection and Python return values are unchanged.
 The class-level `PydanticSerializer.encode(value)` call retains default encoding.
 Top-level `bytes` are passed through unchanged and use the `binary` schema format,
 including bytes returned through a union or named alias. Bytes nested in a JSON
-container use the configured encoding and schema format. Pydantic v1 encoding is
-unchanged.
+container use the configured encoding and schema format.
 
-Pydantic v1 uses `definitions`, while
-Pydantic v2 and Msgspec use `$defs`. A schema can have a
+Pydantic and Msgspec use `$defs`. A schema can have a
 `$ref` at its root. Keep the definitions with the schema so that nested and
 recursive references remain valid. Backend-specific metadata and configuration
 are preserved; the methods do not make unsupported types schema-compatible.

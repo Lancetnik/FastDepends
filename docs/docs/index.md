@@ -48,6 +48,10 @@ $ pip install fast-depends
 ```
 </div>
 
+FastDepends 4 requires Pydantic 2 when using the Pydantic backend. Install
+`fast-depends[pydantic]` to include it. Projects that require Pydantic 1 should
+continue using FastDepends 3.x.
+
 ## Usage
 
 There is no way to make Dependency Injection easier

@@ -236,7 +236,7 @@ def process_schema(
 
     Recursive, external and unresolvable references remain references. Definitions
     used by surviving references or discriminator mappings stay in the document.
-    The caller's schema (including a Pydantic v1 schema cache) is never modified.
+    The caller's schema is never modified.
     """
     if not embed and not resolve_refs:
         return schema

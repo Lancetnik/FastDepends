@@ -6,32 +6,30 @@ from typing import Annotated, Any, Union
 
 import pytest
 from dirty_equals import IsPartialDict
-from pydantic import BaseModel, Field, Json
+from pydantic import (
+    AfterValidator,
+    BaseModel,
+    BeforeValidator,
+    Discriminator,
+    Field,
+    Json,
+    PlainSerializer,
+    Tag,
+    WrapSerializer,
+    WrapValidator,
+    computed_field,
+)
+from pydantic.dataclasses import dataclass as pydantic_dataclass
+from pydantic.errors import PydanticInvalidForJsonSchema
+from pydantic_core import core_schema
 from typing_extensions import TypeAliasType, TypedDict
 
 from fast_depends.library.serializer import OptionItem, Serializer
 from fast_depends.pydantic import PydanticSerializer
-from fast_depends.pydantic._compat import PYDANTIC_V2
-from tests.marks import pydanticV2
 from tests.serializers.test_schema import resolve_root
 
-if PYDANTIC_V2:
-    from pydantic import (
-        AfterValidator,
-        BeforeValidator,
-        Discriminator,
-        PlainSerializer,
-        Tag,
-        WrapSerializer,
-        WrapValidator,
-        computed_field,
-    )
-    from pydantic.dataclasses import dataclass as pydantic_dataclass
-    from pydantic.errors import PydanticInvalidForJsonSchema
-    from pydantic_core import core_schema
-
-REF_KEY = "$defs" if PYDANTIC_V2 else "definitions"
-SCHEMA_ERROR = PydanticInvalidForJsonSchema if PYDANTIC_V2 else ValueError
+REF_KEY = "$defs"
+SCHEMA_ERROR = PydanticInvalidForJsonSchema
 
 
 def resolve_part(schema, part):
@@ -56,15 +54,14 @@ ByteTree = TypeAliasType("ByteTree", bytes | list["ByteTree"])
 ByteCycle = TypeAliasType("ByteCycle", Union[bytes, "ByteCycle"])
 
 
-if PYDANTIC_V2:
+class TimedResponse(BaseModel):
+    model_config = {"ser_json_timedelta": "float"}
+    value: ResponseSpan
 
-    class TimedResponse(BaseModel):
-        model_config = {"ser_json_timedelta": "float"}
-        value: ResponseSpan
 
-    class BinaryResponse(BaseModel):
-        model_config = {"ser_json_bytes": "hex"}
-        value: ResponseBytes
+class BinaryResponse(BaseModel):
+    model_config = {"ser_json_bytes": "hex"}
+    value: ResponseBytes
 
 
 class FirstRecursiveResponse(TypedDict):
@@ -202,7 +199,6 @@ def aliased_response_type(request):
     return pydantic_dataclass(Record) if request.param == "pydantic_dataclass" else Record
 
 
-@pydanticV2
 @pytest.mark.parametrize("wrapped", (True, False))
 @pytest.mark.parametrize("nested", (True, False))
 @pytest.mark.parametrize("keyword", ("properties", "required"))
@@ -224,7 +220,6 @@ def test_response_alias_matches_encoded_structure(
     assert list(result_schema[keyword]) == list(encoded[0] if nested else encoded)
 
 
-@pydanticV2
 @pytest.mark.parametrize("model_first", (True, False))
 def test_response_alias_distinguishes_structure_inside_model(
     aliased_response_type, model_first
@@ -260,7 +255,6 @@ def test_response_alias_distinguishes_structure_inside_model(
     assert names == [list(value) for value in encoded]
 
 
-@pydanticV2
 @pytest.mark.parametrize("reverse", (True, False))
 def test_response_alias_preserves_mutually_recursive_references(reverse):
     result_type = (
@@ -283,7 +277,6 @@ def test_response_alias_preserves_mutually_recursive_references(reverse):
     assert child_names == [list(value["child"]) for value in encoded]
 
 
-@pydanticV2
 @pytest.mark.parametrize("wrapped", (True, False))
 @pytest.mark.parametrize("nested", (True, False))
 @pytest.mark.parametrize("when_used", ("always", "json"))
@@ -310,7 +303,6 @@ def test_response_annotation_serializer_matches_encoding(
     assert json.loads(PydanticSerializer.encode(result)) == ([1] if nested else 1)
 
 
-@pydanticV2
 @pytest.mark.parametrize("model_kind", ("model", "dataclass", "plain_dataclass"))
 @pytest.mark.parametrize("outer_serializer", (True, False))
 def test_response_preserves_serializer_carried_by_value(model_kind, outer_serializer):
@@ -356,26 +348,22 @@ def test_dataclass_response() -> None:
     )
 
 
-@pydanticV2
 def test_response_uses_serialization_schema(json_serializer: Serializer) -> None:
     assert json_serializer.get_response_schema() == {"type": "integer"}
 
 
-@pydanticV2
 def test_arguments_use_validation_schema(json_serializer: Serializer) -> None:
     assert json_serializer.get_schema() == IsPartialDict(
         properties={"value": IsPartialDict(type="string")}
     )
 
 
-@pydanticV2
 def test_json_response_encoding(json_serializer: Serializer) -> None:
     result = json_serializer.response("42")
 
     assert PydanticSerializer.encode(result) == b"42"
 
 
-@pydanticV2
 def test_response_includes_computed_fields(
     computed_response_serializer: Serializer,
 ) -> None:
@@ -386,14 +374,12 @@ def test_response_includes_computed_fields(
     )
 
 
-@pydanticV2
 def test_computed_fields_are_required(computed_response_serializer: Serializer) -> None:
     schema = computed_response_serializer.get_response_schema()
 
     assert schema == IsPartialDict(required=["value", "twice"])
 
 
-@pydanticV2
 def test_computed_fields_are_encoded(computed_response_serializer: Serializer) -> None:
     result = computed_response_serializer.response({"value": 21})
 
@@ -441,7 +427,6 @@ def test_unsupported_schema_type(custom_serializer: Serializer) -> None:
         custom_serializer.get_schema()
 
 
-@pydanticV2
 @pytest.mark.parametrize("wrapped", (True, False))
 @pytest.mark.parametrize("nested", (True, False))
 @pytest.mark.parametrize(
@@ -515,7 +500,6 @@ def test_temporal_response_describes_configured_encoding(
     assert (schema["items"] if nested else schema) == value_schema
 
 
-@pydanticV2
 @pytest.mark.parametrize("model_first", (True, False))
 def test_configured_response_alias_matches_model_encoding(model_first):
     factory = PydanticSerializer(pydantic_config={"ser_json_timedelta": "float"})
@@ -536,7 +520,6 @@ def test_configured_response_alias_matches_model_encoding(model_first):
     assert resolve_root({**schema, **item}) == {"type": "number"}
 
 
-@pydanticV2
 @pytest.mark.parametrize("model_first", (True, False))
 def test_response_alias_keeps_distinct_model_encoding_config(model_first):
     factory = PydanticSerializer(pydantic_config={"ser_json_bytes": "base64"})
@@ -565,7 +548,6 @@ def test_response_alias_keeps_distinct_model_encoding_config(model_first):
     }
 
 
-@pydanticV2
 @pytest.mark.parametrize("kind", ("typed_dict", "dataclass"))
 def test_plain_structure_uses_factory_json_config(kind):
     if kind == "typed_dict":
@@ -591,7 +573,6 @@ def test_plain_structure_uses_factory_json_config(kind):
     }
 
 
-@pydanticV2
 @pytest.mark.parametrize("wrapped", (True, False))
 def test_bytes_response_describes_configured_encoding(wrapped):
     factory = PydanticSerializer(
@@ -606,7 +587,6 @@ def test_bytes_response_describes_configured_encoding(wrapped):
     }
 
 
-@pydanticV2
 @pytest.mark.parametrize(
     "annotation", (bytes, ResponseBytes, bytes | None, ResponseBytes | None)
 )
@@ -628,7 +608,6 @@ def test_root_bytes_response_preserves_raw_encoding(annotation):
     }
 
 
-@pydanticV2
 @pytest.mark.parametrize("nested_first", (True, False))
 def test_bytes_alias_has_distinct_root_and_nested_formats(nested_first):
     annotation = (
@@ -652,7 +631,6 @@ def test_bytes_alias_has_distinct_root_and_nested_formats(nested_first):
     }
 
 
-@pydanticV2
 def test_recursive_bytes_alias_preserves_nested_json_encoding():
     factory = PydanticSerializer(pydantic_config={"ser_json_bytes": "base64"})
     serializer = factory(name="handler", options=[], response_type=ByteTree)
@@ -669,7 +647,6 @@ def test_recursive_bytes_alias_preserves_nested_json_encoding():
     assert resolve_root({**schema, **nested["anyOf"][1]["items"]}) == nested
 
 
-@pydanticV2
 def test_recursive_root_bytes_alias_keeps_raw_format():
     factory = PydanticSerializer(pydantic_config={"ser_json_bytes": "base64"})
     serializer = factory(name="handler", options=[], response_type=ByteCycle)
@@ -685,7 +662,6 @@ def test_recursive_root_bytes_alias_keeps_raw_format():
     }
 
 
-@pydanticV2
 def test_root_bytes_response_preserves_constraints():
     factory = PydanticSerializer(pydantic_config={"ser_json_bytes": "base64"})
     serializer = factory(
@@ -703,7 +679,6 @@ def test_root_bytes_response_preserves_constraints():
     }
 
 
-@pydanticV2
 @pytest.mark.parametrize(
     "wrapper",
     (
@@ -763,7 +738,6 @@ def test_wrapped_bytes_response_preserves_root_and_nested_formats(wrapper):
     )
 
 
-@pydanticV2
 @pytest.mark.parametrize("annotation", (Json, Json[Any]))
 def test_untyped_json_response_schema(annotation):
     factory = PydanticSerializer(pydantic_config={"ser_json_bytes": "base64"})
@@ -773,7 +747,6 @@ def test_untyped_json_response_schema(annotation):
     assert serializer.get_response_schema() == {}
 
 
-@pydanticV2
 def test_tagged_union_bytes_response_preserves_root_format():
     annotation = Annotated[
         Annotated[bytes, Tag("raw")] | Annotated[list[bytes], Tag("nested")],
@@ -792,7 +765,6 @@ def test_tagged_union_bytes_response_preserves_root_format():
     }
 
 
-@pydanticV2
 def test_labeled_union_bytes_response_preserves_root_format():
     class BytesOrList:
         @classmethod
@@ -817,7 +789,6 @@ def test_labeled_union_bytes_response_preserves_root_format():
     }
 
 
-@pydanticV2
 def test_chained_text_response_schema_is_unchanged():
     class Text:
         @classmethod
@@ -834,7 +805,6 @@ def test_chained_text_response_schema_is_unchanged():
     assert serializer.get_response_schema() == {"type": "string"}
 
 
-@pydanticV2
 @pytest.mark.parametrize("annotation", (str, bytes))
 def test_response_preserves_explicit_json_schema_format(annotation):
     response_type = Annotated[
@@ -854,7 +824,6 @@ def test_response_preserves_explicit_json_schema_format(annotation):
     }
 
 
-@pydanticV2
 def test_bytes_response_preserves_constraints():
     factory = PydanticSerializer(pydantic_config={"ser_json_bytes": "base64"})
     serializer = factory(
@@ -872,7 +841,6 @@ def test_bytes_response_preserves_constraints():
     assert factory.encode(serializer.response([b"ab"])) == b'["YWI="]'
 
 
-@pydanticV2
 def test_bytes_response_preserves_model_encoding_config():
     class Result(BaseModel):
         model_config = {"ser_json_bytes": "base64"}
@@ -888,7 +856,6 @@ def test_bytes_response_preserves_model_encoding_config():
     )
 
 
-@pydanticV2
 @pytest.mark.parametrize(
     "annotation, value, config",
     [

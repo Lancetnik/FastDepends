@@ -63,7 +63,7 @@ def apply_schema_groups(
     def object_schema(value: dict[str, Any] | bool) -> dict[str, Any] | bool:
         if isinstance(value, bool):
             return value
-        # Pydantic v1 decorates a reference with title/description by wrapping it.
+        # A schema hook may decorate a reference by wrapping it in allOf.
         all_of = value.get("allOf", [])
         if len(all_of) == 1 and isinstance(all_of[0], dict) and "$ref" in all_of[0]:
             value = all_of[0]

@@ -18,7 +18,6 @@ from fast_depends.library.schema import (
 from fast_depends.library.schema_processing import SchemaExclude, process_schema
 from fast_depends.library.serializer import OptionItem, Serializer, SerializerProto
 from fast_depends.pydantic._compat import (
-    PYDANTIC_V2,
     BaseModel,
     ConfigDict,
     PydanticUserError,
@@ -220,36 +219,21 @@ class _PydanticSerializerWithResponse(_PydanticSerializer):
             pydantic_config=pydantic_config,
         )
 
-        response_callback: Callable[[Any], Any] | None = None
+        response_callback: Callable[[Any], Any]
         try:
             is_model = issubclass(response_type or object, BaseModel)
         except Exception:
             is_model = False
 
         if is_model:
-            if PYDANTIC_V2:
-                response_callback = response_type.model_validate
-            else:
-                response_callback = response_type.validate
-
-        elif PYDANTIC_V2:
+            response_callback = response_type.model_validate
+        else:
             try:
                 response_pydantic_type = TypeAdapter(response_type, config=self.config)
             except PydanticUserError:
                 response_pydantic_type = TypeAdapter(response_type)
             response_callback = response_pydantic_type.validate_python
 
-        if response_callback is None and not PYDANTIC_V2:
-            response_model = create_model(  # type: ignore[call-overload]
-                "ResponseModel",
-                __config__=self.config,
-                r=(response_type or Any, ...),
-            )
-
-            def response_callback(x: Any) -> Any:
-                return response_model(r=x).r  # type: ignore[attr-defined]
-
-        assert response_callback
         self.response_callback = response_callback
 
     def response(self, value: Any) -> Any:

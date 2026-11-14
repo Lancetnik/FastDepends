@@ -1,25 +1,43 @@
 import inspect
-from collections.abc import Callable, Iterator, Sequence
+from collections.abc import Callable, Iterable, Iterator, Sequence
 from contextlib import contextmanager
+from functools import partial
 from itertools import chain
 from typing import Any
 
+from pydantic import Field
 from pydantic import ValidationError as PValidationError
 
 from fast_depends.exceptions import ValidationError
+from fast_depends.library.schema import (
+    SchemaField,
+    apply_schema_groups,
+    exclude_schema_fields,
+    group_schema_fields,
+)
+from fast_depends.library.schema_processing import SchemaExclude, process_schema
 from fast_depends.library.serializer import OptionItem, Serializer, SerializerProto
 from fast_depends.pydantic._compat import (
-    PYDANTIC_V2,
     BaseModel,
     ConfigDict,
-    PydanticUserError,
     TypeAdapter,
     create_model,
     dump_json,
     get_aliases,
     get_config_base,
+    get_json_encoder,
     get_model_fields,
+    get_schema_aliases,
+    model_schema,
+    response_adapter,
+    type_schema,
 )
+
+
+def _encode(message: Any, *, encoder: Callable[[Any], bytes] = dump_json) -> bytes:
+    if isinstance(message, bytes):
+        return message
+    return encoder(message)
 
 
 class PydanticSerializer(SerializerProto):
@@ -28,6 +46,9 @@ class PydanticSerializer(SerializerProto):
         "use_fastdepends_errors",
     )
 
+    # Keep class-level calls as the default encoder; instances bind their config.
+    encode: Callable[[Any], bytes] = staticmethod(_encode)
+
     def __init__(
         self,
         pydantic_config: ConfigDict | None = None,
@@ -35,6 +56,8 @@ class PydanticSerializer(SerializerProto):
     ) -> None:
         self.config = pydantic_config
         self.use_fastdepends_errors = use_fastdepends_errors
+        if type(self).encode is PydanticSerializer.encode:
+            self.encode = partial(_encode, encoder=get_json_encoder(pydantic_config))
 
     def __call__(
         self,
@@ -43,40 +66,27 @@ class PydanticSerializer(SerializerProto):
         options: list[OptionItem],
         response_type: Any,
     ) -> "_PydanticSerializer":
+        serializer_type: type[_PydanticSerializer]
         if self.use_fastdepends_errors:
-            if response_type is not inspect.Parameter.empty:
-                return _PydanticWrappedSerializerWithResponse(
-                    name=name,
-                    options=options,
-                    response_type=response_type,
-                    pydantic_config=self.config,
-                )
-
-            return _PydanticWrappedSerializer(
-                name=name,
-                options=options,
-                pydantic_config=self.config,
+            serializer_type = (
+                _PydanticWrappedSerializerWithResponse
+                if response_type is not inspect.Parameter.empty
+                else _PydanticWrappedSerializer
             )
-
-        if response_type is not inspect.Parameter.empty:
-            return _PydanticSerializerWithResponse(
-                name=name,
-                options=options,
-                response_type=response_type,
-                pydantic_config=self.config,
+        else:
+            serializer_type = (
+                _PydanticSerializerWithResponse
+                if response_type is not inspect.Parameter.empty
+                else _PydanticSerializer
             )
-
-        return _PydanticSerializer(
+        serializer = serializer_type(
             name=name,
             options=options,
+            response_type=response_type,
             pydantic_config=self.config,
         )
-
-    @staticmethod
-    def encode(message: Any) -> bytes:
-        if isinstance(message, bytes):
-            return message
-        return dump_json(message)
+        serializer._response_encoder = self.encode
+        return serializer
 
 
 class _PydanticSerializer(Serializer):
@@ -86,14 +96,17 @@ class _PydanticSerializer(Serializer):
         "options",
         "config",
         "response_option",
+        "_response_encoder",
     )
+
+    _response_encoder: Callable[[Any], bytes]
 
     def __init__(
         self,
         *,
         name: str,
         options: list[OptionItem],
-        response_type: Any = None,
+        response_type: Any = inspect.Parameter.empty,
         pydantic_config: ConfigDict | None = None,
     ):
         class_options: dict[str, Any] = {
@@ -113,6 +126,67 @@ class _PydanticSerializer(Serializer):
     def get_aliases(self) -> tuple[str, ...]:
         return get_aliases(self.model)
 
+    def get_schema(
+        self,
+        *,
+        embed: bool = False,
+        exclude: Iterable[SchemaExclude] = (),
+        resolve_refs: bool = False,
+    ) -> dict[str, Any]:
+        return process_schema(
+            self._get_schema(tuple(exclude)), embed=embed, resolve_refs=resolve_refs
+        )
+
+    def _get_schema(self, exclude: tuple[SchemaExclude, ...]) -> dict[str, Any]:
+        if self._schema_options is None and not exclude:
+            return model_schema(self.model)
+
+        options = exclude_schema_fields(
+            self._schema_options()
+            if self._schema_options
+            else list(self.options.values()),
+            exclude,
+        )
+        if not any(isinstance(i, SchemaField) for i in options):
+            return model_schema(self._schema_model(self.name, options))
+
+        groups = group_schema_fields(options)
+        root_options = list(groups[None])
+        aliases: dict[str | None, dict[str, str]] = {}
+        for index, (source, fields) in enumerate(groups.items()):
+            if source is None:
+                continue
+            model = self._schema_model(f"{self.name}__source_{index}", fields)
+            aliases[source] = get_schema_aliases(model)
+            field_name = f"source_{index}"
+            while field_name in {i.field_name for i in root_options}:
+                field_name += "_"
+            root_options.append(
+                OptionItem(field_name, model, default_value=Field(..., alias=source))
+            )
+
+        model = self._schema_model(self.name, root_options)
+        root_aliases = get_schema_aliases(model)
+        aliases[None] = {
+            i.field_name: root_aliases[i.field_name]
+            for i in groups[None]
+            if i.field_name in root_aliases
+        }
+        return apply_schema_groups(model_schema(model), groups, aliases)
+
+    def _schema_model(self, name: str, options: list[OptionItem]) -> type[BaseModel]:
+        return create_model(  # type: ignore[call-overload, no-any-return]
+            name,
+            __config__=self.config,
+            **{i.field_name: (i.field_type, i.default_value) for i in options},
+        )
+
+    def encode(self, value: Any) -> bytes:
+        return self._response_encoder(value)
+
+    def get_response_schema(self) -> dict[str, Any] | None:
+        return None
+
     def __call__(self, call_kwargs: dict[str, Any]) -> dict[str, Any]:
         casted_model = self.model(**call_kwargs)
 
@@ -122,9 +196,9 @@ class _PydanticSerializer(Serializer):
 
 
 class _PydanticSerializerWithResponse(_PydanticSerializer):
-    __slots__ = ("response_callback",)
+    __slots__ = ("response_adapter", "response_config", "response_callback")
 
-    response_callback: Callable[[Any], Any]
+    response_adapter: TypeAdapter[Any]
 
     def __init__(
         self,
@@ -141,40 +215,23 @@ class _PydanticSerializerWithResponse(_PydanticSerializer):
             pydantic_config=pydantic_config,
         )
 
-        response_callback: Callable[[Any], Any] | None = None
-        try:
-            is_model = issubclass(response_type or object, BaseModel)
-        except Exception:
-            is_model = False
-
-        if is_model:
-            if PYDANTIC_V2:
-                response_callback = response_type.model_validate
-            else:
-                response_callback = response_type.validate
-
-        elif PYDANTIC_V2:
-            try:
-                response_pydantic_type = TypeAdapter(response_type, config=self.config)
-            except PydanticUserError:
-                response_pydantic_type = TypeAdapter(response_type)
-            response_callback = response_pydantic_type.validate_python
-
-        if response_callback is None and not PYDANTIC_V2:
-            response_model = create_model(  # type: ignore[call-overload]
-                "ResponseModel",
-                __config__=self.config,
-                r=(response_type or Any, ...),
-            )
-
-            def response_callback(x: Any) -> Any:
-                return response_model(r=x).r  # type: ignore[attr-defined]
-
-        assert response_callback
-        self.response_callback = response_callback
+        self.response_adapter, self.response_config = response_adapter(
+            response_type, self.config
+        )
+        self.response_callback = (
+            response_type.model_validate
+            if isinstance(response_type, type) and issubclass(response_type, BaseModel)
+            else self.response_adapter.validate_python
+        )
 
     def response(self, value: Any) -> Any:
         return self.response_callback(value)
+
+    def encode(self, value: Any) -> bytes:
+        return self.response_adapter.dump_json(value, by_alias=True)
+
+    def get_response_schema(self) -> dict[str, Any]:
+        return type_schema(self.response_adapter, self.response_config)
 
 
 class _PydanticWrappedSerializer(_PydanticSerializer):
@@ -211,4 +268,4 @@ class _PydanticWrappedSerializerWithResponse(
 ):
     def response(self, value: Any) -> Any:
         with self._try_pydantic(value, self.response_option, ("return",)):
-            return self.response_callback(value)
+            return super().response(value)

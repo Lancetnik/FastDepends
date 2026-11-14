@@ -6,7 +6,6 @@ from annotated_types import Ge
 from fast_depends import inject
 from fast_depends.exceptions import ValidationError
 from fast_depends.library import CustomField
-from tests.marks import pydanticV2
 
 
 class Header(CustomField):
@@ -17,7 +16,6 @@ class Header(CustomField):
         return kwargs
 
 
-@pydanticV2
 def test_annotated_header_with_meta() -> None:
     @inject()
     def sync_catch(key: Annotated[int, Header(), Ge(3)] = 3) -> int:

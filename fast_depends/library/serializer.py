@@ -1,7 +1,10 @@
 import inspect
 import json
 from abc import ABC, abstractmethod
+from collections.abc import Callable, Iterable
 from typing import Any, Protocol
+
+from fast_depends.library.schema_processing import SchemaExclude
 
 
 class OptionItem:
@@ -50,9 +53,36 @@ class Serializer(ABC):
         self.response_option = {
             "return": OptionItem(field_name="return", field_type=response_type),
         }
+        # Bound calls provide current external inputs, including dependency overrides.
+        self._schema_options: Callable[[], list[OptionItem]] | None = None
 
     def get_aliases(self) -> tuple[str, ...]:
         return ()
+
+    def get_schema(
+        self,
+        *,
+        embed: bool = False,
+        exclude: Iterable[SchemaExclude] = (),
+        resolve_refs: bool = False,
+    ) -> dict[str, Any]:
+        """Describe external inputs, or configured fields when used standalone."""
+        raise NotImplementedError
+
+    def get_response_schema(self) -> dict[str, Any] | None:
+        """Describe the return type, or return None when it is not configured.
+
+        An explicit ``None`` annotation produces a JSON Schema for null.
+        Schema generation is optional for custom serializers.
+        """
+        raise NotImplementedError
+
+    def encode(self, value: Any) -> bytes:
+        """Encode a validated return value using this call's response contract.
+
+        Custom serializers may implement this independently of validation.
+        """
+        raise NotImplementedError
 
     @abstractmethod
     def __call__(self, call_kwargs: dict[str, Any]) -> dict[str, Any]:
@@ -62,7 +92,14 @@ class Serializer(ABC):
         return value
 
 
+def _encode_json(message: Any) -> bytes:
+    return json.dumps(message).encode("utf-8")
+
+
 class SerializerProto(Protocol):
+    # Encoders may be bound to a factory's configuration.
+    encode: Callable[[Any], bytes] = staticmethod(_encode_json)
+
     def __call__(
         self,
         *,
@@ -70,7 +107,3 @@ class SerializerProto(Protocol):
         options: list[OptionItem],
         response_type: Any,
     ) -> Serializer: ...
-
-    @staticmethod
-    def encode(message: Any) -> bytes:
-        return json.dumps(message).encode("utf-8")

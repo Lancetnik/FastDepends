@@ -509,6 +509,46 @@ def test_schema_extra_can_hide_source_group(capture, provider):
     assert capture.serializer.get_schema() == IsPartialDict(properties={})
 
 
+@pytest.mark.parametrize(
+    "replacement",
+    [
+        {"$ref": "https://example.test/Headers"},
+        {"$ref": "https://example.test/Headers", "properties": {}},
+        {
+            "$ref": "https://example.test/Headers",
+            "properties": {},
+            "required": ["value"],
+        },
+        {"type": "object", "minProperties": 1},
+        {"type": "object", "required": ["value"]},
+        True,
+        False,
+    ],
+)
+def test_schema_extra_group_replacement_preserves_requiredness(
+    capture, provider, replacement
+):
+    def replace_headers(schema):
+        if "headers" in schema.get("properties", {}):
+            schema["properties"]["headers"] = deepcopy(replacement)
+
+    config_key = "json_schema_extra" if PYDANTIC_V2 else "schema_extra"
+
+    @inject(
+        serializer_cls=PydanticSerializer(pydantic_config={config_key: replace_headers}),
+        dependency_provider=provider,
+        wrap_model=capture,
+    )
+    def handler(value: Annotated[int, Input("headers")]):
+        return value
+
+    schema = capture.serializer.get_schema()
+
+    assert schema["properties"]["headers"] == replacement
+    assert schema["required"] == ["headers"]
+    assert handler(headers={"value": "12"}) == 12
+
+
 @pytest.fixture(params=["title", "description"])
 def decorated_group_schema(request, capture, provider):
     def make_schema(required):

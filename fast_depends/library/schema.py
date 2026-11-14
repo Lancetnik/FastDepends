@@ -69,6 +69,8 @@ def apply_schema_groups(
             value = all_of[0]
         if "$ref" in value:
             ref = value["$ref"]
+            if not ref.startswith("#/"):
+                return value
             target: Any = schema
             for key in ref[2:].split("/"):
                 target = target[key.replace("~1", "/").replace("~0", "~")]
@@ -94,8 +96,8 @@ def apply_schema_groups(
             continue
         target = root if source is None else targets[source]
         # A schema hook may replace the entire group. Preserve that schema and
-        # its parent requiredness; there are no member properties to adjust.
-        if isinstance(target, bool):
+        # its parent requiredness when there are no member properties to adjust.
+        if isinstance(target, bool) or "$ref" in target or "properties" not in target:
             continue
         properties = target.get("properties", {})
         field_aliases = aliases[source]
@@ -115,7 +117,11 @@ def apply_schema_groups(
 
         if source is None:
             required.difference_update(
-                source for source in sources if not isinstance(targets.get(source), bool)
+                source
+                for source, group_schema in targets.items()
+                if isinstance(group_schema, dict)
+                and "$ref" not in group_schema
+                and "properties" in group_schema
             )
         if required:
             target["required"] = [name for name in properties if name in required]

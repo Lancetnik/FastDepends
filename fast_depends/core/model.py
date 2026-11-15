@@ -54,11 +54,7 @@ class CallModel:
         return getattr(call, "__name__", type(call).__name__)
 
     def prepare_json_call(self, *, embed: bool = False) -> Callable[[bytes], Any] | None:
-        """Prepare direct JSON invocation when no dependency resolution is needed.
-
-        Native JSON validation runs once, using the configured argument model.
-        Dependency/custom-field and variadic calls retain ordinary solving.
-        """
+        """Prepare a reusable JSON call, or return None when unsupported."""
         if (
             self.serializer is None
             or self.dependencies

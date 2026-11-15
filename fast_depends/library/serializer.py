@@ -87,10 +87,9 @@ class Serializer(ABC):
     def get_json_decoder(
         self, *, embed: bool = False
     ) -> Callable[[bytes], dict[str, Any]] | None:
-        """Prepare JSON argument validation, optionally unwrapping a single field.
+        """Prepare JSON decoding to validated arguments by Python name, or None.
 
-        Return None when native JSON input is unavailable. Returned mappings use
-        Python parameter names, rather than their wire aliases.
+        embed=True decodes the whole document as one argument.
         """
         return None
 

@@ -142,9 +142,60 @@ allows serializers attached to `Annotated[bytes, ...]` to run.
 
 Without a return annotation, or with `cast_result=False` / `serialize_result=False`,
 `encode()` uses the factory's generic encoder and
-`get_response_schema()` returns `None`. Msgspec exposes `encode()` using
-its existing encoder. Custom serializers can omit this optional method; its base
+`get_response_schema()` returns `None`. Custom serializers can omit this optional method; its base
 implementation raises `NotImplementedError`.
+
+### Msgspec hooks
+
+`MsgSpecSerializer` accepts `dec_hook` for argument and response validation,
+`enc_hook` for JSON encoding, and `schema_hook` for input and response schemas.
+These follow Msgspec's native hook contracts for custom types. Hooks do not
+override built-in type handling. Struct options such as field renaming, tags,
+and omitted defaults retain their native behavior.
+
+```python
+from fast_depends.msgspec import MsgSpecSerializer
+
+
+class Token:
+    def __init__(self, value: str):
+        self.value = value
+
+
+def decode_token(type_, value):
+    if type_ is Token:
+        return value if isinstance(value, Token) else Token(value)
+    raise NotImplementedError
+
+
+def encode_token(value):
+    if isinstance(value, Token):
+        return value.value
+    raise NotImplementedError
+
+
+def token_schema(type_):
+    if type_ is Token:
+        return {"type": "string"}
+    raise NotImplementedError
+
+
+factory = MsgSpecSerializer(
+    dec_hook=decode_token, enc_hook=encode_token, schema_hook=token_schema
+)
+serializer = factory(name="answer", options=[], response_type=Token)
+value = serializer.response("secret")
+assert isinstance(value, Token)
+assert serializer.encode(value) == factory.encode(value) == b'"secret"'
+assert serializer.get_response_schema() == {"type": "string"}
+```
+
+The factory creates a reusable JSON encoder when `enc_hook` is supplied.
+Bound serializers use the factory's encoder, including custom `encode` overrides,
+with or without a return annotation. Default encoding still passes root `bytes`
+through unchanged. Class-level `MsgSpecSerializer.encode(value)` uses the default
+encoder. `@inject` returns Python values; encoding and schema hooks run only when
+encoding or generating schemas explicitly.
 
 ### FastStream
 

@@ -2,6 +2,7 @@ import inspect
 import re
 from collections.abc import Callable, Iterable, Iterator, Sequence
 from contextlib import contextmanager
+from functools import partial
 from typing import Any, TypeVar
 
 import msgspec
@@ -19,16 +20,35 @@ from fast_depends.library.serializer import OptionItem, Serializer, SerializerPr
 T = TypeVar("T")
 
 
+def _encode(
+    message: Any, *, encoder: Callable[[Any], bytes] = msgspec.json.encode
+) -> bytes:
+    if isinstance(message, bytes):
+        return message
+    return encoder(message)
+
+
 class MsgSpecSerializer(SerializerProto):
-    __slots__ = ("use_fastdepends_errors", "dec_hook")
+    __slots__ = ("use_fastdepends_errors", "dec_hook", "schema_hook")
+
+    encode: Callable[[Any], bytes] = staticmethod(_encode)
+    dec_hook: Callable[[type, Any], Any] | None
 
     def __init__(
         self,
         use_fastdepends_errors: bool = True,
         dec_hook: Callable[[type[T], Any], T] | None = None,
+        *,
+        enc_hook: Callable[[Any], Any] | None = None,
+        schema_hook: Callable[[type], dict[str, Any]] | None = None,
     ) -> None:
         self.use_fastdepends_errors = use_fastdepends_errors
         self.dec_hook = dec_hook
+        self.schema_hook = schema_hook
+        if enc_hook is not None and type(self).encode is MsgSpecSerializer.encode:
+            self.encode = partial(
+                _encode, encoder=msgspec.json.Encoder(enc_hook=enc_hook).encode
+            )
 
     def __call__(
         self,
@@ -37,40 +57,28 @@ class MsgSpecSerializer(SerializerProto):
         options: list[OptionItem],
         response_type: Any,
     ) -> "_MsgSpecSerializer":
+        serializer_type: type[_MsgSpecSerializer]
         if self.use_fastdepends_errors:
-            if response_type is not inspect.Parameter.empty:
-                return _MsgSpecWrappedSerializerWithResponse(
-                    name=name,
-                    options=options,
-                    response_type=response_type,
-                    dec_hook=self.dec_hook,
-                )
-
-            return _MsgSpecWrappedSerializer(
-                name=name,
-                options=options,
-                dec_hook=self.dec_hook,
+            serializer_type = (
+                _MsgSpecWrappedSerializerWithResponse
+                if response_type is not inspect.Parameter.empty
+                else _MsgSpecWrappedSerializer
             )
-
-        if response_type is not inspect.Parameter.empty:
-            return _MsgSpecSerializerWithResponse(
-                name=name,
-                options=options,
-                response_type=response_type,
-                dec_hook=self.dec_hook,
+        else:
+            serializer_type = (
+                _MsgSpecSerializerWithResponse
+                if response_type is not inspect.Parameter.empty
+                else _MsgSpecSerializer
             )
-
-        return _MsgSpecSerializer(
+        serializer = serializer_type(
             name=name,
             options=options,
+            response_type=response_type,
             dec_hook=self.dec_hook,
         )
-
-    @staticmethod
-    def encode(message: Any) -> bytes:
-        if isinstance(message, bytes):
-            return message
-        return msgspec.json.encode(message)
+        serializer._response_encoder = self.encode
+        serializer.schema_hook = self.schema_hook
+        return serializer
 
 
 class _MsgSpecSerializer(Serializer):
@@ -82,7 +90,12 @@ class _MsgSpecSerializer(Serializer):
         "options",
         "response_option",
         "dec_hook",
+        "schema_hook",
+        "_response_encoder",
     )
+
+    schema_hook: Callable[[type], dict[str, Any]] | None
+    _response_encoder: Callable[[Any], bytes]
 
     def __init__(
         self,
@@ -121,6 +134,8 @@ class _MsgSpecSerializer(Serializer):
         self.aliases = aliases
         self.model = msgspec.defstruct(name, model_options, kw_only=True)
         self.dec_hook = dec_hook
+        self.schema_hook = None
+        self._response_encoder = MsgSpecSerializer.encode
         super().__init__(name=name, options=options, response_type=response_type)
 
     def get_aliases(self) -> tuple[str, ...]:
@@ -139,7 +154,9 @@ class _MsgSpecSerializer(Serializer):
 
     def _get_schema(self, exclude: tuple[SchemaExclude, ...]) -> dict[str, Any]:
         if self._schema_options is None and not exclude:
-            schema: dict[str, Any] = msgspec.json.schema(self.model)
+            schema: dict[str, Any] = msgspec.json.schema(
+                self.model, schema_hook=self.schema_hook
+            )
             return schema
 
         options = exclude_schema_fields(
@@ -149,7 +166,9 @@ class _MsgSpecSerializer(Serializer):
             exclude,
         )
         if not any(isinstance(i, SchemaField) for i in options):
-            schema = msgspec.json.schema(self._schema_model(self.name, options))
+            schema = msgspec.json.schema(
+                self._schema_model(self.name, options), schema_hook=self.schema_hook
+            )
             return schema
 
         groups = group_schema_fields(options)
@@ -172,7 +191,9 @@ class _MsgSpecSerializer(Serializer):
         model = self._schema_model(self.name, root_options)
         root_aliases = {f.name: f.encode_name for f in msgspec.structs.fields(model)}
         aliases[None] = {i.field_name: root_aliases[i.field_name] for i in groups[None]}
-        return apply_schema_groups(msgspec.json.schema(model), groups, aliases)
+        return apply_schema_groups(
+            msgspec.json.schema(model, schema_hook=self.schema_hook), groups, aliases
+        )
 
     @staticmethod
     def _schema_model(name: str, options: list[OptionItem]) -> type[msgspec.Struct]:
@@ -188,13 +209,15 @@ class _MsgSpecSerializer(Serializer):
         )
 
     def encode(self, value: Any) -> bytes:
-        return MsgSpecSerializer.encode(value)
+        return self._response_encoder(value)
 
     def get_response_schema(self) -> dict[str, Any] | None:
         response_type = self.response_option["return"].field_type
         if response_type is inspect.Parameter.empty:
             return None
-        schema: dict[str, Any] = msgspec.json.schema(response_type)
+        schema: dict[str, Any] = msgspec.json.schema(
+            response_type, schema_hook=self.schema_hook
+        )
         return schema
 
     def __call__(self, call_kwargs: dict[str, Any]) -> dict[str, Any]:

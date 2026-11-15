@@ -524,7 +524,7 @@ wheels = [
 
 [[package]]
 name = "fast-depends"
-version = "4.0.0a0"
+version = "4.0.0a1"
 source = { editable = "." }
 dependencies = [
     { name = "anyio" },

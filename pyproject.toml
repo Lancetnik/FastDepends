@@ -17,7 +17,7 @@ license-files = ["LICENSE"]
 
 keywords = ["fastapi", "dependency injection"]
 
-version = "4.0.0a0"
+version = "4.0.0a1"
 
 requires-python = ">=3.10"
 

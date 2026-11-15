@@ -1,3 +1,5 @@
+from collections.abc import Callable
+from functools import partial
 from inspect import Parameter
 from typing import Annotated, Any
 
@@ -5,7 +7,7 @@ import msgspec
 import pytest
 
 from fast_depends import Depends, Provider, inject
-from fast_depends.core import build_call_model
+from fast_depends.core import CallModel, build_call_model
 from fast_depends.exceptions import ValidationError
 from fast_depends.library import CustomField
 from fast_depends.library.serializer import OptionItem, Serializer
@@ -14,6 +16,23 @@ from fast_depends.msgspec import MsgSpecSerializer
 
 class User(msgspec.Struct):
     user_id: Annotated[int, msgspec.Meta(gt=0)]
+
+
+class Token:
+    def __init__(self, value: int):
+        self.value = value
+
+
+class ObjectOnly(Serializer):
+    def __call__(self, call_kwargs: dict[str, Any]) -> dict[str, Any]:
+        return call_kwargs
+
+
+@pytest.fixture
+def build_model(provider: Provider) -> Callable[..., CallModel]:
+    return partial(
+        build_call_model, dependency_provider=provider, serializer_cls=MsgSpecSerializer()
+    )
 
 
 @pytest.mark.parametrize("wrapped", (False, True))
@@ -54,11 +73,9 @@ def test_decoder_is_prepared_once(monkeypatch: pytest.MonkeyPatch) -> None:
     assert prepared == [int]
 
 
-def test_json_call_validates_custom_input_once_and_keeps_response_validation() -> None:
-    class Token:
-        def __init__(self, value: int):
-            self.value = value
-
+def test_hook_runs_once_and_response_is_validated(
+    build_model: Callable[..., CallModel],
+) -> None:
     seen = []
 
     def hook(expected: type, value: Any) -> Token:
@@ -70,11 +87,7 @@ def test_json_call_validates_custom_input_once_and_keeps_response_validation() -
         result: Any = str(value.value + 1)
         return result
 
-    model = build_call_model(
-        handler,
-        serializer_cls=MsgSpecSerializer(dec_hook=hook),
-        dependency_provider=Provider(),
-    )
+    model = build_model(handler, serializer_cls=MsgSpecSerializer(dec_hook=hook))
     invoke = model.prepare_json_call(embed=True)
     assert invoke is not None
     assert invoke(b"41") == 42
@@ -82,13 +95,13 @@ def test_json_call_validates_custom_input_once_and_keeps_response_validation() -
 
 
 @pytest.mark.anyio
-async def test_async_json_call_and_independent_bindings() -> None:
+async def test_async_json_call_and_independent_bindings(
+    build_model: Callable[..., CallModel],
+) -> None:
     async def handler(value: int) -> int:
         return value + 1
 
-    model = build_call_model(
-        handler, serializer_cls=MsgSpecSerializer(), dependency_provider=Provider()
-    )
+    model = build_model(handler)
     embedded = model.prepare_json_call(embed=True)
     object_call = model.prepare_json_call()
     assert embedded is not None and object_call is not None
@@ -97,90 +110,67 @@ async def test_async_json_call_and_independent_bindings() -> None:
     assert await embedded(b"43") == 44
 
 
-def test_multi_parameter_json_call() -> None:
+def test_multi_parameter_json_call(build_model: Callable[..., CallModel]) -> None:
     def handler(a: int, *, b: int = 2) -> int:
         return a + b
 
-    model = build_call_model(
-        handler, serializer_cls=MsgSpecSerializer(), dependency_provider=Provider()
-    )
+    model = build_model(handler)
     invoke = model.prepare_json_call()
     assert invoke is not None
     assert invoke(b'{"a":"40"}') == 42
     assert model.prepare_json_call(embed=True) is None
 
 
-def test_json_call_retains_backend_errors() -> None:
-    def handler(value: int) -> None:
-        raise AssertionError("handler must not run")
-
-    model = build_call_model(
-        handler, serializer_cls=MsgSpecSerializer(), dependency_provider=Provider()
-    )
-    invoke = model.prepare_json_call(embed=True)
-    assert invoke is not None
-    with pytest.raises(ValidationError):
-        invoke(b'"invalid"')
-    with pytest.raises(msgspec.DecodeError):
-        invoke(b"?")
-    with pytest.raises(msgspec.DecodeError):
-        invoke(b'1,"injected":2')
-
-
-@pytest.mark.parametrize("data", (b"NaN", b"Infinity", b"1e400"))
-def test_native_json_number_limits(data: bytes) -> None:
-    def handler(value: float) -> float:
+@pytest.mark.parametrize(
+    ("data", "error"),
+    (
+        (b'"invalid"', ValidationError),
+        (b"?", msgspec.DecodeError),
+        (b'1,"injected":2', msgspec.DecodeError),
+        (b"NaN", msgspec.DecodeError),
+        (b"Infinity", msgspec.DecodeError),
+        (b"1e400", ValidationError),
+    ),
+)
+def test_json_call_retains_validation_and_decode_errors(
+    data: bytes, error: type[Exception], build_model: Callable[..., CallModel]
+) -> None:
+    def handler(value: float) -> None:
         raise AssertionError("invalid input must not reach the handler")
 
-    model = build_call_model(
-        handler,
-        serializer_cls=MsgSpecSerializer(use_fastdepends_errors=False),
-        dependency_provider=Provider(),
-    )
+    model = build_model(handler)
     invoke = model.prepare_json_call(embed=True)
     assert invoke is not None
-    with pytest.raises(msgspec.DecodeError):
+    with pytest.raises(error):
         invoke(data)
 
 
-def test_legacy_serializer_without_json_capability_keeps_object_path() -> None:
+def test_legacy_serializer_without_json_capability_returns_none(
+    build_model: Callable[..., CallModel],
+) -> None:
     def handler(value: int) -> int:
         raise AssertionError("preparation must not invoke the handler")
 
-    model = build_call_model(
-        handler, serializer_cls=MsgSpecSerializer(), dependency_provider=Provider()
-    )
+    model = build_model(handler)
 
-    class Legacy:
-        pass
-
-    old: Any = Legacy()
+    old: Any = object()
     model.serializer = old
     assert model.prepare_json_call() is None
 
 
-def test_object_only_serializers_keep_object_path() -> None:
-    class ObjectOnly(Serializer):
-        def __call__(self, call_kwargs: dict[str, Any]) -> dict[str, Any]:
-            return call_kwargs
-
+@pytest.mark.parametrize("factory", (None, ObjectOnly))
+def test_object_only_serializers_keep_object_path(
+    factory: Any, build_model: Callable[..., CallModel]
+) -> None:
     def handler(value: int) -> int:
         return value
 
-    factories: tuple[Any, ...] = (None, ObjectOnly)
-    for factory in factories:
-        model = build_call_model(
-            handler, serializer_cls=factory, dependency_provider=Provider()
-        )
-        assert model.prepare_json_call() is None
-        assert inject(serializer_cls=factory)(handler, model=model)(41) == 41
+    model = build_model(handler, serializer_cls=factory)
+    assert model.prepare_json_call() is None
+    assert inject(serializer_cls=factory)(handler, model=model)(41) == 41
 
 
-def test_native_hooks_follow_repeated_keys() -> None:
-    class Token:
-        def __init__(self, value: int):
-            self.value = value
-
+def test_native_hooks_follow_repeated_keys(build_model: Callable[..., CallModel]) -> None:
     seen: list[int] = []
 
     def hook(expected: type, value: Any) -> Token:
@@ -191,18 +181,16 @@ def test_native_hooks_follow_repeated_keys() -> None:
     def handler(token: Token) -> int:
         return token.value
 
-    model = build_call_model(
-        handler,
-        serializer_cls=MsgSpecSerializer(dec_hook=hook),
-        dependency_provider=Provider(),
-    )
+    model = build_model(handler, serializer_cls=MsgSpecSerializer(dec_hook=hook))
     invoke = model.prepare_json_call()
     assert invoke is not None
     assert invoke(b'{"token":1,"token":2}') == 2
     assert seen == [1, 2]
 
 
-def test_unsupported_call_shapes_keep_object_solving() -> None:
+def test_unsupported_call_shapes_return_none(
+    build_model: Callable[..., CallModel],
+) -> None:
     class Field(CustomField):
         def use(self, **kwargs: Any) -> dict[str, Any]:
             raise AssertionError("preparation must not resolve fields")
@@ -219,23 +207,21 @@ def test_unsupported_call_shapes_keep_object_solving() -> None:
     def varargs(*values: int) -> None: ...
     def kwargs(**values: int) -> None: ...
     def positional(value: int, /) -> None: ...
-    def generator(value: int):
+
+    for handler in (dependant, custom, varargs, kwargs, positional):
+        model = build_model(handler)
+        assert model.prepare_json_call() is None
+
+    model = build_model(dependency, extra_dependencies=[Depends(dependency)])
+    assert model.prepare_json_call() is None
+
+
+def test_generator_keeps_object_solving(build_model: Callable[..., CallModel]) -> None:
+    def handler(value: int):
         yield value
 
-    for handler in (dependant, custom, varargs, kwargs, positional, generator):
-        model = build_call_model(
-            handler, serializer_cls=MsgSpecSerializer(), dependency_provider=Provider()
-        )
-        assert model.prepare_json_call() is None
-        if handler is generator:
-            assert list(
-                inject(serializer_cls=MsgSpecSerializer())(handler, model=model)(41)
-            ) == [41]
-
-    model = build_call_model(
-        dependency,
-        serializer_cls=MsgSpecSerializer(),
-        extra_dependencies=[Depends(dependency)],
-        dependency_provider=Provider(),
-    )
+    model = build_model(handler)
     assert model.prepare_json_call() is None
+    assert list(inject(serializer_cls=MsgSpecSerializer())(handler, model=model)(41)) == [
+        41
+    ]

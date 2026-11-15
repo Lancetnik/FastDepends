@@ -53,6 +53,48 @@ class CallModel:
         call = unwrap(self.call)
         return getattr(call, "__name__", type(call).__name__)
 
+    def prepare_json_call(self, *, embed: bool = False) -> Callable[[bytes], Any] | None:
+        """Prepare direct JSON invocation when no dependency resolution is needed.
+
+        Native JSON validation runs once, using the configured argument model.
+        Dependency/custom-field and variadic calls retain ordinary solving.
+        """
+        if (
+            self.serializer is None
+            or self.dependencies
+            or self.extra_dependencies
+            or self.custom_fields
+            or self.is_generator
+            or any(
+                p.kind
+                in (
+                    Parameter.POSITIONAL_ONLY,
+                    Parameter.VAR_POSITIONAL,
+                    Parameter.VAR_KEYWORD,
+                )
+                for p in self.params
+            )
+        ):
+            return None
+        prepare = getattr(self.serializer, "get_json_decoder", None)
+        if prepare is None:
+            return None
+        decoder = prepare(embed=embed)
+        if decoder is None:
+            return None
+
+        if self.is_async:
+
+            async def async_invoke(data: bytes) -> Any:
+                return self._cast_response(await run_async(self.call, **decoder(data)))
+
+            return async_invoke
+
+        def invoke(data: bytes) -> Any:
+            return self._cast_response(self.call(**decoder(data)))
+
+        return invoke
+
     @property
     def flat_params(self) -> list[OptionItem]:
         params = list(self.params)

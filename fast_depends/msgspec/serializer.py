@@ -141,6 +141,26 @@ class _MsgSpecSerializer(Serializer):
     def get_aliases(self) -> tuple[str, ...]:
         return tuple(self.aliases.values())
 
+    def get_json_decoder(
+        self, *, embed: bool = False
+    ) -> Callable[[bytes], dict[str, Any]] | None:
+        if embed and len(self.options) != 1:
+            return None
+        decoder = msgspec.json.Decoder(
+            type=next(iter(self.options.values())).field_type if embed else self.model,
+            strict=False,
+            dec_hook=self.dec_hook,
+        )
+        fields = tuple(self.aliases)
+
+        def decode(data: bytes) -> dict[str, Any]:
+            model = decoder.decode(data)
+            if embed:
+                return {fields[0]: model}
+            return {name: getattr(model, name) for name in fields}
+
+        return decode
+
     def get_schema(
         self,
         *,
@@ -262,6 +282,19 @@ class _MsgSpecSerializerWithResponse(_MsgSpecSerializer):
 
 
 class _MsgSpecWrappedSerializer(_MsgSpecSerializer):
+    def get_json_decoder(
+        self, *, embed: bool = False
+    ) -> Callable[[bytes], dict[str, Any]] | None:
+        decoder = super().get_json_decoder(embed=embed)
+        if decoder is None:
+            return None
+
+        def decode(data: bytes) -> dict[str, Any]:
+            with self._try_msgspec(data, self.options):
+                return decoder(data)
+
+        return decode
+
     def __call__(self, call_kwargs: dict[str, Any]) -> dict[str, Any]:
         with self._try_msgspec(call_kwargs, self.options):
             casted_model = msgspec.convert(

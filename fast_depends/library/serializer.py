@@ -84,6 +84,16 @@ class Serializer(ABC):
         """
         raise NotImplementedError
 
+    def get_json_decoder(
+        self, *, embed: bool = False
+    ) -> Callable[[bytes], dict[str, Any]] | None:
+        """Prepare JSON argument validation, optionally unwrapping a single field.
+
+        Return None when native JSON input is unavailable. Returned mappings use
+        Python parameter names, rather than their wire aliases.
+        """
+        return None
+
     @abstractmethod
     def __call__(self, call_kwargs: dict[str, Any]) -> dict[str, Any]:
         raise NotImplementedError

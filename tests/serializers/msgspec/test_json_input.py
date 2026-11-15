@@ -4,7 +4,7 @@ from typing import Annotated, Any
 import msgspec
 import pytest
 
-from fast_depends import Depends, Provider
+from fast_depends import Depends, Provider, inject
 from fast_depends.core import build_call_model
 from fast_depends.exceptions import ValidationError
 from fast_depends.library import CustomField
@@ -130,7 +130,7 @@ def test_json_call_retains_backend_errors() -> None:
 @pytest.mark.parametrize("data", (b"NaN", b"Infinity", b"1e400"))
 def test_native_json_number_limits(data: bytes) -> None:
     def handler(value: float) -> float:
-        return value
+        raise AssertionError("invalid input must not reach the handler")
 
     model = build_call_model(
         handler,
@@ -145,7 +145,7 @@ def test_native_json_number_limits(data: bytes) -> None:
 
 def test_legacy_serializer_without_json_capability_keeps_object_path() -> None:
     def handler(value: int) -> int:
-        return value
+        raise AssertionError("preparation must not invoke the handler")
 
     model = build_call_model(
         handler, serializer_cls=MsgSpecSerializer(), dependency_provider=Provider()
@@ -173,6 +173,7 @@ def test_object_only_serializers_keep_object_path() -> None:
             handler, serializer_cls=factory, dependency_provider=Provider()
         )
         assert model.prepare_json_call() is None
+        assert inject(serializer_cls=factory)(handler, model=model)(41) == 41
 
 
 def test_native_hooks_follow_repeated_keys() -> None:
@@ -207,13 +208,13 @@ def test_unsupported_call_shapes_keep_object_solving() -> None:
             raise AssertionError("preparation must not resolve fields")
 
     def dependency(value: int) -> int:
-        return value
+        raise AssertionError("preparation must not resolve dependencies")
 
     def dependant(value: int = Depends(dependency)) -> int:
-        return value
+        raise AssertionError("preparation must not invoke the handler")
 
     def custom(value: int = Field()) -> int:
-        return value
+        raise AssertionError("preparation must not invoke the handler")
 
     def varargs(*values: int) -> None: ...
     def kwargs(**values: int) -> None: ...
@@ -226,6 +227,10 @@ def test_unsupported_call_shapes_keep_object_solving() -> None:
             handler, serializer_cls=MsgSpecSerializer(), dependency_provider=Provider()
         )
         assert model.prepare_json_call() is None
+        if handler is generator:
+            assert list(
+                inject(serializer_cls=MsgSpecSerializer())(handler, model=model)(41)
+            ) == [41]
 
     model = build_call_model(
         dependency,

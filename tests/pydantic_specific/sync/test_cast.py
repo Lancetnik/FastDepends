@@ -6,7 +6,6 @@ from pydantic import BaseModel, Field
 
 from fast_depends import inject
 from fast_depends.exceptions import ValidationError
-from tests.marks import pydanticV2
 
 
 def test_pydantic_types_casting():
@@ -70,7 +69,6 @@ def test_validation_error():
         assert some_func(1, "dsdas")
 
 
-@pydanticV2
 def test_multi_annotated():
     from pydantic.functional_validators import AfterValidator
 

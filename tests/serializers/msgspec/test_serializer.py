@@ -97,3 +97,12 @@ def test_field_alias(serializer: MsgSpecSerializer) -> None:
         return a, d
 
     assert func(aliasedA="1", nestedAlias="2") == (1, 2)
+
+
+def test_bound_response_encoder():
+    from fast_depends.msgspec import MsgSpecSerializer
+
+    factory = MsgSpecSerializer()
+    serializer = factory(name="handler", options=[], response_type=int)
+    assert serializer.encode(serializer.response("42")) == b"42"
+    assert serializer.encode(b"raw") == b"raw"

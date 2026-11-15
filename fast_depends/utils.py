@@ -22,7 +22,6 @@ from typing import (
 )
 
 if sys.version_info >= (3, 12):
-    # to support PydanticV1 we should switch it expicitly
     from typing import TypeAliasType
 else:
     from typing_extensions import TypeAliasType

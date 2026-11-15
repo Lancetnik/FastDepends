@@ -5,7 +5,6 @@ from pydantic import BaseModel
 from fast_depends import Provider
 from fast_depends.core import build_call_model
 from fast_depends.pydantic import PydanticSerializer
-from fast_depends.pydantic._compat import PYDANTIC_V2
 
 from .wrapper import noop_wrap
 
@@ -34,8 +33,4 @@ def test_prebuild_with_wrapper() -> None:
     assert model
     # Fails if function unwrapping is not done at type introspection
 
-    if PYDANTIC_V2:
-        model.model_rebuild()
-    else:
-        # pydantic v1
-        model.update_forward_refs()
+    model.model_rebuild()

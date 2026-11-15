@@ -56,7 +56,7 @@ class CustomField:
 ```
 
 * `param_name` - an original function argument name to replace by your field instance. It was `header_field` at the example above.
-* `required` - if CustomField is **required**, raises `pydantic.error_wrappers.ValidationError` if it is not present at final **kwargs**
+* `required` - if CustomField is **required**, raises `fast_depends.exceptions.ValidationError` if it is not present at final **kwargs**
 * `cast` - specify the typecasting behavior. Use *False* to disable pydantic typecasting for fields using with your *CustomField*
 
 ```python linenums="1" hl_lines="3 7 10-11"

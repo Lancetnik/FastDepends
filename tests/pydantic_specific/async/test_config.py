@@ -3,7 +3,6 @@ import pytest
 from fast_depends import Depends, Provider, inject
 from fast_depends.exceptions import ValidationError
 from fast_depends.pydantic import PydanticSerializer
-from tests.marks import PYDANTIC_V2
 
 
 async def dep(a: str):
@@ -12,7 +11,7 @@ async def dep(a: str):
 
 @inject(
     serializer_cls=PydanticSerializer(
-        {"str_max_length" if PYDANTIC_V2 else "max_anystr_length": 1},
+        {"str_max_length": 1},
         use_fastdepends_errors=True,
     ),
     dependency_provider=Provider(),

@@ -21,7 +21,9 @@ There are some usage examples with popular Python HTTP Frameworks:
 As you can see above, library, some middlewares and supporting classes... And you can use the whole power of *typed* Python everywhere.
 
 !!! tip
-    `FastDepends` raises `pydantic.error_wrappers.ValidationError` at type casting exceptions.
+    `FastDepends` raises `fast_depends.exceptions.ValidationError` for type casting errors.
+    Set `PydanticSerializer(use_fastdepends_errors=False)` to receive
+    `pydantic.ValidationError` directly.
 
     You need to handle them and wrap them in your own response with your custom middleware if you want to use it
     in production.

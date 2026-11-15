@@ -6,7 +6,6 @@ from pydantic import BaseModel, Field
 
 from fast_depends import inject
 from fast_depends.exceptions import ValidationError
-from tests.marks import pydanticV2
 
 
 @pytest.mark.anyio
@@ -76,7 +75,6 @@ async def test_validation_error():
 
 
 @pytest.mark.anyio
-@pydanticV2
 async def test_multi_annotated():
     from pydantic.functional_validators import AfterValidator
 

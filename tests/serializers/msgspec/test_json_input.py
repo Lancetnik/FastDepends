@@ -9,7 +9,6 @@ import pytest
 from fast_depends import Depends, Provider, inject
 from fast_depends.core import CallModel, build_call_model
 from fast_depends.exceptions import ValidationError
-from fast_depends.library import CustomField
 from fast_depends.library.serializer import OptionItem, Serializer
 from fast_depends.msgspec import MsgSpecSerializer
 
@@ -21,6 +20,14 @@ class User(msgspec.Struct):
 class Token:
     def __init__(self, value: int):
         self.value = value
+
+
+class Loader:
+    def __bool__(self) -> bool:
+        raise AssertionError("argument loaders must not be truth-tested")
+
+    def __call__(self) -> tuple[tuple[int, ...], dict[str, Any]]:
+        return (42,), {}
 
 
 class ObjectOnly(Serializer):
@@ -108,6 +115,7 @@ async def test_async_json_call_and_independent_bindings(
     assert await embedded(b"41") == 42
     assert await object_call(b'{"value":42}') == 43
     assert await embedded(b"43") == 44
+    assert await embedded(None, load_arguments=Loader()) == 43
 
 
 def test_multi_parameter_json_call(build_model: Callable[..., CallModel]) -> None:
@@ -118,7 +126,27 @@ def test_multi_parameter_json_call(build_model: Callable[..., CallModel]) -> Non
     invoke = model.prepare_json_call()
     assert invoke is not None
     assert invoke(b'{"a":"40"}') == 42
-    assert model.prepare_json_call(embed=True) is None
+    embedded = model.prepare_json_call(embed=True)
+    assert embedded is not None
+    assert embedded(b"40") == 42
+
+
+@pytest.mark.anyio
+async def test_async_dependency_receives_native_body(
+    build_model: Callable[..., CallModel],
+) -> None:
+    async def dependency(value: User) -> int:
+        return value.user_id
+
+    async def handler(result: int = Depends(dependency)) -> int:
+        return result + 1
+
+    def forbidden() -> Any:
+        raise AssertionError("native input must not use the object loader")
+
+    invoke = build_model(handler).prepare_json_call(embed=True)
+    assert invoke is not None
+    assert await invoke(b'{"user_id":41}', load_arguments=forbidden) == 42
 
 
 @pytest.mark.parametrize(
@@ -145,17 +173,38 @@ def test_json_call_retains_validation_and_decode_errors(
         invoke(data)
 
 
-def test_legacy_serializer_without_json_capability_returns_none(
+def test_cached_arguments_bypass_native_decoding(
     build_model: Callable[..., CallModel],
 ) -> None:
     def handler(value: int) -> int:
-        raise AssertionError("preparation must not invoke the handler")
+        return value
+
+    invoke = build_model(handler).prepare_json_call(embed=True)
+    assert invoke is not None
+    assert invoke(None, load_arguments=Loader()) == 42
+    with pytest.raises(ValueError, match="load_arguments is required"):
+        invoke(None)
+
+
+def test_legacy_serializer_uses_normal_solving(
+    build_model: Callable[..., CallModel],
+) -> None:
+    def handler(value: int) -> int:
+        return value
+
+    class Legacy:
+        def __call__(self, kwargs: dict[str, Any]) -> dict[str, Any]:
+            return kwargs
+
+        def response(self, value: Any) -> Any:
+            return value
 
     model = build_model(handler)
-
-    old: Any = object()
+    old: Any = Legacy()
     model.serializer = old
-    assert model.prepare_json_call() is None
+    invoke = model.prepare_json_call()
+    assert invoke is not None
+    assert invoke(b'{"value":41}') == 41
 
 
 @pytest.mark.parametrize("factory", (None, ObjectOnly))
@@ -166,7 +215,9 @@ def test_object_only_serializers_keep_object_path(
         return value
 
     model = build_model(handler, serializer_cls=factory)
-    assert model.prepare_json_call() is None
+    invoke = model.prepare_json_call()
+    assert invoke is not None
+    assert invoke(b'{"value":41}') == 41
     assert inject(serializer_cls=factory)(handler, model=model)(41) == 41
 
 
@@ -191,29 +242,13 @@ def test_native_hooks_follow_repeated_keys(build_model: Callable[..., CallModel]
 def test_unsupported_call_shapes_return_none(
     build_model: Callable[..., CallModel],
 ) -> None:
-    class Field(CustomField):
-        def use(self, **kwargs: Any) -> dict[str, Any]:
-            raise AssertionError("preparation must not resolve fields")
-
-    def dependency(value: int) -> int:
-        raise AssertionError("preparation must not resolve dependencies")
-
-    def dependant(value: int = Depends(dependency)) -> int:
-        raise AssertionError("preparation must not invoke the handler")
-
-    def custom(value: int = Field()) -> int:
-        raise AssertionError("preparation must not invoke the handler")
-
     def varargs(*values: int) -> None: ...
     def kwargs(**values: int) -> None: ...
     def positional(value: int, /) -> None: ...
 
-    for handler in (dependant, custom, varargs, kwargs, positional):
+    for handler in (varargs, kwargs, positional):
         model = build_model(handler)
         assert model.prepare_json_call() is None
-
-    model = build_model(dependency, extra_dependencies=[Depends(dependency)])
-    assert model.prepare_json_call() is None
 
 
 def test_generator_keeps_object_solving(build_model: Callable[..., CallModel]) -> None:
@@ -225,3 +260,90 @@ def test_generator_keeps_object_solving(build_model: Callable[..., CallModel]) -
     assert list(inject(serializer_cls=MsgSpecSerializer())(handler, model=model)(41)) == [
         41
     ]
+
+
+def test_native_dependency_body_and_injected_result_validation(
+    build_model: Callable[..., CallModel], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    seen = []
+
+    def hook(expected: type, value: Any) -> Token:
+        assert expected is Token
+        seen.append(value)
+        return Token(value)
+
+    def dependency(value: Token) -> str:
+        return str(value.value)
+
+    def handler(result: int = Depends(dependency)) -> int:
+        return result + 1
+
+    model = build_model(handler, serializer_cls=MsgSpecSerializer(dec_hook=hook))
+    invoke = model.prepare_json_call(embed=True)
+    assert invoke is not None
+
+    def forbidden(*args: Any, **kwargs: Any) -> Any:
+        raise AssertionError("native input must not use the object loader")
+
+    monkeypatch.setattr("fast_depends.core.json.json.loads", forbidden)
+    assert invoke(b"41", load_arguments=forbidden) == 42
+    assert invoke(b"42", load_arguments=forbidden) == 43
+    assert seen == [41, 42]
+
+
+def test_dependency_runs_before_body_validation(
+    build_model: Callable[..., CallModel],
+) -> None:
+    seen = []
+
+    def dependency() -> int:
+        seen.append("dependency")
+        return 1
+
+    def handler(value: int, result: int = Depends(dependency)) -> int:
+        raise AssertionError("invalid input must fail before the handler")
+
+    invoke = build_model(handler).prepare_json_call(embed=True)
+    assert invoke is not None
+    with pytest.raises(ValidationError):
+        invoke(b'"invalid"')
+    assert seen == ["dependency"]
+
+
+def test_prepared_dependency_respects_provider_changes(
+    build_model: Callable[..., CallModel], provider: Provider
+) -> None:
+    def dependency(value: int) -> int:
+        return value + 1
+
+    def replacement(value: str) -> str:
+        return value.upper()
+
+    def handler(result: Any = Depends(dependency, cast=False)) -> Any:
+        return result
+
+    model = build_model(handler)
+    invoke = model.prepare_json_call(embed=True)
+    assert invoke is not None
+    assert invoke(b"41") == 42
+    with provider.scope(dependency, replacement):
+        assert invoke(b'"replacement"') == "REPLACEMENT"
+    assert invoke(b"41") == 42
+
+    override = Provider()
+    override.override(dependency, replacement)
+    assert invoke(b'"overlay"', dependency_provider=override) == "OVERLAY"
+
+
+def test_variadic_dependency_keeps_object_solving(
+    build_model: Callable[..., CallModel],
+) -> None:
+    def dependency(*values: tuple[int, ...]) -> int:
+        return sum(values)
+
+    def handler(result: int = Depends(dependency)) -> int:
+        return result
+
+    invoke = build_model(handler).prepare_json_call(embed=True)
+    assert invoke is not None
+    assert invoke(b"42") == 42

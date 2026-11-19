@@ -21,6 +21,8 @@ from fast_depends.utils import (
     solve_generator_sync,
 )
 
+from .json import JSONInput, prepare_json_call
+
 if TYPE_CHECKING:
     from fast_depends.dependencies.provider import Key, Provider
 
@@ -52,6 +54,10 @@ class CallModel:
     def call_name(self) -> str:
         call = unwrap(self.call)
         return getattr(call, "__name__", type(call).__name__)
+
+    def prepare_json_call(self, *, embed: bool = False) -> Callable[..., Any] | None:
+        """Prepare JSON input through normal dependency solving."""
+        return prepare_json_call(self, embed)
 
     @property
     def flat_params(self) -> list[OptionItem]:
@@ -166,8 +172,13 @@ class CallModel:
 
         args_: Sequence[Any]
         if self.serializer is not None:
-            casted_options = self.serializer(solved_kw)
-            solved_kw.update(casted_options)
+            if (
+                isinstance(cache_dependencies, JSONInput)
+                and cache_dependencies.model is self
+            ):
+                solved_kw.update(cache_dependencies.decoder(cache_dependencies.data))
+            else:
+                solved_kw.update(self.serializer(solved_kw))
 
         if self.args_name:
             args_ = (

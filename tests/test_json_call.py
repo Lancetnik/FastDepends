@@ -27,6 +27,37 @@ def test_json_argument_binding(data: bytes, provider: Provider) -> None:
         invoke(b"42")
 
 
+def test_json_strings_require_embedding(provider: Provider) -> None:
+    def handler(a: str, b: str = "") -> str:
+        return a + b
+
+    model = build_call_model(handler, dependency_provider=provider)
+    invoke = model.prepare_json_call()
+    assert invoke is not None
+    with pytest.raises(ValueError, match="object or sequence"):
+        invoke(b'"42"')
+
+    embedded = model.prepare_json_call(embed=True)
+    assert embedded is not None
+    assert embedded(b'"42"') == "42"
+
+
+@pytest.mark.anyio
+async def test_async_json_strings_require_embedding(provider: Provider) -> None:
+    async def handler(a: str, b: str = "") -> str:
+        return a + b
+
+    model = build_call_model(handler, dependency_provider=provider)
+    invoke = model.prepare_json_call()
+    assert invoke is not None
+    with pytest.raises(ValueError, match="object or sequence"):
+        await invoke(b'"42"')
+
+    embedded = model.prepare_json_call(embed=True)
+    assert embedded is not None
+    assert await embedded(b'"42"') == "42"
+
+
 def test_supplied_arguments_keep_dependency_precedence(provider: Provider) -> None:
     def dependency() -> int:
         raise AssertionError("a supplied dependency result must take precedence")

@@ -1,5 +1,5 @@
 import json
-from collections.abc import Awaitable, Callable, Mapping, Sequence
+from collections.abc import Awaitable, Callable, Mapping
 from contextlib import AsyncExitStack, ExitStack
 from inspect import Parameter, isawaitable
 from typing import TYPE_CHECKING, Any, NamedTuple
@@ -81,7 +81,7 @@ def _load_arguments(data: bytes | None, embed: bool) -> Arguments:
         return (value,), {}
     if isinstance(value, Mapping):
         return (), dict(value)
-    if isinstance(value, Sequence):
+    if isinstance(value, list):
         return tuple(value), {}
     raise ValueError("JSON arguments must be an object or sequence")
 
@@ -102,7 +102,7 @@ def prepare_json_call(model: "CallModel", embed: bool) -> Callable[..., Any] | N
         if (
             plan is not None
             and not kwargs
-            and (embed or data.startswith(b"{"))
+            and (embed or data.lstrip(b" \t\r\n").startswith(b"{"))
             and (direct or plan.is_current())
         ):
             return plan

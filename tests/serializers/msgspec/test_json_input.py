@@ -116,6 +116,8 @@ async def test_async_json_call_and_independent_bindings(
     assert await object_call(b'{"value":42}') == 43
     assert await embedded(b"43") == 44
     assert await embedded(None, load_arguments=Loader()) == 43
+    with pytest.raises(ValueError, match="object or sequence"):
+        await object_call(b'"42"')
 
 
 def test_multi_parameter_json_call(build_model: Callable[..., CallModel]) -> None:
@@ -126,6 +128,8 @@ def test_multi_parameter_json_call(build_model: Callable[..., CallModel]) -> Non
     invoke = model.prepare_json_call()
     assert invoke is not None
     assert invoke(b'{"a":"40"}') == 42
+    with pytest.raises(ValueError, match="object or sequence"):
+        invoke(b'"42"')
     embedded = model.prepare_json_call(embed=True)
     assert embedded is not None
     assert embedded(b"40") == 42
@@ -221,7 +225,12 @@ def test_object_only_serializers_keep_object_path(
     assert inject(serializer_cls=factory)(handler, model=model)(41) == 41
 
 
-def test_native_hooks_follow_repeated_keys(build_model: Callable[..., CallModel]) -> None:
+@pytest.mark.parametrize(
+    "prefix", (pytest.param(b"", id="plain"), pytest.param(b" \t\r\n", id="whitespace"))
+)
+def test_native_hooks_follow_repeated_keys(
+    prefix: bytes, build_model: Callable[..., CallModel]
+) -> None:
     seen: list[int] = []
 
     def hook(expected: type, value: Any) -> Token:
@@ -235,8 +244,33 @@ def test_native_hooks_follow_repeated_keys(build_model: Callable[..., CallModel]
     model = build_model(handler, serializer_cls=MsgSpecSerializer(dec_hook=hook))
     invoke = model.prepare_json_call()
     assert invoke is not None
-    assert invoke(b'{"token":1,"token":2}') == 2
+    assert invoke(prefix + b'{"token":1,"token":2}') == 2
     assert seen == [1, 2]
+
+
+def test_json_whitespace_preserves_native_validation(
+    build_model: Callable[..., CallModel],
+) -> None:
+    def handler(value: float) -> None:
+        raise AssertionError("invalid input must not reach the handler")
+
+    invoke = build_model(handler).prepare_json_call()
+    assert invoke is not None
+    with pytest.raises(ValidationError):
+        invoke(b' \t\r\n{"value":1e400}')
+
+
+@pytest.mark.anyio
+async def test_async_json_whitespace_preserves_native_validation(
+    build_model: Callable[..., CallModel],
+) -> None:
+    async def handler(value: float) -> None:
+        raise AssertionError("invalid input must not reach the handler")
+
+    invoke = build_model(handler).prepare_json_call()
+    assert invoke is not None
+    with pytest.raises(ValidationError):
+        await invoke(b' \t\r\n{"value":1e400}')
 
 
 def test_unsupported_call_shapes_return_none(

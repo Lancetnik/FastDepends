@@ -1,6 +1,6 @@
 import inspect
 import re
-from collections.abc import Callable, Iterable, Iterator, Sequence
+from collections.abc import Callable, Hashable, Iterable, Iterator, Sequence
 from contextlib import contextmanager
 from functools import partial
 from typing import Any, TypeVar
@@ -15,7 +15,15 @@ from fast_depends.library.schema import (
     group_schema_fields,
 )
 from fast_depends.library.schema_processing import SchemaExclude, process_schema
-from fast_depends.library.serializer import OptionItem, Serializer, SerializerProto
+from fast_depends.library.serializer import (
+    InputField,
+    OptionItem,
+    PreparedInputs,
+    PreparedValue,
+    Serializer,
+    SerializerProto,
+)
+from fast_depends.msgspec.preparation import NodePreparation, SharedInputs
 
 T = TypeVar("T")
 
@@ -136,10 +144,29 @@ class _MsgSpecSerializer(Serializer):
         self.dec_hook = dec_hook
         self.schema_hook = None
         self._response_encoder = MsgSpecSerializer.encode
+        self._prepared_node: NodePreparation | None = None
         super().__init__(name=name, options=options, response_type=response_type)
 
     def get_aliases(self) -> tuple[str, ...]:
         return tuple(self.aliases.values())
+
+    def prepare_fields(self) -> dict[str, InputField]:
+        if self._prepared_node is None:
+            self._prepared_node = NodePreparation(
+                self.name, self.options, self.model, self.dec_hook, self.aliases
+            )
+        return self._prepared_node.fields
+
+    def prepare_inputs(self, fields: Sequence[InputField]) -> PreparedInputs:
+        return SharedInputs(self.name, fields, self.dec_hook)
+
+    def validate_resolved(self, values: dict[str, Any]) -> dict[str, Any]:
+        node = self._prepared_node
+        if node is None:
+            self.prepare_fields()
+            node = self._prepared_node
+        assert node is not None
+        return node(values)
 
     def get_schema(
         self,
@@ -262,6 +289,32 @@ class _MsgSpecSerializerWithResponse(_MsgSpecSerializer):
 
 
 class _MsgSpecWrappedSerializer(_MsgSpecSerializer):
+    def prepare_inputs(self, fields: Sequence[InputField]) -> PreparedInputs:
+        prepared = super().prepare_inputs(fields)
+        if not fields:
+            return prepared
+        options = {field.option.field_name: field.option for field in fields}
+
+        def validate(values: dict[str, Any]) -> dict[Hashable, PreparedValue]:
+            try:
+                return prepared(values)
+            except msgspec.ValidationError:
+                with self._try_msgspec(values, options):
+                    raise
+
+        return validate
+
+    def validate_resolved(self, values: dict[str, Any]) -> dict[str, Any]:
+        try:
+            return super().validate_resolved(values)
+        except msgspec.ValidationError:
+            incoming = {
+                name: value.value if isinstance(value, PreparedValue) else value
+                for name, value in values.items()
+            }
+            with self._try_msgspec(incoming, self.options):
+                raise
+
     def __call__(self, call_kwargs: dict[str, Any]) -> dict[str, Any]:
         with self._try_msgspec(call_kwargs, self.options):
             casted_model = msgspec.convert(

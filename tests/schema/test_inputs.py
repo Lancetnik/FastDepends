@@ -1,5 +1,6 @@
 from typing import Annotated, Any
 
+import pytest
 from dirty_equals import IsPartialDict
 
 from fast_depends import Depends
@@ -89,56 +90,48 @@ def test_nested_extra_dependency_inputs(schema_inject, capture):
     )
 
 
-def test_own_parameter_precedes_dependency(schema_inject, capture):
+def test_conflicting_handler_and_dependency_inputs(schema_inject):
     def dependency(shared: str): ...
 
-    @schema_inject
-    def handler(shared: int, value: Any = Depends(dependency)): ...
+    with pytest.raises(TypeError, match=r"handler\.shared.*dependency\.shared"):
 
-    assert resolve_root(capture.serializer.get_schema()) == IsPartialDict(
-        properties={"shared": IsPartialDict(type="integer")}
-    )
+        @schema_inject
+        def handler(shared: int, value: Any = Depends(dependency)): ...
 
 
-def test_first_dependency_parameter_wins(schema_inject, capture):
+def test_conflicting_dependency_inputs(schema_inject):
     def first(shared: str): ...
 
     def second(shared: float): ...
 
-    @schema_inject
-    def handler(a: Any = Depends(first), b: Any = Depends(second)): ...
+    with pytest.raises(TypeError, match="Incompatible input declarations"):
 
-    assert resolve_root(capture.serializer.get_schema()) == IsPartialDict(
-        properties={"shared": IsPartialDict(type="string")}
-    )
+        @schema_inject
+        def handler(a: Any = Depends(first), b: Any = Depends(second)): ...
 
 
-def test_nested_dependency_precedes_next_dependency(schema_inject, capture):
+def test_conflicting_nested_dependency_inputs(schema_inject):
     def nested(shared: str): ...
 
     def first(value: Any = Depends(nested)): ...
 
     def second(shared: int): ...
 
-    @schema_inject
-    def handler(a: Any = Depends(first), b: Any = Depends(second)): ...
+    with pytest.raises(TypeError, match="Incompatible input declarations"):
 
-    assert resolve_root(capture.serializer.get_schema()) == IsPartialDict(
-        properties={"shared": IsPartialDict(type="string")}
-    )
+        @schema_inject
+        def handler(a: Any = Depends(first), b: Any = Depends(second)): ...
 
 
-def test_dependency_precedes_extra_dependency(schema_inject, capture):
+def test_conflicting_extra_dependency_inputs(schema_inject):
     def dependency(shared: str): ...
 
     def extra(shared: bool): ...
 
-    @schema_inject(extra_dependencies=(Depends(extra),))
-    def handler(value: Any = Depends(dependency)): ...
+    with pytest.raises(TypeError, match="Incompatible input declarations"):
 
-    assert resolve_root(capture.serializer.get_schema()) == IsPartialDict(
-        properties={"shared": IsPartialDict(type="string")}
-    )
+        @schema_inject(extra_dependencies=(Depends(extra),))
+        def handler(value: Any = Depends(dependency)): ...
 
 
 def test_empty_external_inputs(schema_inject, capture):

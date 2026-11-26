@@ -14,9 +14,16 @@ from fast_depends.library.schema import (
     apply_schema_groups,
     exclude_schema_fields,
     group_schema_fields,
+    unique_schema_names,
 )
 from fast_depends.library.schema_processing import SchemaExclude, process_schema
-from fast_depends.library.serializer import OptionItem, Serializer, SerializerProto
+from fast_depends.library.serializer import (
+    InputField,
+    OptionItem,
+    PreparedInputs,
+    Serializer,
+    SerializerProto,
+)
 from fast_depends.pydantic._compat import (
     BaseModel,
     ConfigDict,
@@ -32,6 +39,7 @@ from fast_depends.pydantic._compat import (
     response_adapter,
     type_schema,
 )
+from fast_depends.pydantic.preparation import PydanticPreparation
 
 
 def _encode(message: Any, *, encoder: Callable[[Any], bytes] = dump_json) -> bytes:
@@ -97,6 +105,7 @@ class _PydanticSerializer(Serializer):
         "config",
         "response_option",
         "_response_encoder",
+        "_preparation",
     )
 
     _response_encoder: Callable[[Any], bytes]
@@ -114,6 +123,7 @@ class _PydanticSerializer(Serializer):
         }
 
         self.config = get_config_base(pydantic_config)
+        self._preparation: PydanticPreparation | None = None
 
         self.model = create_model(  # type: ignore[call-overload]
             name,
@@ -125,6 +135,33 @@ class _PydanticSerializer(Serializer):
 
     def get_aliases(self) -> tuple[str, ...]:
         return get_aliases(self.model)
+
+    def _prepare(self) -> PydanticPreparation:
+        if self._preparation is None:
+            self._preparation = PydanticPreparation(
+                self.model,
+                self.options,
+                wrap_errors=hasattr(self, "_try_pydantic"),
+            )
+        return self._preparation
+
+    def prepare_fields(self) -> dict[str, InputField]:
+        return self._prepare().fields
+
+    def prepare_inputs(self, fields: Sequence[InputField]) -> PreparedInputs:
+        return self._prepare().prepare_inputs(fields)
+
+    def validate_resolved(self, values: dict[str, Any]) -> dict[str, Any]:
+        return self._prepare().validate_resolved(values)
+
+    def _prepare_call(
+        self, *, staged: bool
+    ) -> Callable[[dict[str, Any]], dict[str, Any]]:
+        if staged:
+            prepared = self._prepare()
+            prepared.prepare_resolved()
+            return prepared.validate_resolved
+        return self
 
     def get_schema(
         self,
@@ -147,6 +184,7 @@ class _PydanticSerializer(Serializer):
             else list(self.options.values()),
             exclude,
         )
+        options = unique_schema_names(options, self._schema_field)
         if not any(isinstance(i, SchemaField) for i in options):
             return model_schema(self._schema_model(self.name, options))
 
@@ -179,6 +217,22 @@ class _PydanticSerializer(Serializer):
             name,
             __config__=self.config,
             **{i.field_name: (i.field_type, i.default_value) for i in options},
+        )
+
+    def _schema_field(self, option: OptionItem) -> tuple[Any, Any, str]:
+        model = self._schema_model(self.name, [option])
+        field = model.model_fields[option.field_name]
+        attributes = field.asdict()["attributes"]
+        for alias in ("alias", "validation_alias", "serialization_alias"):
+            if attributes[alias] is None:
+                attributes[alias] = option.field_name
+        attributes["alias_priority"] = 2
+        default = Field(**attributes)
+        default.metadata = field.metadata.copy()
+        return (
+            field.annotation,
+            default,
+            get_schema_aliases(model).get(option.field_name, option.field_name),
         )
 
     def encode(self, value: Any) -> bytes:

@@ -1,6 +1,7 @@
 import inspect
 from collections.abc import Callable, Sequence
 from copy import copy, deepcopy
+from types import GenericAlias
 from typing import (
     TYPE_CHECKING,
     Annotated,
@@ -50,11 +51,15 @@ def build_call_model(
     extra_dependencies: Sequence[Dependant] = (),
     serializer_cls: Optional["SerializerProto"] = None,
     serialize_result: bool = True,
+    _building: tuple[Callable[..., Any], ...] = (),
+    _prepare: bool = True,
 ) -> CallModel:
     if hasattr(call, "_fastdepends_call_") and not hasattr(call, "_mock_name"):
         call = call._fastdepends_call_
 
     name = getattr(inspect.unwrap(call), "__name__", type(call).__name__)
+    if any(parent is call for parent in _building):
+        raise ValueError(f"Dependency cycle involving {name}")
 
     is_call_async = is_coroutine_callable(call) or is_async_gen_callable(call)
     if is_sync is None:
@@ -85,6 +90,7 @@ def build_call_model(
     for param_name, param in typed_params.parameters.items():
         dep: Dependant | None = None
         custom: CustomField | None = None
+        annotation: Any
 
         if param.annotation is inspect.Parameter.empty:
             annotation = Any
@@ -142,6 +148,16 @@ def build_call_model(
             custom, default = default, Ellipsis
 
         elif not dep and not custom:
+            if (
+                param.kind is inspect.Parameter.VAR_POSITIONAL
+                and get_origin(annotation) is not tuple
+            ):
+                annotation = GenericAlias(tuple, (annotation, Ellipsis))
+            elif (
+                param.kind is inspect.Parameter.VAR_KEYWORD
+                and get_origin(annotation) is not dict
+            ):
+                annotation = GenericAlias(dict, (str, annotation))
             class_fields.append(
                 OptionItem(
                     field_name=param_name,
@@ -161,6 +177,7 @@ def build_call_model(
                 is_sync=is_sync,
                 serializer_cls=serializer_cls,
                 serialize_result=dep.cast_result,
+                _building=(*_building, call),
             )
 
             key = dependency_provider.add_dependant(dependency)
@@ -195,7 +212,14 @@ def build_call_model(
             keyword_args.append(param_name)
 
         elif custom:
-            assert not (is_sync and is_coroutine_callable(custom.use)), (
+            resolver = (
+                custom.resolve
+                if type(custom).resolve is not CustomField.resolve
+                else custom.use_field
+                if custom.field
+                else custom.use
+            )
+            assert not (is_sync and is_coroutine_callable(resolver)), (
                 f"You cannot use async custom field `{type(custom).__name__}` at sync `{name}`"
             )
 
@@ -207,7 +231,7 @@ def build_call_model(
                 base_type, *metadata = get_args(schema_annotation)
                 metadata = [m for m in metadata if not isinstance(m, CustomField)]
                 schema_annotation = (
-                    Annotated[(base_type, *metadata)] if metadata else base_type
+                    Annotated[(base_type,) + tuple(metadata)] if metadata else base_type
                 )
             schema_custom_fields.append(
                 OptionItem(
@@ -278,9 +302,17 @@ def build_call_model(
             use_cache=dep.use_cache,
             is_sync=is_sync,
             serializer_cls=serializer_cls,
+            _building=(*_building, call),
         )
 
         key = dependency_provider.add_dependant(dependency)
+
+        _rebuild_override_model(
+            dependency_provider=dependency_provider,
+            dependency=dependency,
+            key=key,
+            serializer_cls=serializer_cls,
+        )
 
         overrided_dependency = dependency_provider.get_dependant(key)
 
@@ -292,6 +324,8 @@ def build_call_model(
 
     call_model = CallModel(
         call=call,
+        signature=typed_params,
+        options=class_fields,
         serializer=serializer,
         params=tuple(
             i
@@ -300,6 +334,7 @@ def build_call_model(
         ),
         use_cache=use_cache,
         is_async=is_call_async,
+        is_sync=is_sync,
         is_generator=is_call_generator,
         dependencies=dependencies,
         custom_fields=custom_fields,
@@ -308,6 +343,7 @@ def build_call_model(
         args_name=args_name,
         kwargs_name=kwargs_name,
         extra_dependencies=solved_extra_dependencies,
+        extra_cache=tuple(dependency.use_cache for dependency in extra_dependencies),
         dependency_provider=dependency_provider,
         serializer_cls=serializer_cls,
     )
@@ -315,6 +351,9 @@ def build_call_model(
     call_model._schema_custom_fields = tuple(schema_custom_fields)
     if serializer is not None:
         serializer._schema_options = lambda: _get_schema_options(call_model)
+
+    if not _building and _prepare:
+        call_model.prepare()
 
     return call_model
 

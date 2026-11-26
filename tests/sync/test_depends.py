@@ -9,7 +9,6 @@ from unittest.mock import Mock
 import pytest
 
 from fast_depends import Depends, inject
-from fast_depends.exceptions import ValidationError
 from tests.marks import serializer
 
 
@@ -32,7 +31,7 @@ def test_empty_main_body() -> None:
     def some_func(c=Depends(dep_func)):
         return c
 
-    assert some_func(1) == 1
+    assert some_func(a=1) == 1
 
 
 def test_class_depends() -> None:
@@ -61,12 +60,11 @@ def test_empty_main_body_multiple_args() -> None:
         return d, c
 
     assert handler(a=1, b=2) == (2, 1)
-    assert handler(1, b=2) == (2, 1)
-    assert handler(1, a=2) == (1, 2)
-    assert handler(1, 2) == (1, 1)  # all dependencies takes the first arg
+    with pytest.raises(TypeError, match="Cannot supply injected dependency"):
+        handler(1, b=2)
 
 
-def test_ignore_depends_if_setted_manual() -> None:
+def test_rejects_supplied_dependency_result() -> None:
     mock = Mock()
 
     def dep_func(a, b) -> int:
@@ -77,15 +75,16 @@ def test_ignore_depends_if_setted_manual() -> None:
     def some_func(c=Depends(dep_func)) -> int:
         return c
 
-    assert some_func(c=2) == 2
+    with pytest.raises(TypeError, match="Cannot supply injected dependency"):
+        some_func(c=2)
     assert not mock.called
 
-    assert some_func(1, 2) == 3
+    assert some_func(a=1, b=2) == 3
     mock.assert_called_once_with(1, 2)
 
 
 def test_depends_annotated_type_str() -> None:
-    def dep_func(a):
+    def dep_func(a: int):
         return a
 
     @inject
@@ -346,26 +345,25 @@ class TestSerializer:
 
         assert some_func(1) == 1
 
-    def test_depends_error(self) -> None:
+    def test_incompatible_dependency_inputs(self) -> None:
         def dep_func(b: dict, a: int = 3) -> float:  # pragma: no cover
             return a + b
 
         def another_func(b: int, a: int = 3) -> dict:  # pragma: no cover
             return a + b
 
-        @inject
-        def some_func(
-            b: int, c=Depends(dep_func), d=Depends(another_func)
-        ) -> int:  # pragma: no cover
-            assert c is None
-            return b
+        with pytest.raises(TypeError, match="Incompatible input declarations"):
 
-        with pytest.raises(ValidationError):
-            assert some_func("2") == 7
+            @inject
+            def some_func(
+                b: int, c=Depends(dep_func), d=Depends(another_func)
+            ) -> int:  # pragma: no cover
+                assert c is None
+                return b
 
     def test_depends_response_cast(self) -> None:
-        def dep_func(a):
-            return a
+        def dep_func(a: int):
+            return str(a)
 
         @inject
         def some_func(a: int, b: int, c: int = Depends(dep_func)) -> float:
@@ -376,8 +374,8 @@ class TestSerializer:
         assert some_func("1", "2")
 
     def test_depends_annotated_str(self) -> None:
-        def dep_func(a):
-            return a
+        def dep_func(a: int):
+            return str(a)
 
         @inject
         def some_func(

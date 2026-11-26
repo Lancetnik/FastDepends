@@ -9,13 +9,12 @@ from unittest.mock import Mock
 import pytest
 
 from fast_depends import Depends, inject
-from fast_depends.exceptions import ValidationError
 from tests.marks import serializer
 
 
 @pytest.mark.anyio
 async def test_depends() -> None:
-    async def dep_func(b, a=3):
+    async def dep_func(b: int, a: int = 3):
         return a + b
 
     @inject
@@ -26,7 +25,7 @@ async def test_depends() -> None:
 
 
 @pytest.mark.anyio
-async def test_ignore_depends_if_setted_manual() -> None:
+async def test_rejects_supplied_dependency_result() -> None:
     mock = Mock()
 
     async def dep_func(a, b) -> int:
@@ -37,10 +36,11 @@ async def test_ignore_depends_if_setted_manual() -> None:
     async def some_func(c=Depends(dep_func)) -> int:
         return c
 
-    assert (await some_func(c=2)) == 2
+    with pytest.raises(TypeError, match="Cannot supply injected dependency"):
+        await some_func(c=2)
     assert not mock.called
 
-    assert (await some_func(1, 2)) == 3
+    assert (await some_func(a=1, b=2)) == 3
     mock.assert_called_once_with(1, 2)
 
 
@@ -53,7 +53,7 @@ async def test_empty_main_body() -> None:
     async def some_func(c=Depends(dep_func)):
         return c
 
-    assert await some_func("1") == "1"
+    assert await some_func(a="1") == "1"
 
 
 @pytest.mark.anyio
@@ -69,14 +69,13 @@ async def test_empty_main_body_multiple_args() -> None:
         return d, c
 
     assert await handler(a=1, b=2) == (2, 1)
-    assert await handler(1, b=2) == (2, 1)
-    assert await handler(1, a=2) == (1, 2)
-    assert await handler(1, 2) == (1, 1)  # all dependencies takes the first arg
+    with pytest.raises(TypeError, match="Cannot supply injected dependency"):
+        await handler(1, b=2)
 
 
 @pytest.mark.anyio
 async def test_sync_depends() -> None:
-    def sync_dep_func(a):
+    def sync_dep_func(a: int):
         return a
 
     @inject
@@ -88,7 +87,7 @@ async def test_sync_depends() -> None:
 
 @pytest.mark.anyio
 async def test_depends_annotated() -> None:
-    async def dep_func(a):
+    async def dep_func(a: int):
         return a
 
     D = Annotated[int, Depends(dep_func)]
@@ -108,7 +107,7 @@ async def test_depends_annotated() -> None:
 
 @pytest.mark.anyio
 async def test_async_depends_annotated_str_partial() -> None:
-    async def adep_func(a):
+    async def adep_func(a: int):
         return a
 
     @inject
@@ -381,7 +380,7 @@ async def test_extra() -> None:
     async def some_func():
         mock()
 
-    await some_func(1)
+    await some_func()
     mock.assert_called_once()
     mock.async_call.assert_called_once()
     mock.sync_call.assert_called_once()
@@ -471,26 +470,25 @@ class TestSerializer:
 
         assert (await some_func(1)) == 1
 
-    async def test_depends_error(self) -> None:
+    async def test_incompatible_dependency_inputs(self) -> None:
         async def dep_func(b: dict, a: int = 3) -> float:  # pragma: no cover
             return a + b
 
         async def another_dep_func(b: int, a: int = 3) -> dict:  # pragma: no cover
             return a + b
 
-        @inject
-        async def some_func(
-            b: int, c=Depends(dep_func), d=Depends(another_dep_func)
-        ) -> int:  # pragma: no cover
-            assert c is None
-            return b
+        with pytest.raises(TypeError, match="Incompatible input declarations"):
 
-        with pytest.raises(ValidationError):
-            assert await some_func("2")
+            @inject
+            async def some_func(
+                b: int, c=Depends(dep_func), d=Depends(another_dep_func)
+            ) -> int:  # pragma: no cover
+                assert c is None
+                return b
 
     async def test_depends_response_cast(self) -> None:
-        async def dep_func(a):
-            return a
+        async def dep_func(a: int):
+            return str(a)
 
         @inject
         async def some_func(a: int, b: int, c: int = Depends(dep_func)) -> float:
@@ -500,8 +498,8 @@ class TestSerializer:
         assert await some_func("1", "2")
 
     async def test_async_depends_annotated_str(self) -> None:
-        async def dep_func(a):
-            return a
+        async def dep_func(a: int):
+            return str(a)
 
         @inject
         async def some_func(

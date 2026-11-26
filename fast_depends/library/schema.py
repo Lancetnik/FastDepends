@@ -1,4 +1,5 @@
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
+from copy import copy
 from typing import Any
 
 from fast_depends.library.schema_processing import SchemaExclude
@@ -34,21 +35,44 @@ class SchemaField(OptionItem):
         self.required = required
 
 
+def unique_schema_names(
+    options: list[OptionItem], prepare: Callable[[OptionItem], tuple[Any, Any, str]]
+) -> list[OptionItem]:
+    reserved = {
+        (i.source if isinstance(i, SchemaField) else None, i.field_name) for i in options
+    }
+    seen: dict[tuple[Any, str], OptionItem] = {}
+    result = []
+    for option in options:
+        source = option.source if isinstance(option, SchemaField) else None
+        key = (source, option.field_name)
+        if key in seen:
+            field_type, default, alias = prepare(option)
+            if source is not None or alias == prepare(seen[key])[2]:
+                raise ValueError(
+                    f"Duplicate schema field {option.field_name!r} in source {source!r}"
+                )
+            name = option.field_name + "_"
+            while (source, name) in reserved:
+                name += "_"
+            renamed = copy(option)
+            renamed.field_type, renamed.default_value = field_type, default
+            renamed.field_name = name
+            option = renamed
+            reserved.add((source, name))
+        seen.setdefault(key, option)
+        result.append(option)
+    return result
+
+
 def group_schema_fields(
     options: list[OptionItem],
 ) -> dict[str | None, list[OptionItem]]:
     groups: dict[str | None, list[OptionItem]] = {None: []}
-    names: set[tuple[str | None, str]] = set()
     for option in options:
         source = option.source if isinstance(option, SchemaField) else None
         if source is not None and (not isinstance(source, str) or not source):
             raise ValueError("Schema field source must be a non-empty string or None")
-        key = (source, option.field_name)
-        if key in names:
-            raise ValueError(
-                f"Duplicate schema field {option.field_name!r} in source {source!r}"
-            )
-        names.add(key)
         groups.setdefault(source, []).append(option)
     return groups
 

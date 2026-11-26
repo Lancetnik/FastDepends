@@ -1,6 +1,6 @@
 import inspect
 import re
-from collections.abc import Callable, Iterable, Iterator, Sequence
+from collections.abc import Callable, Hashable, Iterable, Iterator, Sequence
 from contextlib import contextmanager
 from functools import partial
 from typing import Any, TypeVar
@@ -13,9 +13,18 @@ from fast_depends.library.schema import (
     apply_schema_groups,
     exclude_schema_fields,
     group_schema_fields,
+    unique_schema_names,
 )
 from fast_depends.library.schema_processing import SchemaExclude, process_schema
-from fast_depends.library.serializer import OptionItem, Serializer, SerializerProto
+from fast_depends.library.serializer import (
+    InputField,
+    OptionItem,
+    PreparedInputs,
+    PreparedValue,
+    Serializer,
+    SerializerProto,
+)
+from fast_depends.msgspec.preparation import NodePreparation, SharedInputs
 
 T = TypeVar("T")
 
@@ -106,14 +115,27 @@ class _MsgSpecSerializer(Serializer):
         dec_hook: Callable[[type[T], Any], T] | None = None,
     ):
         model_options: list[str | tuple[str, type] | tuple[str, type, Any]] = []
-        aliases = {}
+        aliases = {
+            option.field_name: option.default_value.name
+            if isinstance(option.default_value, msgspec._core.Field)
+            and option.default_value.name
+            else option.field_name
+            for option in options
+        }
+        self._local_aliases = len(set(aliases.values())) != len(aliases)
         for i in options:
             default_value = i.default_value
-
-            if isinstance(default_value, msgspec._core.Field) and default_value.name:
-                aliases[i.field_name] = default_value.name
-            else:
-                aliases[i.field_name] = i.field_name
+            if self._local_aliases and isinstance(default_value, msgspec._core.Field):
+                if default_value.default_factory is not msgspec.NODEFAULT:
+                    default_value = msgspec.field(
+                        name=i.field_name, default_factory=default_value.default_factory
+                    )
+                elif default_value.default is not msgspec.NODEFAULT:
+                    default_value = msgspec.field(
+                        name=i.field_name, default=default_value.default
+                    )
+                else:
+                    default_value = msgspec.field(name=i.field_name)
 
             if default_value is Ellipsis:
                 model_options.append(
@@ -136,10 +158,40 @@ class _MsgSpecSerializer(Serializer):
         self.dec_hook = dec_hook
         self.schema_hook = None
         self._response_encoder = MsgSpecSerializer.encode
+        self._prepared_node: NodePreparation | None = None
         super().__init__(name=name, options=options, response_type=response_type)
 
     def get_aliases(self) -> tuple[str, ...]:
         return tuple(self.aliases.values())
+
+    def prepare_fields(self) -> dict[str, InputField]:
+        if self._prepared_node is None:
+            self._prepared_node = NodePreparation(
+                self.name, self.options, self.model, self.dec_hook, self.aliases
+            )
+        return self._prepared_node.fields
+
+    def prepare_inputs(self, fields: Sequence[InputField]) -> PreparedInputs:
+        return SharedInputs(self.name, fields, self.dec_hook)
+
+    def validate_resolved(self, values: dict[str, Any]) -> dict[str, Any]:
+        node = self._prepared_node
+        if node is None:
+            self.prepare_fields()
+            node = self._prepared_node
+        assert node is not None
+        return node(values)
+
+    def _prepare_call(
+        self, *, staged: bool
+    ) -> Callable[[dict[str, Any]], dict[str, Any]]:
+        if staged:
+            self.prepare_fields()
+            assert self._prepared_node is not None
+            self._prepared_node.prepare_resolved()
+            return self.validate_resolved
+        msgspec.json.Decoder(self.model, dec_hook=self.dec_hook)
+        return self
 
     def get_schema(
         self,
@@ -153,6 +205,8 @@ class _MsgSpecSerializer(Serializer):
         )
 
     def _get_schema(self, exclude: tuple[SchemaExclude, ...]) -> dict[str, Any]:
+        if self._local_aliases and self._schema_options is None:
+            raise TypeError("Shared aliases require a bound call schema")
         if self._schema_options is None and not exclude:
             schema: dict[str, Any] = msgspec.json.schema(
                 self.model, schema_hook=self.schema_hook
@@ -165,6 +219,7 @@ class _MsgSpecSerializer(Serializer):
             else list(self.options.values()),
             exclude,
         )
+        options = unique_schema_names(options, self._schema_field)
         if not any(isinstance(i, SchemaField) for i in options):
             schema = msgspec.json.schema(
                 self._schema_model(self.name, options), schema_hook=self.schema_hook
@@ -196,6 +251,21 @@ class _MsgSpecSerializer(Serializer):
         )
 
     @staticmethod
+    def _schema_field(option: OptionItem) -> tuple[Any, Any, str]:
+        field = msgspec.structs.fields(
+            _MsgSpecSerializer._schema_model("Field", [option])
+        )[0]
+        if field.default_factory is not msgspec.NODEFAULT:
+            default = msgspec.field(
+                name=field.encode_name, default_factory=field.default_factory
+            )
+        elif field.default is not msgspec.NODEFAULT:
+            default = msgspec.field(name=field.encode_name, default=field.default)
+        else:
+            default = msgspec.field(name=field.encode_name)
+        return field.type, default, field.encode_name
+
+    @staticmethod
     def _schema_model(name: str, options: list[OptionItem]) -> type[msgspec.Struct]:
         return msgspec.defstruct(
             name,
@@ -221,6 +291,8 @@ class _MsgSpecSerializer(Serializer):
         return schema
 
     def __call__(self, call_kwargs: dict[str, Any]) -> dict[str, Any]:
+        if self._local_aliases:
+            raise TypeError("Shared aliases require staged input preparation")
         casted_model = msgspec.convert(
             call_kwargs,
             type=self.model,
@@ -262,7 +334,35 @@ class _MsgSpecSerializerWithResponse(_MsgSpecSerializer):
 
 
 class _MsgSpecWrappedSerializer(_MsgSpecSerializer):
+    def prepare_inputs(self, fields: Sequence[InputField]) -> PreparedInputs:
+        prepared = super().prepare_inputs(fields)
+        if not fields:
+            return prepared
+        options = {field.option.field_name: field.option for field in fields}
+
+        def validate(values: dict[str, Any]) -> dict[Hashable, PreparedValue]:
+            try:
+                return prepared(values)
+            except msgspec.ValidationError:
+                with self._try_msgspec(values, options):
+                    raise
+
+        return validate
+
+    def validate_resolved(self, values: dict[str, Any]) -> dict[str, Any]:
+        try:
+            return super().validate_resolved(values)
+        except msgspec.ValidationError:
+            incoming = {
+                name: value.value if isinstance(value, PreparedValue) else value
+                for name, value in values.items()
+            }
+            with self._try_msgspec(incoming, self.options):
+                raise
+
     def __call__(self, call_kwargs: dict[str, Any]) -> dict[str, Any]:
+        if self._local_aliases:
+            raise TypeError("Shared aliases require staged input preparation")
         with self._try_msgspec(call_kwargs, self.options):
             casted_model = msgspec.convert(
                 call_kwargs,

@@ -1,6 +1,5 @@
 import logging
 import threading
-from time import monotonic_ns
 from typing import Annotated, Any
 
 import anyio
@@ -79,21 +78,29 @@ async def test_async_header_does_not_add_checkpoint():
 
 
 @pytest.mark.anyio
-async def test_mixed_fields_are_resolved_before_sequential_customs():
-    class DependentHeader(AsyncHeader):
+async def test_mixed_fields_follow_declaration_order():
+    order = []
+
+    class RecordingHeader(AsyncHeader):
         async def use(self, /, **kwargs: Any) -> dict[str, Any]:
-            kwargs = await super().use(**kwargs)
-            kwargs[self.param_name] += kwargs["field_key"]
-            return kwargs
+            order.append(self.param_name)
+            return await super().use(**kwargs)
+
+    class RecordingFieldHeader(AsyncFieldHeader):
+        async def use_field(self, kwargs: Any) -> None:
+            order.append(self.param_name)
+            await super().use_field(kwargs)
+            kwargs[self.param_name] += kwargs["key"]
 
     @inject
     async def async_catch(
-        key: int = DependentHeader(cast=False),
-        field_key: int = AsyncFieldHeader(cast=False),
+        key: int = RecordingHeader(cast=False),
+        field_key: int = RecordingFieldHeader(cast=False),
     ):
         return key, field_key
 
-    assert await async_catch(headers={"key": 1, "field_key": 2}) == (3, 2)
+    assert await async_catch(headers={"key": 1, "field_key": 2}) == (1, 3)
+    assert order == ["key", "field_key"]
 
 
 @pytest.mark.anyio
@@ -129,8 +136,6 @@ async def test_async_field_header_error_is_unwrapped():
     async def async_catch(key=FailingAsyncFieldHeader()):  # noqa: B008
         raise AssertionError("unreachable")
 
-    # `field=True` customs are resolved inside an `anyio` task group, which wraps
-    # failures into an `ExceptionGroup` - the original error must be re-raised as is
     with pytest.raises(ValueError, match="failed to resolve field"):
         await async_catch(headers={"key": 1})
 
@@ -219,9 +224,7 @@ class TestSerializer:
         ):
             return key, key2
 
-        start = monotonic_ns()
         assert (await async_catch(headers={"key": "1", "key2": 1})) == (1.0, 1)
-        assert (monotonic_ns() - start) / 10**9 < 0.2
 
     def test_async_header_sync(self):
         with pytest.raises(AssertionError):

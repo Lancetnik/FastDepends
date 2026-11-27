@@ -1,5 +1,5 @@
 from collections.abc import AsyncIterator, Callable, Iterator, Sequence
-from contextlib import AsyncExitStack, ExitStack
+from contextlib import AsyncExitStack, ExitStack, aclosing, closing
 from functools import partial, wraps
 from typing import (
     TYPE_CHECKING,
@@ -8,7 +8,6 @@ from typing import (
     Protocol,
     TypeVar,
     Union,
-    cast,
     overload,
 )
 
@@ -68,6 +67,10 @@ def Depends(
     )
 
 
+def _identity_model(model: CallModel) -> CallModel:
+    return model
+
+
 @overload
 def inject(
     func: Callable[P, T],
@@ -76,7 +79,7 @@ def inject(
     cast_result: bool = True,
     extra_dependencies: Sequence["Dependant"] = (),
     dependency_provider: Optional["Provider"] = None,
-    wrap_model: Callable[["CallModel"], "CallModel"] = lambda x: x,
+    wrap_model: Callable[["CallModel"], "CallModel"] = _identity_model,
     serializer_cls: Optional["SerializerProto"] = SerializerCls,
     **call_extra: Any,
 ) -> Callable[P, T]: ...
@@ -90,7 +93,7 @@ def inject(
     cast_result: bool = True,
     extra_dependencies: Sequence["Dependant"] = (),
     dependency_provider: Optional["Provider"] = None,
-    wrap_model: Callable[["CallModel"], "CallModel"] = lambda x: x,
+    wrap_model: Callable[["CallModel"], "CallModel"] = _identity_model,
     serializer_cls: Optional["SerializerProto"] = SerializerCls,
     **call_extra: Any,
 ) -> "InjectWrapper[..., Any]": ...
@@ -103,7 +106,7 @@ def inject(
     cast_result: bool = True,
     extra_dependencies: Sequence[Dependant] = (),
     dependency_provider: Optional["Provider"] = None,
-    wrap_model: Callable[["CallModel"], "CallModel"] = lambda x: x,
+    wrap_model: Callable[["CallModel"], "CallModel"] = _identity_model,
     serializer_cls: Optional["SerializerProto"] = SerializerCls,
     **call_extra: Any,
 ) -> Union[Callable[P, T], "InjectWrapper[P, T]"]:
@@ -148,8 +151,11 @@ def _wrap_inject(
                     dependency_provider=dependency_provider,
                     serializer_cls=serializer_cls,
                     serialize_result=cast_result,
+                    _prepare=wrap_model is _identity_model,
                 )
             )
+            if wrap_model is not _identity_model:
+                real_model.prepare(force=True)
         else:
             real_model = model
 
@@ -160,6 +166,7 @@ def _wrap_inject(
                 injected_wrapper = partial(  # type: ignore[assignment]
                     solve_async_gen,
                     real_model,
+                    call_extra,
                 )
 
             else:
@@ -167,11 +174,11 @@ def _wrap_inject(
                 async def injected_wrapper(*args: P.args, **kwargs: P.kwargs) -> T:  # type: ignore[misc]
                     async with AsyncExitStack() as stack:
                         return await real_model.asolve(  # type: ignore[no-any-return]
-                            *args,
                             stack=stack,
                             cache_dependencies={},
                             nested=False,
-                            **(call_extra | kwargs),
+                            arguments=(args, kwargs),
+                            context=call_extra,
                         )
 
                     raise AssertionError("unreachable")
@@ -181,6 +188,7 @@ def _wrap_inject(
                 injected_wrapper = partial(  # type: ignore[assignment]
                     solve_gen,
                     real_model,
+                    call_extra,
                 )
 
             else:
@@ -188,11 +196,11 @@ def _wrap_inject(
                 def injected_wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
                     with ExitStack() as stack:
                         return real_model.solve(  # type: ignore[no-any-return]
-                            *args,
                             stack=stack,
                             cache_dependencies={},
                             nested=False,
-                            **(call_extra | kwargs),
+                            arguments=(args, kwargs),
+                            context=call_extra,
                         )
 
                     raise AssertionError("unreachable")
@@ -203,87 +211,32 @@ def _wrap_inject(
     return func_wrapper
 
 
-class solve_async_gen:
-    _iter: AsyncIterator[Any] | None = None
-
-    def __init__(
-        self,
-        model: "CallModel",
-        *args: Any,
-        **kwargs: Any,
-    ):
-        self.call = model
-        self.args = args
-        self.kwargs = kwargs
-
-    def __aiter__(self) -> "solve_async_gen":
-        self.stack = AsyncExitStack()
-        return self
-
-    async def __anext__(self) -> Any:
-        if self._iter is None:
-            stack = self.stack = AsyncExitStack()
-            await self.stack.__aenter__()
-            self._iter = cast(
-                AsyncIterator[Any],
-                (
-                    await self.call.asolve(
-                        *self.args,
-                        stack=stack,
-                        cache_dependencies={},
-                        nested=False,
-                        **self.kwargs,
-                    )
-                ).__aiter__(),
-            )
-
-        try:
-            r = await self._iter.__anext__()
-        except StopAsyncIteration:
-            await self.stack.__aexit__(None, None, None)
-            raise
-        else:
-            return r
+async def solve_async_gen(
+    model: "CallModel", context: dict[str, Any], /, *args: Any, **kwargs: Any
+) -> AsyncIterator[Any]:
+    async with AsyncExitStack() as stack:
+        values = await model.asolve(
+            stack=stack,
+            cache_dependencies={},
+            nested=False,
+            arguments=(args, kwargs),
+            context=context,
+        )
+        async with aclosing(values):
+            async for value in values:
+                yield value
 
 
-class solve_gen:
-    _iter: Iterator[Any] | None = None
-
-    def __init__(
-        self,
-        model: "CallModel",
-        *args: Any,
-        **kwargs: Any,
-    ):
-        self.call = model
-        self.args = args
-        self.kwargs = kwargs
-
-    def __iter__(self) -> "solve_gen":
-        self.stack = ExitStack()
-        return self
-
-    def __next__(self) -> Any:
-        if self._iter is None:
-            stack = self.stack = ExitStack()
-            self.stack.__enter__()
-            self._iter = cast(
-                Iterator[Any],
-                iter(
-                    self.call.solve(
-                        *self.args,
-                        stack=stack,
-                        cache_dependencies={},
-                        nested=False,
-                        **self.kwargs,
-                    )
-                ),
-            )
-
-        try:
-            r = next(self._iter)
-        except StopIteration:
-            self.stack.__exit__(None, None, None)
-            raise
-        else:
-            return r
+def solve_gen(
+    model: "CallModel", context: dict[str, Any], /, *args: Any, **kwargs: Any
+) -> Iterator[Any]:
+    with ExitStack() as stack:
+        values = model.solve(
+            stack=stack,
+            cache_dependencies={},
+            nested=False,
+            arguments=(args, kwargs),
+            context=context,
+        )
+        with closing(values):
+            yield from values

@@ -1,10 +1,52 @@
 import inspect
 import json
 from abc import ABC, abstractmethod
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Hashable, Iterable, Sequence
 from typing import Any, Protocol
 
 from fast_depends.library.schema_processing import SchemaExclude
+
+
+class PreparedValue:
+    __slots__ = ("value",)
+
+    def __init__(self, value: Any) -> None:
+        self.value = value
+
+
+class InputField:
+    __slots__ = (
+        "option",
+        "key",
+        "paths",
+        "required",
+        "contract",
+        "schema",
+        "schema_option",
+    )
+
+    def __init__(
+        self,
+        option: "OptionItem",
+        *,
+        key: Hashable,
+        paths: tuple[tuple[str | int, ...], ...],
+        required: bool,
+        contract: Any,
+        schema: Any,
+        schema_option: "OptionItem | None" = None,
+    ) -> None:
+        self.option = option
+        self.key = key
+        self.paths = paths
+        self.required = required
+        self.contract = contract
+        self.schema = schema
+        self.schema_option = schema_option or option
+
+
+class PreparedInputs(Protocol):
+    def __call__(self, values: dict[str, Any], /) -> dict[Hashable, PreparedValue]: ...
 
 
 class OptionItem:
@@ -58,6 +100,20 @@ class Serializer(ABC):
 
     def get_aliases(self) -> tuple[str, ...]:
         return ()
+
+    def prepare_fields(self) -> dict[str, InputField]:
+        raise TypeError(f"{type(self).__name__} does not support staged input validation")
+
+    def prepare_inputs(self, fields: Sequence[InputField]) -> PreparedInputs:
+        raise TypeError(f"{type(self).__name__} does not support shared input validation")
+
+    def validate_resolved(self, values: dict[str, Any]) -> dict[str, Any]:
+        raise TypeError(f"{type(self).__name__} does not support staged input validation")
+
+    def _prepare_call(
+        self, *, staged: bool
+    ) -> Callable[[dict[str, Any]], dict[str, Any]]:
+        return self.validate_resolved if staged else self
 
     def get_schema(
         self,

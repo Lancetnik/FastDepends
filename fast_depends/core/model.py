@@ -1,14 +1,11 @@
-from collections.abc import Callable, Generator, Iterable, Sequence
+from collections.abc import Callable, Iterable, Mapping
 from contextlib import AsyncExitStack, ExitStack
-from inspect import Parameter, unwrap
+from inspect import Signature, unwrap
 from typing import (
     TYPE_CHECKING,
     Any,
 )
 
-import anyio
-
-from fast_depends._compat import ExceptionGroup
 from fast_depends.library.model import CustomField
 from fast_depends.library.serializer import OptionItem, Serializer, SerializerProto
 from fast_depends.utils import (
@@ -16,12 +13,11 @@ from fast_depends.utils import (
     is_async_gen_callable,
     is_coroutine_callable,
     is_gen_callable,
-    run_async,
-    solve_generator_async,
-    solve_generator_sync,
+    sync_map,
 )
 
 if TYPE_CHECKING:
+    from fast_depends.core.preparation import Invocation, PreparedGraph, PreparedNode
     from fast_depends.dependencies.provider import Key, Provider
 
 
@@ -44,9 +40,17 @@ class CallModel:
         "dependency_provider",
         "serializer_cls",
         "_schema_custom_fields",
+        "signature",
+        "_options",
+        "_prepared",
+        "_prepared_key",
+        "_extra_cache",
+        "_is_sync",
     )
 
     alias_arguments: tuple[str, ...]
+    _prepared: "PreparedGraph | None"
+    _prepared_key: "tuple[int, Provider | None, int | None] | None"
 
     @property
     def call_name(self) -> str:
@@ -55,29 +59,42 @@ class CallModel:
 
     @property
     def flat_params(self) -> list[OptionItem]:
-        params = list(self.params)
-        for d in map(
-            self.dependency_provider.get_dependant,
-            (*self.dependencies.values(), *self.extra_dependencies),
-        ):
-            for p in d.flat_params:
-                if p.field_name not in (i.field_name for i in params):
-                    params.append(p)
-        return params
+        return self.prepare().schema_options()
+
+    def prepare(
+        self, provider: "Provider | None" = None, *, force: bool = False
+    ) -> "PreparedGraph":
+        from fast_depends.core.preparation import PreparedGraph
+
+        key = (
+            self.dependency_provider.revision,
+            provider,
+            provider.revision if provider is not None else None,
+        )
+        prepared = self._prepared
+        if force or self._prepared_key != key or prepared is None:
+            prepared = PreparedGraph(self, provider)
+            self._prepared = prepared
+            self._prepared_key = key
+        return prepared
 
     def __init__(
         self,
         *,
         call: Callable[..., Any],
+        signature: Signature,
+        options: list[OptionItem],
         serializer: Serializer | None,
         params: tuple[OptionItem, ...],
         use_cache: bool,
         is_async: bool,
+        is_sync: bool,
         is_generator: bool,
         args_name: str | None,
         kwargs_name: str | None,
         dependencies: dict[str, "Key"],
         extra_dependencies: Iterable["Key"],
+        extra_cache: tuple[bool, ...],
         keyword_args: list[str],
         positional_args: list[str],
         custom_fields: dict[str, CustomField],
@@ -100,12 +117,14 @@ class CallModel:
         self.is_async = (
             is_async or is_coroutine_callable(call) or is_async_gen_callable(call)
         )
+        self._is_sync = is_sync
         self.is_generator = (
             is_generator or is_gen_callable(call) or is_async_gen_callable(call)
         )
 
         self.dependencies = dependencies or {}
         self.extra_dependencies = tuple(extra_dependencies or ())
+        self._extra_cache = extra_cache
         self.custom_fields = custom_fields or {}
 
         self.params = params
@@ -113,85 +132,12 @@ class CallModel:
         self.serializer_cls = serializer_cls
         self._schema_custom_fields: tuple[OptionItem, ...] = ()
 
-    def _solve(
-        self,
-        /,
-        *args: tuple[Any, ...],
-        cache_dependencies: dict[Callable[..., Any], Any],
-        **kwargs: dict[str, Any],
-    ) -> Generator[
-        tuple[
-            tuple[Any, ...],
-            dict[str, Any],
-        ],
-        Any,
-        Any,
-    ]:
-        if self.use_cache and self.call in cache_dependencies:
-            return cache_dependencies[self.call]
+        self.signature = signature
+        self._options = tuple(options)
+        self._prepared = None
+        self._prepared_key = None
 
-        kw: dict[str, Any] = {}
-        for arg in self.keyword_args:
-            if (v := kwargs.pop(arg, Parameter.empty)) is not Parameter.empty:
-                kw[arg] = v
-
-        if self.kwargs_name in self.alias_arguments:
-            kw[self.kwargs_name] = kwargs
-        else:
-            kw.update(kwargs)
-
-        for arg in self.positional_args:
-            if arg not in kw:
-                if args:
-                    kw[arg], args = args[0], args[1:]
-                else:
-                    break
-
-        keyword_args: Iterable[str]
-        if self.args_name in self.alias_arguments:
-            kw[self.args_name] = args
-            keyword_args = self.keyword_args
-
-        else:
-            keyword_args = self.keyword_args + self.positional_args
-            for arg in keyword_args:
-                if not args:
-                    break
-
-                if arg not in self.dependencies and arg not in kw:
-                    kw[arg], args = args[0], args[1:]
-
-        solved_kw: dict[str, Any]
-        solved_kw = yield args, kw
-
-        args_: Sequence[Any]
-        if self.serializer is not None:
-            casted_options = self.serializer(solved_kw)
-            solved_kw.update(casted_options)
-
-        if self.args_name:
-            args_ = (
-                *map(solved_kw.pop, self.positional_args),
-                *solved_kw.get(self.args_name, args),
-            )
-        else:
-            args_ = ()
-
-        kwargs_ = {arg: solved_kw.pop(arg) for arg in keyword_args if arg in solved_kw}
-        if self.kwargs_name:
-            kwargs_.update(solved_kw.get(self.kwargs_name, solved_kw))
-
-        response = yield args_, kwargs_
-
-        if not self.is_generator:
-            response = self._cast_response(response)
-
-        if self.use_cache:  # pragma: no branch
-            cache_dependencies[self.call] = response
-
-        return response
-
-    def _cast_response(self, /, value: Any) -> Any:
+    def _cast_response(self, value: Any) -> Any:
         if self.serializer is not None:
             return self.serializer.response(value)
         return value
@@ -199,171 +145,177 @@ class CallModel:
     def solve(
         self,
         /,
-        *args: tuple[Any, ...],
+        *args: Any,
         stack: ExitStack,
         cache_dependencies: dict[Callable[..., Any], Any],
         nested: bool = False,
         dependency_provider: "Provider | None" = None,
-        **kwargs: dict[str, Any],
+        arguments: tuple[tuple[Any, ...], dict[str, Any]] | None = None,
+        context: Mapping[str, Any] | None = None,
+        **kwargs: Any,
     ) -> Any:
-        cast_gen = self._solve(
-            *args,
-            cache_dependencies=cache_dependencies,
-            **kwargs,
-        )
-        try:
-            args, kwargs = next(cast_gen)
-        except StopIteration as e:
-            cached_value = e.value
-            return cached_value
-
-        if dependency_provider:
-            provider = self.dependency_provider.merge(dependency_provider)
-        else:
-            provider = self.dependency_provider
-
-        for dep in map(provider.get_dependant, self.extra_dependencies):
-            dep.solve(
-                *args,
-                stack=stack,
-                cache_dependencies=cache_dependencies,
-                nested=True,
-                **kwargs,
+        if arguments is not None:
+            args, kwargs = arguments
+        graph = self.prepare(dependency_provider)
+        if graph.plain:
+            args, kwargs = graph.plain_arguments(args, kwargs)
+            if self.use_cache and self.call in cache_dependencies:
+                return cache_dependencies[self.call]
+            return self._call_sync(
+                graph.nodes[self],
+                args,
+                kwargs,
+                stack,
+                cache_dependencies,
+                nested,
+                self.use_cache,
             )
+        state = graph.bind(args, kwargs, context or {})
+        return self._solve_sync(state, stack, cache_dependencies, nested)
 
-        for dep_arg, dep_key in self.dependencies.items():
-            if dep_arg not in kwargs:
-                kwargs[dep_arg] = provider.get_dependant(dep_key).solve(
-                    *args,
-                    stack=stack,
-                    cache_dependencies=cache_dependencies,
-                    nested=True,
-                    **kwargs,
-                )
-
-        if self.custom_fields:
-            for custom in self.custom_fields.values():
-                if custom.field:
-                    custom.use_field(kwargs)
-                else:
-                    kwargs = custom.use(**kwargs)
-
-        final_args, final_kwargs = cast_gen.send(kwargs)
-
-        if self.is_generator and nested:
-            response = solve_generator_sync(
-                *final_args,
-                call=self.call,
-                stack=stack,
-                **final_kwargs,
+    def _solve_sync(
+        self,
+        state: "Invocation",
+        stack: ExitStack,
+        cache: dict[Callable[..., Any], Any],
+        nested: bool = True,
+        use_cache: bool | None = None,
+    ) -> Any:
+        cache_enabled = self.use_cache if use_cache is None else use_cache
+        if cache_enabled and self.call in cache:
+            return cache[self.call]
+        node = state.graph.nodes[self]
+        dependencies: dict[str, Any] = {}
+        for dependency, policy in node.extra_dependencies:
+            dependency._solve_sync(state, stack, cache, use_cache=policy)
+        for name, dependency, policy in node.dependencies:
+            dependencies[name] = dependency._solve_sync(
+                state, stack, cache, use_cache=policy
             )
-
-        else:
-            response = self.call(*final_args, **final_kwargs)
-
-        try:
-            cast_gen.send(response)
-        except StopIteration as e:
-            value = e.value
-
-            if self.serializer is None or nested or not self.is_generator:
-                return value
-
+        values = state.arguments(node)
+        values.update(dependencies)
+        for resolve, field_mode, contextual in node.custom_fields:
+            previous = state.capture(node, values) if node.shared_bindings else None
+            if contextual:
+                values = resolve(state.framework_context, **values)
+            elif field_mode:
+                resolve(values)
             else:
-                return map(self._cast_response, value)
+                values = resolve(**values)
+            if previous is not None:
+                state.publish(node, previous, values)
+        args, kwargs = state.resolve(node, values)
+        return self._call_sync(node, args, kwargs, stack, cache, nested, cache_enabled)
 
-        raise AssertionError("unreachable")
+    def _call_sync(
+        self,
+        node: "PreparedNode",
+        args: tuple[Any, ...],
+        kwargs: dict[str, Any],
+        stack: ExitStack,
+        cache: dict[Callable[..., Any], Any],
+        nested: bool,
+        cache_enabled: bool,
+    ) -> Any:
+        if self.is_generator and nested:
+            assert node.context is not None
+            result = stack.enter_context(node.context(*args, **kwargs))
+        else:
+            result = self.call(*args, **kwargs)
+        if not self.is_generator:
+            result = self._cast_response(result)
+        elif not nested and self.serializer is not None:
+            result = sync_map(self._cast_response, result)
+        if cache_enabled:
+            cache[self.call] = result
+        return result
 
     async def asolve(
         self,
         /,
-        *args: tuple[Any, ...],
+        *args: Any,
         stack: AsyncExitStack,
         cache_dependencies: dict[Callable[..., Any], Any],
         nested: bool = False,
         dependency_provider: "Provider | None" = None,
-        **kwargs: dict[str, Any],
+        arguments: tuple[tuple[Any, ...], dict[str, Any]] | None = None,
+        context: Mapping[str, Any] | None = None,
+        **kwargs: Any,
     ) -> Any:
-        cast_gen = self._solve(
-            *args,
-            cache_dependencies=cache_dependencies,
-            **kwargs,
-        )
-        try:
-            args, kwargs = next(cast_gen)
-        except StopIteration as e:
-            cached_value = e.value
-            return cached_value
-
-        if dependency_provider:
-            provider = self.dependency_provider.merge(dependency_provider)
-        else:
-            provider = self.dependency_provider
-
-        for dep in map(provider.get_dependant, self.extra_dependencies):
-            # TODO: run concurrently
-            await dep.asolve(
-                *args,
-                stack=stack,
-                cache_dependencies=cache_dependencies,
-                nested=True,
-                **kwargs,
+        if arguments is not None:
+            args, kwargs = arguments
+        graph = self.prepare(dependency_provider)
+        if graph.plain:
+            args, kwargs = graph.plain_arguments(args, kwargs)
+            if self.use_cache and self.call in cache_dependencies:
+                return cache_dependencies[self.call]
+            return await self._call_async(
+                graph.nodes[self],
+                args,
+                kwargs,
+                stack,
+                cache_dependencies,
+                nested,
+                self.use_cache,
             )
+        state = graph.bind(args, kwargs, context or {})
+        return await self._solve_async(state, stack, cache_dependencies, nested)
 
-        for dep_arg, dep_key in self.dependencies.items():
-            if dep_arg not in kwargs:
-                kwargs[dep_arg] = await provider.get_dependant(dep_key).asolve(
-                    *args,
-                    stack=stack,
-                    cache_dependencies=cache_dependencies,
-                    nested=True,
-                    **kwargs,
-                )
-
-        if self.custom_fields:
-            custom_to_solve: list[CustomField] = []
-            custom_to_schedule: list[CustomField] = []
-
-            for custom in self.custom_fields.values():
-                if custom.field:
-                    custom_to_schedule.append(custom)
-                else:
-                    custom_to_solve.append(custom)
-
-            if custom_to_schedule:
-                try:
-                    async with anyio.create_task_group() as tg:
-                        for custom in custom_to_schedule:
-                            tg.start_soon(run_async, custom.use_field, kwargs)
-
-                except ExceptionGroup as exgr:
-                    for ex in exgr.exceptions:  # pragma: no branch
-                        raise ex from None
-
-            for j in custom_to_solve:
-                kwargs = await run_async(j.use, **kwargs)
-
-        final_args, final_kwargs = cast_gen.send(kwargs)
-
-        if self.is_generator and nested:
-            response = await solve_generator_async(
-                *final_args,
-                call=self.call,
-                stack=stack,
-                **final_kwargs,
+    async def _solve_async(
+        self,
+        state: "Invocation",
+        stack: AsyncExitStack,
+        cache: dict[Callable[..., Any], Any],
+        nested: bool = True,
+        use_cache: bool | None = None,
+    ) -> Any:
+        cache_enabled = self.use_cache if use_cache is None else use_cache
+        if cache_enabled and self.call in cache:
+            return cache[self.call]
+        node = state.graph.nodes[self]
+        dependencies: dict[str, Any] = {}
+        for dependency, policy in node.extra_dependencies:
+            await dependency._solve_async(state, stack, cache, use_cache=policy)
+        for name, dependency, policy in node.dependencies:
+            dependencies[name] = await dependency._solve_async(
+                state, stack, cache, use_cache=policy
             )
-        else:
-            response = await run_async(self.call, *final_args, **final_kwargs)
-
-        try:
-            cast_gen.send(response)
-        except StopIteration as e:
-            value = e.value
-
-            if self.serializer is None or nested or not self.is_generator:
-                return value
-
+        values = state.arguments(node)
+        values.update(dependencies)
+        for resolve, field_mode, contextual in node.async_custom_fields:
+            previous = state.capture(node, values) if node.shared_bindings else None
+            if contextual:
+                values = await resolve(state.framework_context, **values)
+            elif field_mode:
+                await resolve(values)
             else:
-                return async_map(self._cast_response, value)
+                values = await resolve(**values)
+            if previous is not None:
+                state.publish(node, previous, values)
+        args, kwargs = state.resolve(node, values)
+        return await self._call_async(
+            node, args, kwargs, stack, cache, nested, cache_enabled
+        )
 
-        raise AssertionError("unreachable")
+    async def _call_async(
+        self,
+        node: "PreparedNode",
+        args: tuple[Any, ...],
+        kwargs: dict[str, Any],
+        stack: AsyncExitStack,
+        cache: dict[Callable[..., Any], Any],
+        nested: bool,
+        cache_enabled: bool,
+    ) -> Any:
+        if self.is_generator and nested:
+            assert node.async_context is not None
+            result = await stack.enter_async_context(node.async_context(*args, **kwargs))
+        else:
+            result = await node.async_call(*args, **kwargs)
+        if not self.is_generator:
+            result = self._cast_response(result)
+        elif not nested and self.serializer is not None:
+            result = async_map(self._cast_response, result)
+        if cache_enabled:
+            cache[self.call] = result
+        return result

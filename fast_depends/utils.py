@@ -1,13 +1,19 @@
 import functools
 import inspect
 import sys
-from collections.abc import AsyncGenerator, AsyncIterable, Awaitable, Callable
+from collections.abc import (
+    AsyncGenerator,
+    AsyncIterable,
+    Awaitable,
+    Callable,
+    Generator,
+    Iterator,
+)
 from contextlib import (
     AbstractContextManager,
-    AsyncExitStack,
-    ExitStack,
+    aclosing,
     asynccontextmanager,
-    contextmanager,
+    closing,
 )
 from typing import (
     TYPE_CHECKING,
@@ -67,6 +73,7 @@ async def run_async(
 
 async def run_in_threadpool(
     func: Callable[P, T],
+    /,
     *args: P.args,
     **kwargs: P.kwargs,
 ) -> T:
@@ -75,27 +82,12 @@ async def run_in_threadpool(
     return await anyio.to_thread.run_sync(func, *args)
 
 
-async def solve_generator_async(
-    *sub_args: Any,
+def _prepare_async_call(
     call: Callable[..., Any],
-    stack: AsyncExitStack,
-    **sub_values: Any,
-) -> Any:
-    if is_gen_callable(call):
-        cm = contextmanager_in_threadpool(contextmanager(call)(**sub_values))
-    elif is_async_gen_callable(call):  # pragma: no branch
-        cm = asynccontextmanager(call)(*sub_args, **sub_values)
-    return await stack.enter_async_context(cm)
-
-
-def solve_generator_sync(
-    *sub_args: Any,
-    call: Callable[..., Any],
-    stack: ExitStack,
-    **sub_values: Any,
-) -> Any:
-    cm = contextmanager(call)(*sub_args, **sub_values)
-    return stack.enter_context(cm)
+) -> Callable[..., Awaitable[Any]]:
+    if is_coroutine_callable(call):
+        return cast(Callable[..., Awaitable[Any]], call)
+    return functools.partial(run_in_threadpool, call)
 
 
 def get_typed_signature(call: Callable[..., Any]) -> tuple[inspect.Signature, Any]:
@@ -226,7 +218,13 @@ def is_coroutine_callable(call: Callable[..., Any]) -> bool:
 
 
 async def async_map(
-    func: Callable[..., T], async_iterable: AsyncIterable[Any]
+    func: Callable[..., T], async_iterable: AsyncGenerator[Any, Any]
 ) -> AsyncIterable[T]:
-    async for i in async_iterable:
-        yield func(i)
+    async with aclosing(async_iterable):
+        async for i in async_iterable:
+            yield func(i)
+
+
+def sync_map(func: Callable[..., T], values: Generator[Any, Any, Any]) -> Iterator[T]:
+    with closing(values):
+        yield from map(func, values)

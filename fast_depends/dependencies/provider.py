@@ -1,5 +1,6 @@
-from collections.abc import Callable, Hashable, Iterator
+from collections.abc import Callable, Hashable, Iterator, Mapping
 from contextlib import contextmanager
+from types import MappingProxyType
 from typing import TYPE_CHECKING, Any, TypeAlias
 
 from fast_depends.core import build_call_model
@@ -12,32 +13,40 @@ Key: TypeAlias = Hashable
 
 
 class Provider:
-    dependencies: dict[Key, "CallModel"]
-    overrides: dict[Key, "CallModel"]
-
     def __init__(self) -> None:
-        self.dependencies = {}
-        self.overrides = {}
+        self._dependencies: dict[Key, CallModel] = {}
+        self._overrides: dict[Key, CallModel] = {}
+        self.revision = 0
+
+    @property
+    def dependencies(self) -> Mapping[Key, "CallModel"]:
+        return MappingProxyType(self._dependencies)
+
+    @property
+    def overrides(self) -> Mapping[Key, "CallModel"]:
+        return MappingProxyType(self._overrides)
 
     def merge(self, provider: "Provider") -> "Provider":
         p = Provider()
-        p.dependencies = self.dependencies | provider.dependencies
-        p.overrides = self.overrides | provider.overrides
+        p._dependencies = self._dependencies | provider._dependencies
+        p._overrides = self._overrides | provider._overrides
         return p
 
     def clear(self) -> None:
-        self.overrides = {}
+        self._overrides.clear()
+        self.revision += 1
 
     def add_dependant(
         self,
         dependant: "CallModel",
     ) -> Key:
         key = self.__get_original_key(dependant.call)
-        self.dependencies[key] = dependant
+        self._dependencies[key] = dependant
+        self.revision += 1
         return key
 
     def get_dependant(self, key: Key) -> "CallModel":
-        return self.overrides.get(key) or self.dependencies[key]
+        return self._overrides.get(key) or self._dependencies[key]
 
     def override(
         self,
@@ -48,11 +57,11 @@ class Provider:
 
         serializer_cls = None
 
-        if original_dependant := self.dependencies.get(key):
+        if original_dependant := self._dependencies.get(key):
             serializer_cls = original_dependant.serializer_cls
 
         else:
-            self.dependencies[key] = build_call_model(
+            self._dependencies[key] = build_call_model(
                 original,
                 dependency_provider=self,
             )
@@ -63,7 +72,8 @@ class Provider:
             serializer_cls=serializer_cls,
         )
 
-        self.overrides[key] = override_model
+        self._overrides[key] = override_model
+        self.revision += 1
 
     def __setitem__(
         self,
@@ -79,11 +89,17 @@ class Provider:
         original: Callable[..., Any],
         override: Callable[..., Any],
     ) -> Iterator[None]:
+        key = self.__get_original_key(original)
+        previous = self._overrides.get(key)
         self.override(original, override)
         try:
             yield
         finally:
-            self.overrides.pop(self.__get_original_key(original), None)
+            if previous is None:
+                self._overrides.pop(key, None)
+            else:
+                self._overrides[key] = previous
+            self.revision += 1
 
     def __get_original_key(self, original: Callable[..., Any]) -> Key:
         return original

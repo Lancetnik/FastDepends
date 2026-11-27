@@ -1,4 +1,5 @@
 from abc import ABC
+from collections.abc import Awaitable, Mapping
 from typing import Any, TypeVar
 
 from fast_depends.library.schema import SchemaField
@@ -37,6 +38,12 @@ class CustomField(ABC):
     def use(self, /, **kwargs: Any) -> dict[str, Any]:
         assert self.param_name, "You should specify `param_name` before using"
         return kwargs
+
+    def resolve(
+        self, context: Mapping[str, Any], /, **kwargs: Any
+    ) -> dict[str, Any] | Awaitable[dict[str, Any]]:
+        """Resolve a field with framework context separate from external arguments."""
+        return self.use(**kwargs)
 
     def use_field(self, kwargs: dict[str, Any]) -> None:
         raise NotImplementedError

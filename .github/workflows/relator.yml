@@ -17,7 +17,10 @@ permissions:
 jobs:
   notify:
     name: "Send Telegram notification for new issue or opened pull request"
-    if: github.actor != 'dependabot[bot]' && (github.event.action == 'opened' || github.event.action == 'reopened')
+    if: |
+      github.actor != 'dependabot[bot]' &&
+      github.event.pull_request.user.login != 'Lancetnik' &&
+      (github.event.action == 'opened' || github.event.action == 'reopened')
     runs-on: ubuntu-latest
     steps:
       - name: Send Telegram notification for new issue or opened pull request

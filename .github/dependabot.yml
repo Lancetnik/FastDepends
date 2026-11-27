@@ -8,6 +8,8 @@ updates:
   # GitHub Actions
   - package-ecosystem: "github-actions"
     directory: "/"
+    cooldown:
+      default-days: 7
     schedule:
       interval: "weekly"
     groups:
@@ -17,12 +19,11 @@ updates:
   # Python
   - package-ecosystem: "uv"
     directory: "/"
+    cooldown:
+      default-days: 7
     schedule:
       interval: "weekly"
     groups:
-      dev-tools-patch:
-        patterns: ["ruff", "mypy", "codespell"]
-        update-types: ["patch"]
       pip:
         patterns:
           - "*"

@@ -1,8 +1,8 @@
 name: Dependabot auto-merge
 
-# Use base-branch code only. Never check out or execute the PR in this job.
+# API calls only. Do not check out the PR or run code or artifacts from it.
 on:
-  pull_request_target:
+  pull_request_target: # zizmor: ignore[dangerous-triggers] -- no PR code runs with write access.
     branches: [main]
     types: [opened, reopened, synchronize, ready_for_review]
 
@@ -13,32 +13,23 @@ jobs:
     if: >-
       github.event.pull_request.user.login == 'dependabot[bot]' &&
       github.event.pull_request.head.repo.full_name == github.repository &&
-      !github.event.pull_request.draft && github.event.pull_request.commits == 1 &&
-      startsWith(github.event.pull_request.head.ref, 'dependabot/uv/dev-tools-patch-')
+      !github.event.pull_request.draft
     runs-on: ubuntu-latest
     permissions:
       contents: write
       pull-requests: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      PR: ${{ github.event.pull_request.number }}
+      HEAD_SHA: ${{ github.event.pull_request.head.sha }}
     steps:
-      - uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98 # v3
-        id: metadata
-      - name: Enable auto-merge for verified dev-tool patches
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PR: ${{ github.event.pull_request.number }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-          UPDATES: ${{ steps.metadata.outputs.updated-dependencies-json }}
+      - name: Enable auto-merge for signed Dependabot commits
         run: |
-          if ! jq -e 'type == "array" and length > 0 and all(.[];
-            .packageEcosystem == "uv" and .dependencyGroup == "dev-tools-patch" and
-            .dependencyType == "direct:development" and .updateType == "version-update:semver-patch" and
-            (.dependencyName | IN("ruff", "mypy", "codespell")))' <<< "${UPDATES:-[]}" > /dev/null; then
-            echo 'Not an allowlisted patch group; leaving this PR for review.'
-            exit 0
-          fi
-          files=$(gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$PR/files" --jq '.[].filename')
-          if ! grep -q . <<< "$files" || grep -qvEx 'pyproject\.toml|uv\.lock' <<< "$files"; then
-            echo 'Unexpected changed files; leaving this PR for review.'
+          commits=$(gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/pulls/$PR/commits?per_page=100")
+          if ! jq -e --arg head "$HEAD_SHA" 'flatten | length > 0 and last.sha == $head and
+            all(.[]; .author.login == "dependabot[bot]" and .commit.verification.verified == true)' \
+            <<< "$commits" > /dev/null; then
+            echo 'Not a verified Dependabot head; leaving this PR for manual review.'
             exit 0
           fi
           gh api --method POST "repos/$GITHUB_REPOSITORY/pulls/$PR/reviews" \

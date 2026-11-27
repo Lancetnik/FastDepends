@@ -1,34 +1,46 @@
-name: Automerge
+name: Dependabot auto-merge
 
+# Use base-branch code only. Never check out or execute the PR in this job.
 on:
   pull_request_target:
+    branches: [main]
+    types: [opened, reopened, synchronize, ready_for_review]
+
+permissions: {}
 
 jobs:
   automerge:
-    name: Enable pull request automerge
+    if: >-
+      github.event.pull_request.user.login == 'dependabot[bot]' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      !github.event.pull_request.draft && github.event.pull_request.commits == 1 &&
+      startsWith(github.event.pull_request.head.ref, 'dependabot/uv/dev-tools-patch-')
     runs-on: ubuntu-latest
-    if: github.event.pull_request.user.login == 'dependabot[bot]'
-
     permissions:
-      pull-requests: write
       contents: write
-
-    steps:
-      - uses: alexwilson/enable-github-automerge-action@2c32e18a76e0726ffe7a573bfff2d42a20885126 # 3.0.0
-        with:
-          github-token: ${{ secrets.AUTOMERGE_TOKEN }}
-          merge-method: REBASE
-
-  autoapprove:
-    name: Automatically approve pull request
-    needs: [automerge]
-    runs-on: ubuntu-latest
-    if: github.event.pull_request.user.login == 'dependabot[bot]'
-
-    permissions:
       pull-requests: write
-
     steps:
-      - uses: hmarr/auto-approve-action@f0939ea97e9205ef24d872e76833fa908a770363 # v4.0.0
-        with:
-          github-token: ${{ secrets.AUTOMERGE_TOKEN }}
+      - uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98 # v3
+        id: metadata
+      - name: Enable auto-merge for verified dev-tool patches
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          UPDATES: ${{ steps.metadata.outputs.updated-dependencies-json }}
+        run: |
+          if ! jq -e 'type == "array" and length > 0 and all(.[];
+            .packageEcosystem == "uv" and .dependencyGroup == "dev-tools-patch" and
+            .dependencyType == "direct:development" and .updateType == "version-update:semver-patch" and
+            (.dependencyName | IN("ruff", "mypy", "codespell")))' <<< "${UPDATES:-[]}" > /dev/null; then
+            echo 'Not an allowlisted patch group; leaving this PR for review.'
+            exit 0
+          fi
+          files=$(gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$PR/files" --jq '.[].filename')
+          if ! grep -q . <<< "$files" || grep -qvEx 'pyproject\.toml|uv\.lock' <<< "$files"; then
+            echo 'Unexpected changed files; leaving this PR for review.'
+            exit 0
+          fi
+          gh api --method POST "repos/$GITHUB_REPOSITORY/pulls/$PR/reviews" \
+            -f event=APPROVE -f commit_id="$HEAD_SHA" > /dev/null
+          gh pr merge "$PR" --repo "$GITHUB_REPOSITORY" --auto --squash --match-head-commit "$HEAD_SHA"

@@ -20,6 +20,9 @@ updates:
     schedule:
       interval: "weekly"
     groups:
+      dev-tools-patch:
+        patterns: ["ruff", "mypy", "codespell"]
+        update-types: ["patch"]
       pip:
         patterns:
           - "*"

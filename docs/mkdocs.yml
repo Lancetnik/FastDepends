@@ -103,6 +103,7 @@ nav:
   - Advanced:
     - advanced/index.md
     - JSON Schema: advanced/json-schema.md
+    - Staged Validation: advanced/staged-validation.md
     - More Complex Example: advanced/starlette.md
   - Alternatives: alternatives.md
   - Contributing: contributing.md

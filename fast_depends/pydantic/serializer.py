@@ -16,7 +16,13 @@ from fast_depends.library.schema import (
     group_schema_fields,
 )
 from fast_depends.library.schema_processing import SchemaExclude, process_schema
-from fast_depends.library.serializer import OptionItem, Serializer, SerializerProto
+from fast_depends.library.serializer import (
+    InputField,
+    OptionItem,
+    PreparedInputs,
+    Serializer,
+    SerializerProto,
+)
 from fast_depends.pydantic._compat import (
     BaseModel,
     ConfigDict,
@@ -32,6 +38,7 @@ from fast_depends.pydantic._compat import (
     response_adapter,
     type_schema,
 )
+from fast_depends.pydantic.preparation import PydanticPreparation
 
 
 def _encode(message: Any, *, encoder: Callable[[Any], bytes] = dump_json) -> bytes:
@@ -97,6 +104,7 @@ class _PydanticSerializer(Serializer):
         "config",
         "response_option",
         "_response_encoder",
+        "_preparation",
     )
 
     _response_encoder: Callable[[Any], bytes]
@@ -114,6 +122,7 @@ class _PydanticSerializer(Serializer):
         }
 
         self.config = get_config_base(pydantic_config)
+        self._preparation: PydanticPreparation | None = None
 
         self.model = create_model(  # type: ignore[call-overload]
             name,
@@ -125,6 +134,24 @@ class _PydanticSerializer(Serializer):
 
     def get_aliases(self) -> tuple[str, ...]:
         return get_aliases(self.model)
+
+    def _prepare(self) -> PydanticPreparation:
+        if self._preparation is None:
+            self._preparation = PydanticPreparation(
+                self.model,
+                self.options,
+                wrap_errors=hasattr(self, "_try_pydantic"),
+            )
+        return self._preparation
+
+    def prepare_fields(self) -> dict[str, InputField]:
+        return self._prepare().fields
+
+    def prepare_inputs(self, fields: Sequence[InputField]) -> PreparedInputs:
+        return self._prepare().prepare_inputs(fields)
+
+    def validate_resolved(self, values: dict[str, Any]) -> dict[str, Any]:
+        return self._prepare().validate_resolved(values)
 
     def get_schema(
         self,
